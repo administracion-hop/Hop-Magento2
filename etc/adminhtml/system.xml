@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="carriers" translate="label" type="text" showInDefault="1" showInWebsite="1" showInStore="1">
+            <group id="hop" translate="label" type="text" sortOrder="400" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Envios HOP</label>
+                <field id="active" translate="label" type="select" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Habilitado</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="title" translate="label" type="text" sortOrder="2" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Título</label>
+                </field>
+                <field id="description" translate="label" type="textarea" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Descripción</label>
+                </field>
+                <field id="showmethod" translate="label" type="select" sortOrder="920" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Mostrar mensaje de método no disponible en el checkout</label>
+                    <frontend_class>shipping-skip-hide</frontend_class>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Cuhop esta opción este en <strong>SÍ</strong> y el método de envío tenga un error, lo mostrará en el checkout con su correspondiente mensaje (por ejemplo: "No existe cotización para el código postal ingresado"). En caso de estar seleccionado <strong>NO</strong>, y el método de envío tenga un error, éste no será mostrado en el checkout.]]></comment>
+                </field>
+                <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Peso máximo habilitado</label>
+<!--                    <source_model>Improntus\Hop\Model\Source\PesoMaximo</source_model>-->
+                </field>
+            </group>
+        </section>
+        <section id="shipping" translate="label" type="text" showInDefault="1" showInWebsite="1" showInStore="1">
+            <group id="hop" translate="label" type="text" sortOrder="400" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Configuración de webservices HOP</label>
+                <field id="client_id" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Client ID</label>
+                    <validate>required-entry</validate>
+                    <comment>Dato provisto por HOP</comment>
+                </field>
+                <field id="client_secret" translate="label" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Secret key</label>
+                    <validate>required-entry</validate>
+                    <comment>Dato provisto por HOP</comment>
+                </field>
+                <field id="api_key" translate="label" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Api Key Google Maps</label>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="email" translate="label" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Email</label>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="password" translate="label" type="password" sortOrder="60" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Password</label>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="modo_productivo" translate="label" type="select" sortOrder="70" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Modo Productivo</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="origin_zipcode" translate="label" type="text" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Código postal de origen</label>
+                    <validate>required-entry</validate>
+                    <comment>Zipcode del deposito de origen usado para estimar el envio</comment>
+                </field>
+                <field id="seller_code" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Seller Code</label>
+                    <validate>required-entry</validate>
+                    <comment>Dato provisto por HOP</comment>
+                </field>
+                <field id="storage_code" translate="label" type="select" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Storage Code</label>
+                    <source_model>Improntus\Hop\Model\Config\Source\StorageCodeOption</source_model>
+                    <validate>required-entry</validate>
+                    <comment>Dato provisto por HOP</comment>
+                </field>
+                <field id="shipping_type" translate="label" type="select" sortOrder="110" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Tipo de Envio</label>
+                    <source_model>Improntus\Hop\Model\Config\Source\TypeShippingOption</source_model>
+                </field>
+                <field id="type_label" translate="label" type="select" sortOrder="120" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Tipo de Etiqueta</label>
+                    <source_model>Improntus\Hop\Model\Config\Source\TypeLabelOption</source_model>
+                    <comment>Formato de descarga para eetiquetas de despacho</comment>
+                </field>
+                <field id="days_offset" translate="label" type="text" sortOrder="130" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Dias de preparacion</label>
+                    <comment>Número de dias para preparar el envío, establezca 0 si no es necesario</comment>
+                </field>
+                <field id="size_category" translate="label" type="select" sortOrder="140" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Tamaño de categoria</label>
+                    <source_model>Improntus\Hop\Model\Config\Source\SizeCategoryOption</source_model>
+                    <comment>Ejemplo: 1 (chico), 2 (mediano), 3 (grande), 4 (extra grande)</comment>
+                </field>
+                <field id="validate_client_id" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Validar cliente</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Requiere foto para la entrega del paquete</comment>
+                </field>
+                <field id="use_customer_taxvat" translate="label" type="select" sortOrder="155" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Utilizar "taxvat" como número de documento</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="customer_document_attribute" translate="label" type="text" sortOrder="156" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Código del atributo para utilizar como dni</label>
+                    <depends>
+                        <field id="use_customer_taxvat">0</field>
+                    </depends>
+                    <comment>Este atributo se obtiene de la tabla sales_order. Solo modificar este campo si posee conocimientos técnicos</comment>
+                </field>
+                <field id="status_allowed" translate="label" type="multiselect" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Estados para generacion etiqueta</label>
+                    <validate>required-entry</validate>
+                    <source_model>Improntus\Hop\Model\Config\Source\StatusOrderOption</source_model>
+                    <comment>Cuando el pedido cambie de estado a cualquiera de los seleccionados, se generará la etiqueta de despacho automáticamente.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

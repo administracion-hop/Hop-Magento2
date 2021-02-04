@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <carriers>
+            <hop>
+                <active>0</active>
+                <title>HOP</title>
+                <use_customer_taxvat>1</use_customer_taxvat>
+                <description>Recibí el pedido en el punto Hop mas cercano.</description>
+                <model>Improntus\Hop\Model\Carrier\Hop</model>
+                <max_package_weight>100</max_package_weight>
+            </hop>
+        </carriers>
+    </default>
+</config>

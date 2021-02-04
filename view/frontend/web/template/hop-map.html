@@ -1,0 +1,25 @@
+<td class="col" data-bind="scope:'improntus_hop_map'">
+    <a href="javascript:void(0)" data-bind="event: {click: getHopPoints}">
+        <button class="select-hop-button" data-bind="i18n: 'Seleccioná un Punto HOP'"></button>
+    </a>
+    <a href="javascript:void(0)" style="display: none" id="select-hop-point" data-bind='event: {click: selectHopPoint}'>
+        SELECT HOP POINT
+    </a>
+    <div id="hop-popup-modal" style="display: none;">
+        <div id="selector-maps-hop">
+            <div id="selector-sucursal">
+                <div class="input-buscador-hop">
+                    <input type="text" name="buscador" id="buscador-hop" placeholder="Buscá por calle o barrio" data-bind="event: {keyup: buscarElementos}"/>
+                </div>
+            </div>
+            <div class="ver-mas-hop">
+                <a class="ver-mas-hop-link" href="javascript:void(0)" data-bind="event:{click: mostrarLista}">VER PUNTOS DE RETIRO
+                </a>
+            </div>
+            <div class="close-hop-lista" data-bind="event:{click: closeLista}">
+            </div>
+            <div id="points-maps-hop" style=""></div>
+        </div>
+        <div id="google-maps-hop" data-bind='afterRender: initMap' style=""></div>
+    </div>
+</td>

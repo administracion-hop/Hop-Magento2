@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="Improntus\Hop\Api\PointsInterface" type="Improntus\Hop\Model\Points" />
+    <type name="Magento\Backend\Block\Widget\Context">
+        <plugin name="Improntus_Hop_button_label" type="Improntus\Hop\Plugin\Widget\Context" sortOrder="100"/>
+    </type>
+    <type name="Magento\Checkout\Model\DefaultConfigProvider">
+        <plugin name="Improntus_Hop::DefaultConfigProvider" type="Improntus\Hop\Plugin\DefaultConfigProvider" />
+    </type>
+    <preference for="Magento\Sales\Block\Order\Info" type="Improntus\Hop\Block\Order\Info" />
+</config>

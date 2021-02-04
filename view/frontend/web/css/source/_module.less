@@ -1,0 +1,268 @@
+& when (@media-common = true) {
+    .hop-modal-checkout {
+        .modal-inner-wrap {
+            .modal-content {
+                padding: 5px;
+            }
+            .modal-footer{
+                display: none;
+            }
+        }
+    }
+    .select-hop-button{
+        background: #e53a15;
+        color: white;
+        border: none;
+        width: 210px;
+        &:hover{
+            background: #cb3211;
+            border: none;
+            color: white;
+        }
+        &:focus{
+            background: #cb3211;
+            border: none;
+            color: white;
+            -moz-box-shadow: none;
+            -webkit-box-shadow: none;
+            -o-box-shadow: none;
+            box-shadow: none;
+        }
+    }
+    #selector-maps-hop{
+        display: inline-block;
+        float: left;
+        #selector-sucursal{
+            .input-buscador-hop{
+                input{
+                    border-radius: 5px;
+                    margin-bottom: 10px;
+                    background: #e7e3e3;
+                    border: none;
+                }
+            }
+           .select-ciudad-hop{
+               margin-top: 5px;
+               margin-bottom: 5px;
+           }
+        }
+    }
+    select{
+        &#provincia{
+            text-transform:capitalize;
+            option{
+                text-transform:capitalize;
+            }
+        }
+        &#city{
+            text-transform:capitalize;
+            option{
+                text-transform:capitalize;
+            }
+        }
+    }
+    #points-maps-hop{
+        padding: 10px 10px 0 10px;
+        float: left;
+        font-size: .8em;
+        border: none;
+        background: #efecec;
+        border-radius: 5px;
+        overflow-y: scroll;
+        transition: all .2s;
+        min-width: 170px;
+        .point{
+            background-color: #fff8f8 ;
+            padding: 10px;
+            margin-bottom: 10px;
+            .title-sucursal-hop{
+                font-size: 14px;
+                color: #828282;
+                word-break: break-word;
+                &:before{
+                    content: '';
+                    background: url("../images/HOP_logo.png") no-repeat;
+                    background-size: contain;
+                    position: relative;
+                    width: 30px;
+                    height: 35px;
+                    display: inline-block;
+                    vertical-align: middle;
+                }
+                strong{
+                    display: inline-block;
+                    width: 77%;
+                    vertical-align: middle;
+                }
+            }
+            .direccion-sucursal-hop{
+                font-size: 12px;
+                color: #d0cccc;
+            }
+            .horarios{
+                .dias{
+                    color: #828282;
+                }
+            }
+            .como-llegar{
+                color:#00b6bd ;
+            }
+            .btn-select-hop{
+                width: max-content;
+                display: block;
+                padding: 5px 22px;
+                background: #00b6bd;
+                position: relative;
+                margin: auto;
+                border-radius: 10px;
+                color: white;
+                font-size: 12px;
+                font-weight: 600;
+                text-decoration: none;
+            }
+        }
+        &::-webkit-scrollbar-track{
+            background: #cac9c5;
+            &:hover{
+                background: #cac9c5;
+            }
+            &:active{
+                background: #cac9c5;
+            }
+        }
+    }
+
+    .loading-hop{
+        background-image: url("../images/loading.gif")!important;
+        background-position: center!important;
+        background-repeat: no-repeat!important;
+        background-size: 110px!important;
+    }
+
+    .point-selected{
+        border: solid 2px #e53a16;
+    }
+}
+
+//
+//  Desktop
+//  ---------------------------------------------
+
+.media-width(@extremum, @break) when (@extremum = 'min') and (@break = @screen__m) {
+    #points-maps-hop{
+        height: 345px;
+    }
+    #google-maps-hop{
+        width:74%;
+        height:400px;
+        position: relative;
+        display: inline-block;
+        float: left;
+    }
+    #selector-maps-hop{
+        width: 24%;
+        margin-right: 10px;
+    }
+    .hop-modal-checkout {
+        .modal-inner-wrap {
+            width: 850px;
+            .modal-content {
+                height: 400px;
+            }
+        }
+        &.modal-slide{
+            &._inner-scroll{
+                .modal-header{
+                    padding: 30px 10px 12px;
+                    h1{
+                        border: none;
+                        font-weight: 600;
+                        color: #828282;
+                    }
+                }
+            }
+        }
+    }
+    .close-hop-lista{
+        display: none;
+    }
+    .ver-mas-hop{
+       display: none;
+    }
+}
+
+.media-width(@extremum, @break) when (@extremum = 'min') and (@break = @screen__l){
+    .hop-modal-checkout {
+        .modal-inner-wrap {
+            width: 850px;
+        }
+    }
+}
+.media-width(@extremum, @break) when (@extremum = 'max') and (@break = @screen__m) {
+    #selector-maps-hop{
+        width: 100%;
+        margin-right: 10px;
+    }
+    #points-maps-hop{
+        max-height: 200px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    #google-maps-hop{
+        width:100%;
+        height:470px;
+        position: relative;
+        display: inline-block;
+        float: left;
+    }
+    .close-hop-lista{
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='53.7' height='53.7' viewBox='0 0 53.7 53.7'><path opacity='.6' fill='%23666E6E' d='M35.6 34.4L28 26.8l7.6-7.6c.2-.2.2-.5 0-.7l-.5-.5c-.2-.2-.5-.2-.7 0l-7.6 7.6-7.5-7.6c-.2-.2-.5-.2-.7 0l-.6.6c-.2.2-.2.5 0 .7l7.6 7.6-7.6 7.5c-.2.2-.2.5 0 .7l.5.5c.2.2.5.2.7 0l7.6-7.6 7.6 7.6c.2.2.5.2.7 0l.5-.5c.2-.2.2-.5 0-.7z'/></svg>");
+        background-repeat: no-repeat;
+        background-size: contain;
+        position: absolute;
+        cursor: pointer;
+        padding-left: 5px;
+        width: 50px;
+        height: 50px;
+        right: 0;
+    }
+    .ver-mas-hop{
+        text-align: center;
+        display: none;
+        .ver-mas-hop-link{
+            padding: 10px;
+            background: #d6d6d6;
+            color: black;
+            display: block;
+            &:focus{
+                background: #c3c3c3;
+                color: black;
+            }
+            &:hover{
+                opacity: .5;
+                color: black;
+            }
+            &:after{
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                font-size: 12px;
+                line-height: 20px;
+                color: inherit;
+                content: '\e622';
+                font-family: 'luma-icons';
+                vertical-align: middle;
+                display: inline-block;
+                font-weight: normal;
+                overflow: hidden;
+                speak: none;
+                text-align: center;
+            }
+        }
+    }
+    .select-hop-button{
+        width: 110px;
+    }
+}
+
+
+

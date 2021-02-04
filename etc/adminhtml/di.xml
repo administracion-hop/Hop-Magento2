@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="Magento\Backend\Block\Widget\Context">
+        <plugin name="improntus_hop_add_custom_button_sales_view" type="Improntus\Hop\Plugin\Widget\Context" sortOrder="10"/>
+    </type>
+</config>

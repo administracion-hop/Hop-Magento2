@@ -120,10 +120,11 @@ class Webservice
         $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
 
         $curl = curl_init();
-
+        $query = array("allow_drop_off" => 1, "allow_deliveries" => 1, "allow_drop_shipping" => 1, "zipcode" => $zipCode);
+        $data = http_build_query($query);
         curl_setopt_array($curl,
             [
-                CURLOPT_URL => "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points",
+                CURLOPT_URL => "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points"."?". $data,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => "",
                 CURLOPT_MAXREDIRS => 10,

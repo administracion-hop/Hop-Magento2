@@ -233,7 +233,7 @@ class Webservice
 
         $params = [];
         $params['shipping_type'] = $shippingType;
-        $params['reference_id'] = $order->getIncrementId();
+        $params['reference_id'] = $sellerCode.'-'.$order->getIncrementId();
         $params['reference_2'] = '';
         $params['reference_3'] = '';
         $params['label_type'] = $labelType;

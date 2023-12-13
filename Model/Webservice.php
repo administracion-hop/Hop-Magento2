@@ -157,7 +157,7 @@ class Webservice
      * @param $hopPointId
      * @return false
      */
-    public function estimatePrice($originZipCode,$destinyZipCode,$shippingType = 'E',$package = [], $sellerCode,$hopPointId)
+    public function estimatePrice($originZipCode,$destinyZipCode,$sellerCode,$hopPointId,$shippingType = 'E',$package = [])
     {
         $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
 

@@ -57,8 +57,8 @@ class Info extends \Magento\Sales\Block\Order\Info
         Registry $registry,
         PaymentHelper $paymentHelper,
         AddressRenderer $addressRenderer,
-        array $data = [],
-        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory,
+        array $data = []
     ) {
         $this->_improntusHopFactory = $improntusHopFactory;
         parent::__construct($context,$registry, $paymentHelper, $addressRenderer, $data);
@@ -88,7 +88,7 @@ class Info extends \Magento\Sales\Block\Order\Info
         if (count($improntusHop->getData()) > 0)
         {
             $infoHop = $improntusHop->getInfoHop();
-            $infoHop = json_decode($infoHop);
+            $infoHop = json_decode($infoHop ?? '');
             $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
         }
 

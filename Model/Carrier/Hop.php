@@ -311,15 +311,15 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $costoEnvio = $webservice->estimatePrice(
                     $originZipCode,
                     $hopData['hopPointPostcode'],
+                    $sellerCode,
+                    $hopData['hopPointId'],
                     'E',
                     [
                         'width' => $hopAnchoTotal,
                         'length' => $hopLargoTotal,
                         'height' => $hopAltoTotal,
                         'value' => (int)$totalPrice
-                    ],
-                    $sellerCode,
-                    $hopData['hopPointId']
+                    ]
                 );
 
                 if($costoEnvio !== false)

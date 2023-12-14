@@ -81,7 +81,7 @@ class Context
             if (count($improntusHop->getData()) > 0)
             {
                 $infoHop = $improntusHop->getInfoHop();
-                $infoHop = json_decode($infoHop);
+                $infoHop = json_decode($infoHop ?? '');
                 $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
                 $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
             }else

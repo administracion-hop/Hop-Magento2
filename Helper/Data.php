@@ -15,8 +15,6 @@ use Magento\Store\Model\StoreManagerInterface;
 use Magento\Directory\Model\Region;
 use Magento\Shipping\Helper\Data as ShippingData;
 use Psr\Log\LoggerInterface;
-use Zend\Log\Logger;
-use Zend\Log\Writer\Stream;
 
 /**
  * Class Data
@@ -305,8 +303,8 @@ class Data extends AbstractHelper
             $file = 'hop'.date('m_Y').'.log';
         }
 
-        $writer = new Stream(BP . '/var/log/'.$file);
-        $logger = new Logger();
+        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/'.$file);
+        $logger = new \Zend_Log();
         $logger->addWriter($writer);
 
         if($isArray){

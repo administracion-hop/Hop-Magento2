@@ -121,14 +121,23 @@ class Webservice
 
         $curl = curl_init();
 
+        $curlRequest = "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points";
+        if($zipCode){
+            $curlRequest = "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=".$zipCode;
+        }
+        
+        $this->_helper->log('pickup_points API URL' ,true);
+        $this->_helper->log($curlRequest ,true);
+
         curl_setopt_array($curl,
-            [
-                CURLOPT_URL => "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points",
+            [                                                                                               
+                CURLOPT_URL => $curlRequest,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => "",
                 CURLOPT_MAXREDIRS => 10,
                 CURLOPT_TIMEOUT => 30,
                 CURLOPT_CUSTOMREQUEST => "GET",
+                CURLINFO_HEADER_OUT => true,
                 CURLOPT_HTTPHEADER => [
                     "Authorization: Bearer {$this->_accessToken}",
                     "Content-Type: application/json"

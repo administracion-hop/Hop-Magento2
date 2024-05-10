@@ -232,6 +232,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $result = $this->_rateResultFactory->create();
         $method = $this->_rateMethodFactory->create();
 
+
         $method->setCarrier($this->_code);
         $method->setCarrierTitle($this->getConfigData('title'));
         $method->setMethod($this->_code);
@@ -321,11 +322,47 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         'value' => (int)$totalPrice
                     ]
                 );
+               
+                $percentageRate = $this->getConfigData('percentage_rate');
+                $fixedValue = $this->getConfigData('fixed_value');
+
+                if (!empty($percentageRate)) {
+                    
+                    $adjustedShippingCost = ($percentageRate == 1) ? $costoEnvio : $costoEnvio * $percentageRate;
+                    
+                    if (!empty($fixedValue)) {
+                        if ($fixedValue >= 0) 
+                        {
+                            $adjustedShippingCost += $fixedValue;
+                        }
+                        else 
+                        {
+                            $adjustedShippingCost -= abs($fixedValue);
+                        }
+                    }
+
+                } else {
+                    $adjustedShippingCost = $costoEnvio;
+
+                    if (!empty($fixedValue)) {
+                       if ($fixedValue >= 0) 
+                        {
+                            $adjustedShippingCost += $fixedValue;
+                        }
+                        else 
+                        {
+                            $adjustedShippingCost -= abs($fixedValue);
+                        }
+                    }
+                }
+
+                $adjustedShippingCost = max(0, $adjustedShippingCost);
+               
 
                 if($costoEnvio !== false)
                 {
-                    $method->setPrice($costoEnvio);
-                    $method->setCost($costoEnvio);
+                    $method->setPrice($adjustedShippingCost);
+                    $method->setCost($adjustedShippingCost);
 
                     if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
                     {

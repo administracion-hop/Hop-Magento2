@@ -14,15 +14,23 @@
                 <field id="description" translate="label" type="textarea" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Descripción</label>
                 </field>
+                 <field id="percentage_rate" translate="label" type="text" sortOrder="4" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Ajustar porcentaje de tarifa</label>
+                    <comment>Ingrese porcentaje a modificar (por ejemplo 0.5 para descontar un 50% o 1.2 para sumar un 20%)</comment>
+                </field>
+                <field id="fixed_value" translate="label" type="text" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Sumar / restar monto fijo</label>
+                    <comment>Ingrese un importe positivo o negativo para sumarlo o restarlo de la tarifa</comment>
+                </field>
                 <field id="showmethod" translate="label" type="select" sortOrder="920" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Mostrar mensaje de método no disponible en el checkout</label>
                     <frontend_class>shipping-skip-hide</frontend_class>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment><![CDATA[Cuhop esta opción este en <strong>SÍ</strong> y el método de envío tenga un error, lo mostrará en el checkout con su correspondiente mensaje (por ejemplo: "No existe cotización para el código postal ingresado"). En caso de estar seleccionado <strong>NO</strong>, y el método de envío tenga un error, éste no será mostrado en el checkout.]]></comment>
                 </field>
-                <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+            <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Peso máximo habilitado</label>
-<!--                    <source_model>Improntus\Hop\Model\Source\PesoMaximo</source_model>-->
+                       <!--<source_model>Improntus\Hop\Model\Source\PesoMaximo</source_model>-->
                 </field>
             </group>
         </section>

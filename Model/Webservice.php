@@ -88,7 +88,6 @@ class Webservice
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => "",
             CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 30,
             CURLOPT_CUSTOMREQUEST => "POST",
         ]);
 
@@ -135,7 +134,6 @@ class Webservice
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => "",
                 CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 30,
                 CURLOPT_CUSTOMREQUEST => "GET",
                 CURLINFO_HEADER_OUT => true,
                 CURLOPT_HTTPHEADER => [
@@ -188,7 +186,6 @@ class Webservice
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => "",
                 CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 30,
                 CURLOPT_CUSTOMREQUEST => "GET",
                 CURLOPT_HTTPHEADER => [
                     "Authorization: Bearer {$this->_accessToken}",
@@ -295,7 +292,6 @@ class Webservice
                 CURLOPT_POST => 1,
                 CURLOPT_POSTFIELDS => $postFields,
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 30,
                 CURLOPT_HTTPHEADER => [
                     "Authorization: Bearer {$this->_accessToken}",
                     "Content-Type: application/json"

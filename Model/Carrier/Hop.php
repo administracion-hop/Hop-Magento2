@@ -94,6 +94,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     protected $_quoteRepository;
 
+    protected $shipconfig;
+
     /**
      * Hop constructor.
      * @param ScopeConfigInterface $scopeConfig
@@ -138,6 +140,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         Webservice $webservice,
         HopHelper $hopHelper,
         Session $checkoutSession,
+        \Magento\Shipping\Model\Config $shipconfig,
         CartRepositoryInterface $quoteRepository,
         array $data = []
     )
@@ -149,6 +152,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->_request           = $request;
         $this->_checkoutSession   = $checkoutSession;
         $this->_quoteRepository   = $quoteRepository;
+        $this->shipconfig = $shipconfig;
 
         parent::__construct(
             $scopeConfig,
@@ -307,6 +311,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             }
             else
             {
+
+
                 $originZipCode = $this->_helper->getOriginZipcode();
                 $sellerCode = $helper->getSellerCode();
                 $costoEnvio = $webservice->estimatePrice(
@@ -325,6 +331,22 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                
                 $percentageRate = $this->getConfigData('percentage_rate');
                 $fixedValue = $this->getConfigData('fixed_value');
+
+                $isFreeshipping = null;
+
+                $shippingmethods = $this->getShippingMethods();
+                
+                foreach ($shippingmethods as $methodCode => $methodTitle) {
+
+                    if($methodCode == 'freeshipping_freeshipping'){
+                      $isFreeshipping = true;
+                    }
+                }
+                if($isFreeshipping == true){
+
+                    $adjustedShippingCost = 0;
+
+                }else{
 
                 if (!empty($percentageRate)) {
                     
@@ -357,7 +379,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 }
 
                 $adjustedShippingCost = max(0, $adjustedShippingCost);
-               
+               }
 
                 if($costoEnvio !== false)
                 {
@@ -452,4 +474,26 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     {
         return $this;
     }
+
+    public function getShippingMethods() {
+
+        $carriers = $this->shipconfig->getActiveCarriers();
+        $methods = [];
+
+        foreach($carriers as $code => $model) {
+
+            $title = $this->_scopeConfig->getValue('carriers/' . $code . '/title');
+
+            if ($carrierMethods = $model->getAllowedMethods()) {
+                foreach ($carrierMethods as $methodCode => $method) {
+                    $methods[$code . '_' . $methodCode] = $title . ' ' . $method;
+                }
+            }
+
+        }
+
+        return $methods;
+
+    }
+
 }

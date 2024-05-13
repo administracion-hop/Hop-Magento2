@@ -298,12 +298,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 return $error;
             }
 
-            if($request->getFreeShipping() === 'MODIFICAR')
+            if($request->getFreeShipping() || ($this->getConfigData('hop_free_shipping') && $totalPrice >= $this->getConfigData('hop_free_shipping')))
             {
                 $method->setPrice(0);
                 $method->setCost(0);
-
-                $result->append($method);
             }
             else
             {
@@ -358,37 +356,36 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
                 $adjustedShippingCost = max(0, $adjustedShippingCost);
                
+            }
+            if($method->getPrice() !== false)
+            {
+                $method->setPrice($adjustedShippingCost);
+                $method->setCost($adjustedShippingCost);
 
-                if($costoEnvio !== false)
+                if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
                 {
-                    $method->setPrice($adjustedShippingCost);
-                    $method->setCost($adjustedShippingCost);
+                    $method->setMethodTitle(
+                        'Retirá tu pedido en: ' .
+                        $hopData['hopPointReferenceName']
+                        . " ({$hopData['hopPointAddress']}) " .
+                        ' - Horario: '.$hopData['hopPointSchedules']
+                    );
 
-                    if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
-                    {
-                        $method->setMethodTitle(
-                            'Retirá tu pedido en: ' .
-                            $hopData['hopPointReferenceName']
-                            . " ({$hopData['hopPointAddress']}) " .
-                            ' - Horario: '.$hopData['hopPointSchedules']
-                        );
-
-                        $quote = $this->_checkoutSession->getQuote();
-                        $quote->setHopData(json_encode($hopData));
-                        $quote->save();
-                    }
-
-                    $result->append($method);
+                    $quote = $this->_checkoutSession->getQuote();
+                    $quote->setHopData(json_encode($hopData));
+                    $quote->save();
                 }
-                else
-                {
-                    $error = $this->_rateErrorFactory->create();
-                    $error->setCarrier($this->_code);
-                    $error->setCarrierTitle($this->getConfigData('title'));
-                    $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
 
-                    return $error;
-                }
+                $result->append($method);
+            }
+            else
+            {
+                $error = $this->_rateErrorFactory->create();
+                $error->setCarrier($this->_code);
+                $error->setCarrierTitle($this->getConfigData('title'));
+                $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
+
+                return $error;
             }
         }
         else{

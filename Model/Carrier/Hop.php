@@ -357,11 +357,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $adjustedShippingCost = max(0, $adjustedShippingCost);
                 $method->setPrice($adjustedShippingCost);
                 $method->setCost($adjustedShippingCost);
-
-               
             }
             if($method->getPrice() !== false)
             {
+
                 if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
                 {
                     $method->setMethodTitle(

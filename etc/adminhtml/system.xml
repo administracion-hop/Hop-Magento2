@@ -14,6 +14,10 @@
                 <field id="description" translate="label" type="textarea" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Descripción</label>
                 </field>
+                <field id="hop_free_shipping" translate="label" type="text" sortOrder="3" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Ofrecer los puntos Hop sin cargo a partir de</label>
+                    <comment>Ingrese un importe en caso de querer bonificar exclusivamente los puntos Hop a partir de cierto importe. De lo contrario, usar las reglas nativas.</comment>
+                </field>
                  <field id="percentage_rate" translate="label" type="text" sortOrder="4" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Ajustar porcentaje de tarifa</label>
                     <comment>Ingrese porcentaje a modificar (por ejemplo 0.5 para descontar un 50% o 1.2 para sumar un 20%)</comment>

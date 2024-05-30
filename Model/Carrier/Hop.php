@@ -272,7 +272,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         ->getAttributeRawValue($_product->getId(),'hop_ancho',$_product->getStoreId()) * $_item->getQty();
                 $hopAnchoTotal[] = $hopAncho;
 
-                $totalPrice += $_product->getFinalPrice();
+                $totalPrice += $_product->getFinalPrice() * $_item->getQty();
 
                 $itemsWsHop[] = [
                     'description' => $_item->getName(),

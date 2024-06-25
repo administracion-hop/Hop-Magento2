@@ -28,6 +28,9 @@ use Magento\Quote\Model\Quote\Address\RateResult\MethodFactory;
 use Improntus\Hop\Helper\Data as HopHelper;
 use Improntus\Hop\Model\Webservice;
 use Magento\Framework\Xml\Security;
+use Improntus\Hop\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
+use Improntus\Hop\Model\ResourceModel\Point;
+use Improntus\Hop\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 
 /**
@@ -94,6 +97,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     protected $_quoteRepository;
 
+    protected $pointCollectionFactory;
+
+    protected $pointFactory;
+    protected $pointResource;
+
     /**
      * Hop constructor.
      * @param ScopeConfigInterface $scopeConfig
@@ -139,6 +147,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         HopHelper $hopHelper,
         Session $checkoutSession,
         CartRepositoryInterface $quoteRepository,
+        PointCollectionFactory $pointCollectionFactory,
+        PointFactory $pointFactory,
+        Point $pointResource,
         array $data = []
     )
     {
@@ -149,6 +160,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->_request           = $request;
         $this->_checkoutSession   = $checkoutSession;
         $this->_quoteRepository   = $quoteRepository;
+        $this->pointCollectionFactory = $pointCollectionFactory;
+        $this->pointFactory = $pointFactory;
+        $this->pointResource = $pointResource;
+        $this->trackStatusFactory = $trackStatusFactory;
 
         parent::__construct(
             $scopeConfig,
@@ -240,12 +255,21 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $webservice = $this->_webservice;
 
-        $itemsWsHop = [];
         $totalPrice = 0;
+
+        $currentZipCode = (int)$request->getDestPostcode();
+        $zipCode = (int)$request->getDestPostcode();
+        $quote = $this->_checkoutSession->getQuote();
+        $quoteId = $quote->getId(); // get the current quote id
+        $quoteFromDb = $this->_quoteRepository->get($quoteId); // load the quote from the database
+        $shippingAddressFromDb = $quoteFromDb->getShippingAddress();
+        $quotePostcode = (int)$this->_checkoutSession->getCustomerZipcode(); // get the zipcode stored in the session
+
+
 
         $hopData = $this->_checkoutSession->getHopData();
 
-        if(is_array($hopData) && count($hopData))
+        if($zipCode && is_array($hopData) && count($hopData))
         {
             $hopAltoTotal = 0;
             $hopLargoTotal = [];
@@ -272,16 +296,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         ->getAttributeRawValue($_product->getId(),'hop_ancho',$_product->getStoreId()) * $_item->getQty();
                 $hopAnchoTotal[] = $hopAncho;
 
-                $totalPrice += $_product->getFinalPrice();
-
-                $itemsWsHop[] = [
-                    'description' => $_item->getName(),
-                    'price'     => $_item->getPrice(),
-                    'weight'    => ($_product->getWeight() * 1000) * $_item->getQty(), //Peso en unidad de kg a gramos
-                    'length'    => $hopAlto,
-                    'width'     => $hopLargo,
-                    'height'    => $hopAncho
-                ];
+                $totalPrice += $_product->getFinalPrice() * $_item->getQty();
             }
 
             $hopAnchoTotal = max($hopAnchoTotal);
@@ -317,23 +332,24 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         'width' => $hopAnchoTotal,
                         'length' => $hopLargoTotal,
                         'height' => $hopAltoTotal,
+                        'weight' => $pesoTotal,
                         'value' => (int)$totalPrice
                     ]
                 );
-               
+
                 $percentageRate = $this->getConfigData('percentage_rate');
                 $fixedValue = $this->getConfigData('fixed_value');
 
                 if (!empty($percentageRate)) {
-                    
+
                     $adjustedShippingCost = ($percentageRate == 1) ? $costoEnvio : $costoEnvio * $percentageRate;
-                    
+
                     if (!empty($fixedValue)) {
-                        if ($fixedValue >= 0) 
+                        if ($fixedValue >= 0)
                         {
                             $adjustedShippingCost += $fixedValue;
                         }
-                        else 
+                        else
                         {
                             $adjustedShippingCost -= abs($fixedValue);
                         }
@@ -343,11 +359,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                     $adjustedShippingCost = $costoEnvio;
 
                     if (!empty($fixedValue)) {
-                       if ($fixedValue >= 0) 
+                       if ($fixedValue >= 0)
                         {
                             $adjustedShippingCost += $fixedValue;
                         }
-                        else 
+                        else
                         {
                             $adjustedShippingCost -= abs($fixedValue);
                         }
@@ -357,10 +373,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $adjustedShippingCost = max(0, $adjustedShippingCost);
                 $method->setPrice($adjustedShippingCost);
                 $method->setCost($adjustedShippingCost);
+
+
             }
             if($method->getPrice() !== false)
             {
-
                 if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
                 {
                     $method->setMethodTitle(
@@ -386,16 +403,13 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
                 return $error;
             }
-        }
-        else{
-            $pickupPoints = $webservice->getPickupPoints((int)$request->getDestPostcode());
-            $this->_helper->getSession()->setHopPickupPoints($pickupPoints);
-
+        } else{
             $method->setPrice(0);
             $method->setCost(0);
             $result->append($method);
+            $this->_checkoutSession->setCustomerZipcode($currentZipCode);
+            return $result;
         }
-
         return $result;
     }
 
@@ -447,5 +461,21 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     public function proccessAdditionalValidation(DataObject $request)
     {
         return $this;
+    }
+
+
+    public function getTrackingInfo($trackingNumber)
+    {
+        $tracking = $this->trackStatusFactory->create();
+
+        $url = 'https://hopenvios.com.ar/segui-tu-envio?c=' . $trackingNumber; // this is the tracking URL of stamps.com, replace this with your's
+
+        $tracking->setData([
+            'carrier' => $this->_code,
+            'carrier_title' => $this->getConfigData('title'),
+            'tracking' => $trackingNumber,
+            'url' => $url,
+        ]);
+        return $tracking;
     }
 }

@@ -34,6 +34,7 @@ define(
         'use strict';
         var map;
         var activeInfoWindow;
+
         function generarContenidoLista(value, listado) {
             var html_horarios = '';
             var schedules = _.sortBy(value.schedules,'day_code',function(num) {
@@ -154,12 +155,23 @@ define(
                 map = GoogleMaps.init();
             },
             getHopPoints: function () {
-                $.ajax('/rest/V1/improntus/hop_points',
+                $('#points-maps-hop').html("");
+                map = GoogleMaps.init();
+                var shippingAddress = quote.shippingAddress();
+                var zipcode = '';
+                if (shippingAddress) {
+                    zipcode = shippingAddress.postcode;
+                }
+                $.ajax('/rest/V1/improntus/hop_points/'+zipcode,
                     {
                         method: 'GET',
                         context: this,
                         success: function (response) {
+                            google.maps.event.trigger(map, 'resize');
                             var points = JSON.parse(response);
+                            var latCenter = '0';
+                            var LngCenter = '0';
+                            var polygonCoords = [];
                             var bounds = new google.maps.LatLngBounds();
                             var infowindow = new google.maps.InfoWindow();
                             var i = 0;
@@ -189,7 +201,7 @@ define(
                                             scrollTop: (0)
                                         }, 'slow');
                                     });
-
+                                    polygonCoords.push(new google.maps.LatLng(value.lat, value.lng));
                                     bounds.extend(marker.position);
 
                                     var horarios = '';
@@ -242,6 +254,12 @@ define(
 
                                 /*Aqui no porque va completo*/
                                 $('#points-maps-hop').html(listado);
+                                $.each(polygonCoords, function (key, value) {
+                                    bounds.extend(value);
+                                });
+            
+                                var latlng = bounds.getCenter();
+                                map.setCenter(latlng);
                             } else {
                                 let charactersList = document.getElementById('points-maps-hop');
                                 $(charactersList).html('<div class="point"><p>No se encuentran puntos HOP</p></div>');
@@ -254,16 +272,6 @@ define(
                             console.log(status);
                         }
                     });
-
-                var options = {
-                    type: 'popup',
-                    responsive: true,
-                    innerScroll: true,
-                    title: 'Elegí el punto HOP donde queres retirar tu compra',
-                    modalClass: 'hop-modal-checkout',
-                };
-
-                var popup = modal(options, $('#hop-popup-modal'));
 
                 $("#hop-popup-modal").modal("openModal");
             },

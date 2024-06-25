@@ -8,4 +8,7 @@
         <plugin name="Improntus_Hop::DefaultConfigProvider" type="Improntus\Hop\Plugin\DefaultConfigProvider" />
     </type>
     <preference for="Magento\Sales\Block\Order\Info" type="Improntus\Hop\Block\Order\Info" />
+    <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
+        <plugin name="improntus_vat_id_required" type="Improntus\Hop\Plugin\Checkout\LayoutProcessorPlugin" sortOrder="10"/>
+    </type>
 </config>

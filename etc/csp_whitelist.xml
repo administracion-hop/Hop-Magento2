@@ -12,5 +12,10 @@
                 <value id="cdn-cdninstagram" type="host">*.googleapis.com</value>
             </values>
         </policy>
+        <policy id="img-src">
+            <values>
+                <value id="hop-points" type="host">*.adobedtm.com</value>
+            </values>
+        </policy>
     </policies>
 </csp_whitelist>

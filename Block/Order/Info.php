@@ -94,7 +94,7 @@ class Info extends \Magento\Sales\Block\Order\Info
 
         if($order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro))
         {
-            $baseUrl = 'https://hopenvios.com.ar/tracking.php?tracking_code='.$tracking_nro;
+            $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
             return $baseUrl;
         }
 

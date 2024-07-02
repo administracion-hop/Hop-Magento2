@@ -332,7 +332,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         'width' => $hopAnchoTotal,
                         'length' => $hopLargoTotal,
                         'height' => $hopAltoTotal,
-                        'weight' => $pesoTotal / 1000,
+                        'weight' => $pesoTotal * 1000,
                         'value' => (int)$totalPrice
                     ]
                 );

@@ -4,6 +4,7 @@ namespace Improntus\Hop\Model;
 use Improntus\Hop\Api\PointsInterface;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
+use Improntus\Hop\Model\Webservice;
 
 /**
  * Class Points
@@ -26,28 +27,39 @@ class Points implements PointsInterface
     protected $_request;
 
     /**
+     * @var Webservice
+     */
+    protected $_webservice; // menze
+
+    /**
      * Points constructor.
      * @param Session $checkoutSession
      * @param RequestInterface $request
+     * @param Webservice $webservice
      */
     public function __construct(
         Session $checkoutSession,
-        RequestInterface $request
+        RequestInterface $request,
+        Webservice $webservice
     ) {
         $this->_checkoutSession = $checkoutSession;
         $this->_request = $request;
+        $this->_webservice = $webservice;
     }
 
     /**
      * Returns hop points
-     * @author : Improntus
-     *
-     * @api
      * @return string Greeting message with users response.
+     * @api
+     * @param string $zipCode
+     * @author : Improntus
      */
-    public function get()
+    public function get($zipCode)
     {
-        return json_encode($this->_checkoutSession->getHopPickupPoints());
+        if($zipCode !== null && $zipCode !== ''){
+            return json_encode($this->_webservice->getPickupPoints($zipCode));
+        }
+        return json_encode([]);
     }
 
     /**

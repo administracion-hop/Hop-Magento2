@@ -105,7 +105,7 @@ class Context
 
             if($subject->getRequest()->getFullActionName() == 'sales_order_view' && $order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro))
             {
-                $baseUrl = 'https://hopenvios.com.ar/tracking.php?tracking_code='.$tracking_nro;
+                $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
 
                 $buttonList->add(
                     'estado_hop',

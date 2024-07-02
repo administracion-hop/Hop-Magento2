@@ -90,6 +90,7 @@ class Descargar extends \Magento\Backend\App\Action
                 $filename = trim($filename, '-');
             }else
             {
+                $logger->info("MENZE B");
                 $url = '';
             }
 
@@ -112,25 +113,8 @@ class Descargar extends \Magento\Backend\App\Action
                 curl_setopt( $curl, CURLOPT_FOLLOWLOCATION, true );
 
                 $data = curl_exec($curl);
-
+                $filesize =  curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
                 curl_close($curl);
-
-                if($data) {
-                    $content_length = "unknown";
-                    $status = "unknown";
-
-                    if( preg_match( "/^HTTP\/1\.[01] (\d\d\d)/", $data, $matches ) ) {
-                        $status = (int)$matches[1];
-                    }
-
-                    if( preg_match( "/Content-Length: (\d+)/", $data, $matches ) ) {
-                        $content_length = (int)$matches[1];
-                    }
-
-                    if( $status == 200 || ($status > 300 && $status <= 308) ) {
-                        $filesize = $content_length;
-                    }
-                }
 
                 header('Content-Description: File Transfer');
                 header('Content-Type: application/octet-stream');

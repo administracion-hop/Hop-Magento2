@@ -27,25 +27,25 @@ define([
                 zoom: 13
             });
 
-            map.addListener('idle', () => {
-                var hopPoints = window.checkoutConfig.hop.hop_points;
-
-                if(undefined !== hopPoints && undefined !== hopPoints.data)
-                {
-                    $('.point').hide();
-
-                    $.each(hopPoints.data, function (index, value){
-                        var myLatLng = {
-                            lat: parseFloat(value.lat),
-                            lng: parseFloat(value.lng)
-                        };
-
-                        if(map.getBounds().contains(myLatLng)){
-                            $('.point.'+value.id).show();
-                        }
-                    });
-                }
-            });
+            // map.addListener('idle', () => {
+            //     var hopPoints = window.checkoutConfig.hop.hop_points;
+            //
+            //     if(undefined !== hopPoints && undefined !== hopPoints.data)
+            //     {
+            //         $('.point').hide();
+            //
+            //         $.each(hopPoints.data, function (index, value){
+            //             var myLatLng = {
+            //                 lat: parseFloat(value.lat),
+            //                 lng: parseFloat(value.lng)
+            //             };
+            //
+            //             if(map.getBounds().contains(myLatLng)){
+            //                 $('.point.'+value.id).show();
+            //             }
+            //         });
+            //     }
+            // });
 
             return map;
         },
@@ -61,21 +61,10 @@ define([
                 return myLatLng;
             }
 
-            if(navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(this.successPosition, this.errorPosition);
                 myLatLng = {
                     lat: parseFloat(myLatitude),
                     lng: parseFloat(myLongitude)
                 };
-            }
-            else
-            {
-                myLatLng = {
-                    lat: parseFloat(myLatitude),
-                    lng: parseFloat(myLongitude)
-                };
-            }
             return myLatLng;
         },
         successPosition: function(position){

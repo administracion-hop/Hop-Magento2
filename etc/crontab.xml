@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/crontab.xsd">
+    <group id="default">
+        <job name="improntus_hop_load_points" instance="Improntus\Hop\Cron\LoadPoints" method="execute">
+            <schedule>0 0 * * *</schedule>
+        </job>
+    </group>
+</config>

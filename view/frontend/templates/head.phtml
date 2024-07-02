@@ -12,3 +12,48 @@
         }
     }
 </script>
+
+<div id="hop-popup-modal" style="display: none;">
+    <div id="selector-maps-hop">
+        <div id="selector-sucursal">
+            <div class="input-buscador-hop">
+                <input type="text" name="buscador" id="buscador-hop" placeholder="Buscá por calle o barrio" "/>
+            </div>
+        </div>
+        <div id="points-maps-hop" style=""></div>
+    </div>
+    <div id="google-maps-hop" style=""></div>
+</div>
+
+<!-- Script to initialize the modal -->
+<script type="text/javascript">
+    require(
+        [
+            'jquery',
+            'Magento_Ui/js/modal/modal',
+            'uiRegistry'
+        ],
+        function(
+            $,
+            modal,
+            registry
+        ) {
+            var options = {
+                type: 'popup',
+                responsive: true,
+                innerScroll: true,
+                title: 'Elegí el punto HOP donde queres retirar tu compra',
+                modalClass: 'hop-modal-checkout',
+            };
+            $("#hop-popup-modal").modal(options);
+
+            $(document).on('keyup', '#buscador-hop', function(event, data) {
+                // debugger
+                var hopComponent = registry.get('improntus_hop_map');
+                if (hopComponent) {
+                    hopComponent.buscarElementos(data, event);
+                }
+            });
+        }
+    );
+</script>

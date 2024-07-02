@@ -3,6 +3,9 @@
 namespace Improntus\Hop\Model;
 
 use Improntus\Hop\Helper\Data as HelperHop;
+use Improntus\Hop\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
+use Improntus\Hop\Model\PointFactory;
+use Improntus\Hop\Model\ResourceModel\Point;
 
 /**
  * Class Webservice
@@ -54,16 +57,40 @@ class Webservice
      */
     private $_refreshToken;
 
+    /**
+     * @var PointCollectionFactory
+     */
+    private $pointCollectionFactory;
+
+    /**
+     * @var PointFactory
+     */
+    private $pointFactory;
+
+    /**
+     * @var Point
+     */
+    private $pointResource;
+
 
     /**
      * Webservice constructor.
      * @param HelperHop $helperHop
+     * @param PointCollectionFactory $pointCollectionFactory
+     * @param PointFactory $pointFactory
+     * @param Point $pointResource
      */
     public function __construct(
-        HelperHop $helperHop
+        HelperHop $helperHop,
+        PointCollectionFactory $pointCollectionFactory,
+        PointFactory $pointFactory,
+        Point $pointResource,
     )
     {
         $this->_helper = $helperHop;
+        $this->pointCollectionFactory = $pointCollectionFactory;
+        $this->pointFactory = $pointFactory;
+        $this->pointResource = $pointResource;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -116,6 +143,13 @@ class Webservice
      */
     public function getPickupPoints($zipCode)
     {
+        $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
+        if ($collection->getSize()) {
+            $pointes = $collection->getFirstItem();
+            $pointData = $pointes->getPointData();
+            return json_decode($pointData);
+        }
+
         $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
 
         $curl = curl_init();
@@ -124,12 +158,12 @@ class Webservice
         if($zipCode){
             $curlRequest = "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=".$zipCode;
         }
-        
+
         $this->_helper->log('pickup_points API URL' ,true);
         $this->_helper->log($curlRequest ,true);
 
         curl_setopt_array($curl,
-            [                                                                                               
+            [
                 CURLOPT_URL => $curlRequest,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_ENCODING => "",
@@ -144,12 +178,25 @@ class Webservice
 
         $response = curl_exec($curl);
 
+
+
         if(curl_error($curl))
         {
             $error = 'Se produjo un error al solicitar cotización: '. curl_error($curl);
             $this->_helper->log($error ,true);
 
             return false;
+        }
+
+        if (json_decode($response)) {
+            try {
+                $point = $this->pointFactory->create();
+                $point->setZipCode($zipCode);
+                $point->setPointData(json_encode(json_decode($response)));
+                $this->pointResource->save($point);
+            } catch (\Exception $e) {
+                $this->_helper->log($e->getMessage(), true);
+            }
         }
 
         return json_decode($response);
@@ -255,7 +302,7 @@ class Webservice
         $paramClient['id_type'] = 'D.N.I';
 
         if($this->_helper->useCustomerTaxvat()){
-            $paramClient['id_number'] = $order->getCustomerTaxvat();
+            $paramClient['id_number'] = $billingAddress->getVatId();
         }
         else{
             $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute());

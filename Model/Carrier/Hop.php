@@ -301,7 +301,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
             $hopAnchoTotal = max($hopAnchoTotal);
             $hopLargoTotal = max($hopLargoTotal);
-            $pesoTotal  = $request->getPackageWeight(); //Peso en unidad de kg
+            $pesoTotal  = $request->getPackageWeight() * 1000; //Peso en unidad de kg convertido a gramos
 
             if($pesoTotal > (int)$helper->getMaxWeight())
             {
@@ -332,7 +332,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         'width' => $hopAnchoTotal,
                         'length' => $hopLargoTotal,
                         'height' => $hopAltoTotal,
-                        'weight' => $pesoTotal * 1000,
+                        'weight' => $pesoTotal,
                         'value' => (int)$totalPrice
                     ]
                 );

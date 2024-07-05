@@ -84,7 +84,7 @@ class Webservice
         HelperHop $helperHop,
         PointCollectionFactory $pointCollectionFactory,
         PointFactory $pointFactory,
-        Point $pointResource,
+        Point $pointResource
     )
     {
         $this->_helper = $helperHop;
@@ -219,13 +219,14 @@ class Webservice
         $width = $package['width'];
         $length = $package['length'];
         $height = $package['height'];
+        $weight = $package['weight'];
         $value = $package['value'];
 
         $url = "https://".$entorno."api.hopenvios.com.ar/api/v1/pricing/estimate";
         $url .= "?origin_zipcode=$originZipCode";
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
-        $url .= "&package[value]=$value&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height&pickup_point_id=$hopPointId";
+        $url .= "&package[value]=$value&package[weight]=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height&pickup_point_id=$hopPointId";
 
         curl_setopt_array($curl,
             [

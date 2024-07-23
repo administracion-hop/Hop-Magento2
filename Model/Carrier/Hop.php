@@ -3,6 +3,7 @@
 namespace Improntus\Hop\Model\Carrier;
 
 use Exception;
+use Magento\Backend\App\Area\FrontNameResolver;
 use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Customer\Api\AddressRepositoryInterface;
 use Magento\Directory\Helper\Data;
@@ -10,6 +11,7 @@ use Magento\Directory\Model\Country;
 use Magento\Directory\Model\CountryFactory;
 use Magento\Directory\Model\CurrencyFactory;
 use Magento\Directory\Model\RegionFactory;
+use Magento\Framework\App\State;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\DataObject;
 use Magento\Framework\Exception\LocalizedException;
@@ -97,10 +99,25 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     protected $_quoteRepository;
 
+    /**
+     * @var PointCollectionFactory
+     */
     protected $pointCollectionFactory;
 
+    /**
+     * @var PointFactory
+     */
     protected $pointFactory;
+
+    /**
+     * @var Point
+     */
     protected $pointResource;
+
+    /**
+     * @var State
+     */
+    protected $appState;
 
     /**
      * Hop constructor.
@@ -124,6 +141,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopHelper $hopHelper
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
+     * @param State $appState
      * @param array $data
      */
     public function __construct(
@@ -150,6 +168,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         PointCollectionFactory $pointCollectionFactory,
         PointFactory $pointFactory,
         Point $pointResource,
+        State $appState,
         array $data = []
     )
     {
@@ -164,7 +183,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->pointFactory = $pointFactory;
         $this->pointResource = $pointResource;
         $this->trackStatusFactory = $trackStatusFactory;
-
+        $this->appState = $appState;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -223,6 +242,20 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     }
 
     /**
+     * Indicates whether the current area is admin area
+     *
+     * @return bool
+     * @throws LocalizedException
+     */
+    protected function isAdmin(): bool
+    {
+        if ($this->appState->getAreaCode() === FrontNameResolver::AREA_CODE) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * @return array
      */
     public function getAllowedMethods()
@@ -260,16 +293,17 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $currentZipCode = (int)$request->getDestPostcode();
         $zipCode = (int)$request->getDestPostcode();
         $quote = $this->_checkoutSession->getQuote();
-        $quoteId = $quote->getId(); // get the current quote id
-        $quoteFromDb = $this->_quoteRepository->get($quoteId); // load the quote from the database
-        $shippingAddressFromDb = $quoteFromDb->getShippingAddress();
-        $quotePostcode = (int)$this->_checkoutSession->getCustomerZipcode(); // get the zipcode stored in the session
+        // $quoteId = $quote->getId(); // get the current quote id
+        // $quoteFromDb = $this->_quoteRepository->get($quoteId); // load the quote from the database
+        // $shippingAddressFromDb = $quoteFromDb->getShippingAddress();
+        // $quotePostcode = (int)$this->_checkoutSession->getCustomerZipcode(); // get the zipcode stored in the session
 
+        $isAdmin = $this->isAdmin();
 
 
         $hopData = $this->_checkoutSession->getHopData();
 
-        if($zipCode && is_array($hopData) && count($hopData))
+        if($zipCode && ($isAdmin || (is_array($hopData) && count($hopData))))
         {
             $hopAltoTotal = 0;
             $hopLargoTotal = [];
@@ -296,7 +330,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         ->getAttributeRawValue($_product->getId(),'hop_ancho',$_product->getStoreId()) * $_item->getQty();
                 $hopAnchoTotal[] = $hopAncho;
 
-                $totalPrice += $_product->getFinalPrice() * $_item->getQty() * $_item->getQty();
+                $totalPrice += $_product->getFinalPrice() * $_item->getQty();
             }
 
             $hopAnchoTotal = max($hopAnchoTotal);
@@ -321,12 +355,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             else
             {
                 $originZipCode = $this->_helper->getOriginZipcode();
+                $destZipCode = $isAdmin ? $zipCode : $hopData['hopPointPostcode'];
+                $hopPointId = $isAdmin ? '' : $hopData['hopPointId'];
                 $sellerCode = $helper->getSellerCode();
                 $costoEnvio = $webservice->estimatePrice(
                     $originZipCode,
-                    $hopData['hopPointPostcode'],
+                    $destZipCode,
                     $sellerCode,
-                    $hopData['hopPointId'],
+                    $hopPointId,
                     'E',
                     [
                         'width' => $hopAnchoTotal,
@@ -336,7 +372,25 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                         'value' => (int)$totalPrice
                     ]
                 );
-
+                $dataForLog = array(
+                    'origin_zip_code' => $originZipCode,
+                    'hop_zip_code' => $destZipCode,
+                    'seller_code' => $sellerCode,
+                    'hop_point_id' => $hopPointId,
+                    'product_data' => [
+                        'width' => $hopAnchoTotal,
+                        'length' => $hopLargoTotal,
+                        'height' => $hopAltoTotal,
+                        'weight' => $pesoTotal,
+                        'value' => (int)$totalPrice
+                    ],
+                    'hop_cost' => $costoEnvio
+                );
+                $helper->log("COTIZACIÓN");
+                $helper->log($dataForLog, false, true);
+                if (!$costoEnvio) {
+                    return $result;
+                }
                 $percentageRate = $this->getConfigData('percentage_rate');
                 $fixedValue = $this->getConfigData('fixed_value');
 
@@ -403,7 +457,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
                 return $error;
             }
-        } else{
+        } else if (!$isAdmin){
             $method->setPrice(0);
             $method->setCost(0);
             $result->append($method);

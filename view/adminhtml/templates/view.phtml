@@ -1,0 +1,203 @@
+<div class="modal">
+    <h1>Seleccionar un local HOP</h1>
+    <p>Código Postal <?php echo $block->getZipcode(); ?></p>
+    <div id="selector-maps-hop">
+        <div id="points-maps-hop" style=""></div>
+        <div class="admin__data-grid-wrap" data-role="grid-wrapper" id="points-list-hop">
+            <table class="data-grid data-grid-draggable" data-role="grid">
+                <thead>
+                    <tr>
+                        <th class="data-grid-th _draggable">
+                            <span class="data-grid-cell-content">Nombre</span>
+                        </th>
+                        <th class="data-grid-th _draggable">
+                            <span class="data-grid-cell-content">Dirección</span>
+                        </th>
+                        <th class="data-grid-th _draggable">
+                            <span class="data-grid-cell-content">Seleccionar</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="google-maps-hop" style=""></div>
+    <form id="hop-selection" action="<?= $block->escapeUrl($block->getFormAction()) ?>" method="get">
+        <input type="hidden" name="order_id" value="<?php echo $block->getOrderId() ?>" />
+        <input type="hidden" name="hopPointReferenceName" value="" />
+        <input type="hidden" name="hopPointSchedules" value="" />
+        <input type="hidden" name="hopPointPostcode" value="" />
+        <input type="hidden" name="hopPointSeller" value="" />
+        <input type="hidden" name="hopPointId" value="" />
+        <input type="hidden" name="hopPointName" value="" />
+        <input type="hidden" name="hopPointAddress" value="" />
+        <input type="hidden" name="hopPointProvidercode" value="" />
+        <input type="hidden" name="hopPointDistributorId" value="" />
+        <input type="hidden" name="hopPointAgencycode" value="" />
+    </form>
+    <script>
+        require([
+            "jquery",
+            "underscore"
+        ], function(jQuery, _) {
+            jQuery.ajax('/rest/V1/improntus/hop_points/' + <?php echo $block->getZipcode() ?>, {
+                method: 'GET',
+                context: this,
+                success: function(response) {
+                    var points = JSON.parse(response);
+                    var i = 0;
+                    var listado = '';
+                    if (points) {
+                        jQuery.each(points.data, function(key, value) {
+                            var horarios = '';
+                            $(value.schedules).each(function(i, val) {
+                                if (i === 0) {
+                                    horarios += val['day_description'] + ', ' + val['hour_from'] + ' a ' + val['hour_to'];
+                                } else {
+                                    horarios += ' - ' + val['day_description'] + ', ' + val['hour_from'] + ' a ' + val['hour_to'];
+                                }
+                            });
+                            i++;
+                            listado = generarContenidoLista(value, listado);
+                        });
+                        jQuery('#points-list-hop tbody').html(listado);
+                    } else {
+                        let charactersList = document.getElementById('points-maps-hop');
+                        jQuery(charactersList).html('<div class="point"><p>No se encuentran puntos HOP</p></div>');
+                    }
+                },
+                error: function(e, status) {
+                    let charactersList = document.getElementById('points-maps-hop');
+                    jQuery(charactersList).html('<div class="point"><p>No se encuentran puntos HOP</p></div>');
+                    console.log(e);
+                    console.log(status);
+                }
+            });
+
+            function generarContenidoLista(value, listado) {
+                var html_horarios = '';
+                var schedules = _.sortBy(value.schedules, 'day_code', function(num) {
+                    return num;
+                });
+                var horarios = '';
+                var diasIguales = [];
+                var diasDistintos = [];
+                var j = 0;
+                var k = 0;
+
+                $(schedules).each(function(val, i) {
+                    var hourFrom = val['hour_from'].slice(0, -3);
+                    var hourTo = val['hour_to'].slice(0, -3);
+
+                    html_horarios += '<p>' + val['day_description'] + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+
+                    if (i === 0) {
+                        horarios += val['day_description'] + ', ' + hourFrom + ' a ' + hourTo;
+                        diasIguales[j] = [];
+                        diasIguales[j]['day_description'] = schedules[i].day_description;
+                        diasIguales[j]['hour_from'] = schedules[i].hour_from;
+                        diasIguales[j]['hour_to'] = schedules[i].hour_to;
+                        j++;
+                    } else {
+                        horarios += ' - ' + val['day_description'] + ' de ' + hourFrom + ' a ' + hourTo;
+
+                        if (schedules[i].hour_from === schedules[i - 1].hour_from && schedules[i].hour_to === schedules[i - 1].hour_to) {
+                            diasIguales[j] = [];
+                            diasIguales[j]['day_description'] = schedules[i].day_description;
+                            diasIguales[j]['hour_from'] = schedules[i].hour_from;
+                            diasIguales[j]['hour_to'] = schedules[i].hour_to;
+                            j++;
+                        } else {
+                            diasDistintos[k] = [];
+                            diasDistintos[k]['day_description'] = schedules[i].day_description;
+                            diasDistintos[k]['hour_from'] = schedules[i].hour_from;
+                            diasDistintos[k]['hour_to'] = schedules[i].hour_to;
+                            k++;
+                        }
+                    }
+                });
+
+                if (diasIguales.length > 1) {
+                    var primerDia = diasIguales[0];
+                    var ultimoDia = diasIguales.pop();
+                    var hourFrom = primerDia.hour_from.slice(0, -3);
+                    var hourTo = primerDia.hour_to.slice(0, -3);
+
+                    html_horarios = '<p>' + primerDia.day_description + ' a ' + ultimoDia.day_description + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+                    horarios = primerDia.day_description + ' a ' + ultimoDia.day_description + ' de ' + hourFrom + ' a ' + hourTo + '. ';
+
+                    $(diasDistintos).each(function(val, i) {
+                        var hourFrom = val.hour_from.slice(0, -3);
+                        var hourTo = val.hour_to.slice(0, -3);
+
+                        html_horarios += '<p>' + val.day_description + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+                        horarios += val.day_description + ' de ' + hourFrom + ' a ' + hourTo;
+                    });
+                }
+
+                listado += '<tr class="data-row">';
+
+                listado += '<td><div class="data-grid-cell-content">';
+                listado += '<p class="title-sucursal-hop"><strong>' + value.reference_name + '</strong></p>';
+                listado += '</div></td>';
+
+                listado += '<td><div class="data-grid-cell-content">';
+                listado += '<p class="direccion-sucursal-hop">' + value.full_address + ', ' + value.city + ', ' + value.state + '</p>';
+                listado += '</div></td>';
+
+                listado += '<td><div class="data-grid-cell-content">';
+                listado += '<a class="btn-select-hop" href="javascript:void(0)"' +
+                    ' onclick="jQuery(this).addClass(\'selected-point-hop\');' +
+                    ' selectPoint(this);" ' +
+                    ' data-referencename="' + value.reference_name + '" ' +
+                    ' data-schedules="' + horarios + '" ' +
+                    ' data-seller="' + value.seller + '" ' +
+                    ' data-postcode="' + value.zip_code + '"' +
+                    ' data-id="' + value.id + '"' +
+                    ' data-name="' + value.name + '"' +
+                    ' data-address="' + value.full_address + '"' +
+                    ' data-providercode="' + value.provider_code + '"' +
+                    ' data-distributorid="' + value.distributor_id + '"' +
+                    ' data-agencycode="' + value.agency_code + '"' +
+                    ' >Elegir</a>';
+                listado += '</div></td>';
+
+                listado += '</tr>';
+                return listado;
+            }
+
+
+        });
+
+        function selectPoint(selectedPointHop) {
+
+            var hopData = {
+                'hopPointReferenceName': selectedPointHop.dataset.referencename,
+                'hopPointSchedules': selectedPointHop.dataset.schedules,
+                'hopPointPostcode': selectedPointHop.dataset.postcode,
+                'hopPointSeller': selectedPointHop.dataset.seller,
+                'hopPointId': selectedPointHop.dataset.id,
+                'hopPointName': selectedPointHop.dataset.name,
+                'hopPointAddress': selectedPointHop.dataset.address,
+                'hopPointProvidercode': selectedPointHop.dataset.providercode,
+                'hopPointDistributorId': selectedPointHop.dataset.distributorid,
+                'hopPointAgencycode': selectedPointHop.dataset.agencycode
+            };
+
+            let input = null;
+            for (let key in hopData) {
+                input = document.querySelector(`[name="${key}"]`);
+                if (input) {
+                    input.value = hopData[key];
+                }
+            }
+
+            const form = document.getElementById('hop-selection');
+            if (form) {
+                form.submit();
+            }
+        }
+    </script>
+</div>

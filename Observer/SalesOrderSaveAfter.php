@@ -84,9 +84,12 @@ class SalesOrderSaveAfter implements ObserverInterface
                             if(!$improntusHop->getInfoHop())
                             {
                                 $result = $this->_webservice->createShipping($order);
-                                if($result){
+                                if(!isset($result['error'])){
                                     $improntusHop->setInfoHop($result);
                                     $improntusHop->save();
+                                } else {
+                                    $order->setShippingDescription($result['error']);
+                                    $order->getResource()->saveAttribute($order, "shipping_description");
                                 }
                             }
                         }

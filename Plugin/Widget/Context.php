@@ -66,55 +66,67 @@ class Context
         $buttonList
     )
     {
-        if($this->_helperHop->isActive())
+        if($this->_helperHop->isActive() && $subject->getRequest()->getFullActionName() == 'sales_order_view')
         {
             $orderId    = $subject->getRequest()->getParam('order_id');
             $order      = $this->_order->load($orderId);
-
-            $improntusHop = $this->_improntusHopFactory->create();
-            $improntusHop = $improntusHop->getCollection()
-                ->addFieldToFilter('order_id', ['eq' => $orderId])
-                ->getFirstItem();
-
-            $tracking_nro = '';
-
-            if (count($improntusHop->getData()) > 0)
+            if ($order->getShippingMethod() == 'hop_hop')
             {
-                $infoHop = $improntusHop->getInfoHop();
-                $infoHop = json_decode($infoHop ?? '');
-                $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
-                $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
-            }else
-            {
-                $baseUrl = '';
-            }
-
-            if($subject->getRequest()->getFullActionName() == 'sales_order_view' && $order->getShippingMethod() == 'hop_hop' && !empty($baseUrl))
-            {
-                $baseUrl = $this->_backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
-
-                $buttonList->add(
-                    'descargar_etiqueta_hop',
-                    [
-                        'label'     => __('Descargar etiqueta HOP'),
-                        'onclick' => "setLocation('{$baseUrl}')",
-                        'class'     => 'primary hop-shipment-button'
-                    ]
-                );
-            }
-
-            if($subject->getRequest()->getFullActionName() == 'sales_order_view' && $order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro))
-            {
-                $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
-
-                $buttonList->add(
-                    'estado_hop',
-                    [
-                        'label'     => __('Estado HOP'),
-                        'onclick' => "window.open('".$baseUrl."', '_blank')",
-                        'class'     => 'primary hop-shipment-button'
-                    ]
-                );
+                $improntusHop = $this->_improntusHopFactory->create();
+                $improntusHop = $improntusHop->getCollection()
+                    ->addFieldToFilter('order_id', ['eq' => $orderId])
+                    ->getFirstItem();
+    
+                $tracking_nro = '';
+    
+                if (count($improntusHop->getData()) > 0)
+                {
+                    $infoHop = $improntusHop->getInfoHop();
+                    $infoHop = json_decode($infoHop ?? '');
+                    $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
+                    $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
+                }else
+                {
+                    $baseUrl = '';
+                }
+    
+                if (!empty($baseUrl))
+                {
+                    $baseUrl = $this->_backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
+    
+                    $buttonList->add(
+                        'descargar_etiqueta_hop',
+                        [
+                            'label'     => __('Descargar etiqueta HOP'),
+                            'onclick' => "setLocation('{$baseUrl}')",
+                            'class'     => 'primary hop-shipment-button'
+                        ]
+                    );
+                    if(!empty($tracking_nro))
+                    {
+                        $trackingUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
+    
+                        $buttonList->add(
+                            'estado_hop',
+                            [
+                                'label'     => __('Estado HOP'),
+                                'onclick' => "window.open('".$trackingUrl."', '_blank')",
+                                'class'     => 'primary hop-shipment-button'
+                            ]
+                        );
+                    }
+                } else
+                {
+                    $baseUrl = $this->_backendUrl->getUrl('hop/order/view');
+                    $buttonList->add(
+                        'crear_etiqueta_hop',
+                        [
+                            'label'     => __('Enviar a HOP'),
+                            'onclick' => "hopView.open('". $baseUrl."', ".$orderId.")",
+                            'class'     => 'primary hop-shipment-button'
+                        ]
+                    );
+                }
             }
         }
 

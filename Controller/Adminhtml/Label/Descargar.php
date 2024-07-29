@@ -90,7 +90,6 @@ class Descargar extends \Magento\Backend\App\Action
                 $filename = trim($filename, '-');
             }else
             {
-                $logger->info("MENZE B");
                 $url = '';
             }
 

@@ -6,6 +6,7 @@ use Improntus\Hop\Helper\Data as HelperHop;
 use Improntus\Hop\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
 use Improntus\Hop\Model\PointFactory;
 use Improntus\Hop\Model\ResourceModel\Point;
+use Magento\Framework\Message\ManagerInterface;
 
 /**
  * Class Webservice
@@ -72,6 +73,11 @@ class Webservice
      */
     private $pointResource;
 
+    /**
+     * @var ManagerInterface
+     */
+    private $messageManager;
+
 
     /**
      * Webservice constructor.
@@ -79,18 +85,21 @@ class Webservice
      * @param PointCollectionFactory $pointCollectionFactory
      * @param PointFactory $pointFactory
      * @param Point $pointResource
+     * @param ManagerInterface $messageManager
      */
     public function __construct(
         HelperHop $helperHop,
         PointCollectionFactory $pointCollectionFactory,
         PointFactory $pointFactory,
-        Point $pointResource
+        Point $pointResource,
+        ManagerInterface $messageManager
     )
     {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
         $this->pointFactory = $pointFactory;
         $this->pointResource = $pointResource;
+        $this->messageManager = $messageManager;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -280,6 +289,10 @@ class Webservice
         $packageData = $this->_helper->getPackageData($order);
 
         $hopData = $order->getHopData();
+        if (!$hopData) {
+            $this->_helper->log('No Hop Data', true);
+            return false;
+        }
         $hopData = json_decode($hopData);
         $pickupPointId = isset($hopData->hopPointId) ? $hopData->hopPointId : 0;
 
@@ -357,14 +370,30 @@ class Webservice
             $error = 'Se produjo un error al generar el shipping: '. curl_error($curl);
             $this->_helper->log('Error:', true);
             $this->_helper->log($error, true);
-
+            $this->messageManager->addError($error);
             return false;
         }
 
         if(isset($responseObject->tracking_nro)){
             return $responseJson;
         }else{
-            return false;
+            $error = __('Hubo un error al enviar su pedido a Hop: ');
+            $keys = get_object_vars($responseObject);
+            foreach($keys as $key){
+                if (is_array($key)){
+                    foreach($key as $message){
+                        if (is_string($message)){
+                            $error .= $message . ". ";
+                        }
+                    }
+                }
+            }
+            $this->_helper->log('Error:', true);
+            $this->_helper->log($error, true);
+            $this->messageManager->addError($error);
+            return array(
+                'error' => $error
+            );
         }
     }
 }

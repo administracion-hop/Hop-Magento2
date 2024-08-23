@@ -8,6 +8,7 @@ define(
         'underscore',
         'jquery/validate',
         'mage/calendar',
+        'uiRegistry',
         'Magento_Ui/js/modal/modal',
         'Improntus_Hop/js/google-maps',
         'Magento_Checkout/js/model/quote',
@@ -23,6 +24,7 @@ define(
         _,
         validate,
         calendar,
+        registry,
         modal,
         GoogleMaps,
         quote,
@@ -124,9 +126,7 @@ define(
             }
             listado = listado + '<p><div class="horarios"><div class="dias">' + html_horarios + '</div></div></p>';
             // listado = listado + '<p><a href="javascript:void(0)" onclick="var w = window.open(\'\',\'popupWindow\',\'width=300,height=300,top=100%,left=100%,scrollbars=yes\');w.document.title = \'Horarios\';var $w = jQuery(w.document.body);$w.html(jQuery(this).parent().parent().find(\'.horarios\').html())">Horarios</a></p>';
-            listado = listado + '<a class="btn-select-hop" href="javascript:void(0)"'
-                + ' onclick="jQuery(this).addClass(\'selected-point-hop\');'
-                + ' jQuery(\'#select-hop-point\').trigger(\'click\');" '
+            listado = listado + '<button class="btn-select-hop"'
                 + ' data-referencename="' + value.reference_name + '" '
                 + ' data-schedules="' + horarios + '" '
                 + ' data-seller="' + value.seller + '" '
@@ -137,7 +137,7 @@ define(
                 + ' data-providercode="' + value.provider_code + '"'
                 + ' data-distributorid="' + value.distributor_id + '"'
                 + ' data-agencycode="' + value.agency_code + '"'
-                + ' >Elegir</a>';
+                + ' >Elegir</button>';
             listado = listado + '</div>';
             return listado;
         }
@@ -150,6 +150,25 @@ define(
             nombre: ko.observable(''),
             initialize: function () {
                 this._super();
+                var options = {
+                    type: "popup",
+                    responsive: true,
+                    innerScroll: true,
+                    title: "Elegí el punto HOP donde queres retirar tu compra",
+                    modalClass: "hop-modal-checkout",
+                };
+                $("#hop-popup-modal").modal(options);
+                $(document).on('keyup', '#buscador-hop', function(event, data) {
+                    // debugger
+                    var hopComponent = registry.get('improntus_hop_map');
+                    if (hopComponent) {
+                        hopComponent.buscarElementos(data, event);
+                    }
+                });
+                $(document).on('click', '.btn-select-hop, .infowindow-hop button', function(e){
+                    jQuery(this).addClass('selected-point-hop');
+                    jQuery('#select-hop-point').trigger('click');
+                });
             },
             initMap: function () {
                 map = GoogleMaps.init();
@@ -217,9 +236,7 @@ define(
                                         + '<strong>' + value.reference_name + '</strong>'
                                         + '<br>'
                                         + '<br>'
-                                        + '<a href="javascript:void(0)"'
-                                        + ' onclick="jQuery(this).addClass(\'selected-point-hop\');'
-                                        + ' jQuery(\'#select-hop-point\').trigger(\'click\');" '
+                                        + '<button '
                                         + ' data-referencename="' + value.reference_name + '" '
                                         + ' data-schedules="' + horarios + '" '
                                         + ' data-seller="' + value.seller + '" '
@@ -230,7 +247,7 @@ define(
                                         + ' data-providercode="' + value.provider_code + '"'
                                         + ' data-distributorid="' + value.distributor_id + '"'
                                         + ' data-agencycode="' + value.agency_code + '"'
-                                        + ' >Elegir</a>'
+                                        + ' >Elegir</button>'
                                         + '</div>';
 
                                     var infowindow = new google.maps.InfoWindow({
@@ -257,7 +274,7 @@ define(
                                 $.each(polygonCoords, function (key, value) {
                                     bounds.extend(value);
                                 });
-            
+
                                 var latlng = bounds.getCenter();
                                 map.setCenter(latlng);
                             } else {
@@ -380,9 +397,7 @@ define(
                         + value.full_address + ', ' + value.city + ', ' + value.state */
                         + '<br>'
                         + '<br>'
-                        + '<a href="javascript:void(0)"'
-                        + ' onclick="jQuery(this).addClass(\'selected-point-hop\');'
-                        + ' jQuery(\'#select-hop-point\').trigger(\'click\');" '
+                        + '<button '
                         + ' data-referencename="' + value.reference_name + '" '
                         + ' data-seller="' + value.seller + '" '
                         + ' data-postcode="' + value.zip_code + '"'
@@ -392,7 +407,7 @@ define(
                         + ' data-providercode="' + value.provider_code + '"'
                         + ' data-distributorid="' + value.distributor_id + '"'
                         + ' data-agencycode="' + value.agency_code + '"'
-                        + ' >Elegir</a>'
+                        + ' >Elegir</button>'
                         + '</div>';
 
                     var infowindow = new google.maps.InfoWindow({
@@ -440,7 +455,6 @@ define(
                     });
 
                     var latlng = bounds.getCenter();
-
                     map = GoogleMaps.init();
                     map.setCenter(latlng);
 

@@ -171,12 +171,10 @@ define(
                 });
             },
             initMap: function () {
-                debugger;
                 map = GoogleMaps.init();
             },
             getHopPoints: function () {
                 $('#points-maps-hop').html("");
-                debugger;
                 map = GoogleMaps.init();
                 var shippingAddress = quote.shippingAddress();
                 var zipcode = '';
@@ -457,7 +455,6 @@ define(
                     });
 
                     var latlng = bounds.getCenter();
-                    debugger;
                     map = GoogleMaps.init();
                     map.setCenter(latlng);
 

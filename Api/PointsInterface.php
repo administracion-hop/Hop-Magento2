@@ -1,5 +1,5 @@
 <?php
-namespace Improntus\Hop\Api;
+namespace Hop\Envios\Api;
 
 /**
  * Interface PointsInterface
@@ -7,7 +7,7 @@ namespace Improntus\Hop\Api;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Api
+ * @package Hop\Envios\Api
  */
 interface PointsInterface
 {

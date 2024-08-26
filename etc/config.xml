@@ -10,7 +10,7 @@
                 <hop_free_shipping></hop_free_shipping>
                 <percentage_rate>1</percentage_rate>
                 <fixed_value>0</fixed_value>
-                <model>Improntus\Hop\Model\Carrier\Hop</model>
+                <model>Hop\Envios\Model\Carrier\Hop</model>
                 <max_package_weight>100</max_package_weight>
             </hop>
         </carriers>

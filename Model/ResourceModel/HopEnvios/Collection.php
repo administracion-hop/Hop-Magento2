@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model\ResourceModel\ImprontusHop;
+namespace Hop\Envios\Model\ResourceModel\HopEnvios;
 
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
@@ -10,7 +10,7 @@ use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model\ResourceModel\ImprontusHop
+ * @package Hop\Envios\Model\ResourceModel\HopEnvios
  */
 class Collection extends AbstractCollection
 {
@@ -42,6 +42,6 @@ class Collection extends AbstractCollection
     protected function _construct()
     {
         parent::_construct();
-        $this->_init('Improntus\Hop\Model\ImprontusHop', 'Improntus\Hop\Model\ResourceModel\ImprontusHop');
+        $this->_init('Hop\Envios\Model\HopEnvios', 'Hop\Envios\Model\ResourceModel\HopEnvios');
     }
 }

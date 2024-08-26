@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Block\Adminhtml;
+namespace Hop\Envios\Block\Adminhtml;
 
 use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Template;
@@ -9,7 +9,7 @@ use Magento\Framework\UrlInterface;
 
 class View extends Template
 {
-    public $_template = 'Improntus_Hop::view.phtml';
+    public $_template = 'Hop_Envios::view.phtml';
 
     /**
      * @var Order

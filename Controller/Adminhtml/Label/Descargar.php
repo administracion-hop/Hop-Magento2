@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Controller\Adminhtml\Label;
+namespace Hop\Envios\Controller\Adminhtml\Label;
 
 use Magento\Backend\App\Action;
 use Magento\Framework\App\Filesystem\DirectoryList;
@@ -12,7 +12,7 @@ use Magento\Framework\Controller\ResultFactory;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Controller\Adminhtml\Label
+ * @package Hop\Envios\Controller\Adminhtml\Label
  */
 class Descargar extends \Magento\Backend\App\Action
 {
@@ -39,7 +39,7 @@ class Descargar extends \Magento\Backend\App\Action
     /**
      * @var
      */
-    protected $_improntusHopFactory;
+    protected $_hopEnviosFactory;
 
     /**
      * Descargar constructor.
@@ -54,13 +54,13 @@ class Descargar extends \Magento\Backend\App\Action
         \Magento\Framework\Controller\ResultFactory $resultFactory,
         \Magento\Framework\Message\ManagerInterface $manager,
         \Magento\Framework\Filesystem $filesystem,
-        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
     )
     {
         $this->_resultRedirect = $resultFactory;
         $this->messageManager = $manager;
         $this->_filesystem = $filesystem;
-        $this->_improntusHopFactory = $improntusHopFactory;
+        $this->_hopEnviosFactory = $hopEnviosFactory;
 
         parent::__construct($context);
     }
@@ -75,14 +75,14 @@ class Descargar extends \Magento\Backend\App\Action
 
         try
         {
-            $improntusHop = $this->_improntusHopFactory->create();
-            $improntusHop = $improntusHop->getCollection()
+            $hopEnvios = $this->_hopEnviosFactory->create();
+            $hopEnvios = $hopEnvios->getCollection()
                 ->addFieldToFilter('order_id', ['eq' => $orderId])
                 ->getFirstItem();
 
-            if (count($improntusHop->getData()) > 0)
+            if (count($hopEnvios->getData()) > 0)
             {
-                $infoHop = $improntusHop->getInfoHop();
+                $infoHop = $hopEnvios->getInfoHop();
                 $infoHop = json_decode($infoHop);
                 $url = isset($infoHop->label_url) ? $infoHop->label_url : '';
                 $filenameArr = explode('/', $url);

@@ -1,11 +1,11 @@
 <?php
 
-namespace Improntus\Hop\Model;
+namespace Hop\Envios\Model;
 
-use Improntus\Hop\Helper\Data as HelperHop;
-use Improntus\Hop\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
-use Improntus\Hop\Model\PointFactory;
-use Improntus\Hop\Model\ResourceModel\Point;
+use Hop\Envios\Helper\Data as HelperHop;
+use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
+use Hop\Envios\Model\PointFactory;
+use Hop\Envios\Model\ResourceModel\Point;
 use Magento\Framework\Message\ManagerInterface;
 
 /**
@@ -14,7 +14,7 @@ use Magento\Framework\Message\ManagerInterface;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model
+ * @package Hop\Envios\Model
  */
 class Webservice
 {

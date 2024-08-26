@@ -1,10 +1,10 @@
 <?php
-namespace Improntus\Hop\Model;
+namespace Hop\Envios\Model;
 
-use Improntus\Hop\Api\PointsInterface;
+use Hop\Envios\Api\PointsInterface;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
-use Improntus\Hop\Model\Webservice;
+use Hop\Envios\Model\Webservice;
 
 /**
  * Class Points
@@ -12,7 +12,7 @@ use Improntus\Hop\Model\Webservice;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model
+ * @package Hop\Envios\Model
  */
 class Points implements PointsInterface
 {

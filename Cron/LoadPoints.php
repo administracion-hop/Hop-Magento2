@@ -1,12 +1,12 @@
 <?php
 
-namespace Improntus\Hop\Cron;
+namespace Hop\Envios\Cron;
 
 use Psr\Log\LoggerInterface;
-use Improntus\Hop\Model\PointFactory;
-use Improntus\Hop\Model\ResourceModel\Point as PointResource;
-use Improntus\Hop\Helper\Data as HelperData;
-use Improntus\Hop\Model\Webservice;
+use Hop\Envios\Model\PointFactory;
+use Hop\Envios\Model\ResourceModel\Point as PointResource;
+use Hop\Envios\Helper\Data as HelperData;
+use Hop\Envios\Model\Webservice;
 
 class LoadPoints
 {

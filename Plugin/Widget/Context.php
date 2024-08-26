@@ -1,9 +1,9 @@
 <?php
-namespace Improntus\Hop\Plugin\Widget;
+namespace Hop\Envios\Plugin\Widget;
 
 use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
-use Improntus\Hop\Helper\Data as DataHop;
+use Hop\Envios\Helper\Data as DataHop;
 use Magento\Framework\UrlInterface;
 
 /**
@@ -12,7 +12,7 @@ use Magento\Framework\UrlInterface;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Plugin\Widget
+ * @package Hop\Envios\Plugin\Widget
  */
 class Context
 {
@@ -22,7 +22,7 @@ class Context
     protected $_order;
 
     /**
-     * @var \Improntus\Hop\Helper\Data
+     * @var \Hop\Envios\Helper\Data
      */
     protected $_helperHop;
 
@@ -34,26 +34,26 @@ class Context
     /**
      * @var
      */
-    protected $_improntusHopFactory;
+    protected $_hopEnviosFactory;
 
     /**
      * Context constructor.
      * @param Order $order
      * @param DataHop $helperHop
      * @param UrlInterface $urlInterface,
-     * @param \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+     * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
      */
     public function __construct(
         Order $order,
         DataHop $helperHop,
         UrlInterface $urlInterface,
-        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
     )
     {
         $this->_order = $order;
         $this->_helperHop = $helperHop;
         $this->_backendUrl = $urlInterface;
-        $this->_improntusHopFactory = $improntusHopFactory;
+        $this->_hopEnviosFactory = $hopEnviosFactory;
     }
 
     /**
@@ -72,16 +72,16 @@ class Context
             $order      = $this->_order->load($orderId);
             if ($order->getShippingMethod() == 'hop_hop')
             {
-                $improntusHop = $this->_improntusHopFactory->create();
-                $improntusHop = $improntusHop->getCollection()
+                $hopEnvios = $this->_hopEnviosFactory->create();
+                $hopEnvios = $hopEnvios->getCollection()
                     ->addFieldToFilter('order_id', ['eq' => $orderId])
                     ->getFirstItem();
     
                 $tracking_nro = '';
     
-                if (count($improntusHop->getData()) > 0)
+                if (count($hopEnvios->getData()) > 0)
                 {
-                    $infoHop = $improntusHop->getInfoHop();
+                    $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
                     $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';

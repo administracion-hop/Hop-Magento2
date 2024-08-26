@@ -10,7 +10,7 @@ define(
         'mage/calendar',
         'uiRegistry',
         'Magento_Ui/js/modal/modal',
-        'Improntus_Hop/js/google-maps',
+        'Hop_Envios/js/google-maps',
         'Magento_Checkout/js/model/quote',
         'Magento_Checkout/js/model/shipping-rate-processor/new-address',
         'Magento_Checkout/js/model/shipping-rate-processor/customer-address',
@@ -143,7 +143,7 @@ define(
         }
         return Component.extend({
             defaults: {
-                template: 'Improntus_Hop/hop-map',
+                template: 'Hop_Envios/hop-map',
                 options: {}
             },
 
@@ -160,7 +160,7 @@ define(
                 $("#hop-popup-modal").modal(options);
                 $(document).on('keyup', '#buscador-hop', function(event, data) {
                     // debugger
-                    var hopComponent = registry.get('improntus_hop_map');
+                    var hopComponent = registry.get('hop_envios_map');
                     if (hopComponent) {
                         hopComponent.buscarElementos(data, event);
                     }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Setup;
+namespace Hop\Envios\Setup;
 
 use Magento\Framework\Setup\InstallSchemaInterface;
 use Magento\Framework\Setup\ModuleContextInterface;
@@ -13,7 +13,7 @@ use Magento\Framework\DB\Ddl\Table;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Setup
+ * @package Hop\Envios\Setup
  */
 class InstallSchema implements InstallSchemaInterface
 {

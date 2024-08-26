@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model\ResourceModel\Point;
+namespace Hop\Envios\Model\ResourceModel\Point;
 
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
@@ -14,6 +14,6 @@ class Collection extends AbstractCollection
     protected function _construct()
     {
     
-        $this->_init(\Improntus\Hop\Model\Point::class, \Improntus\Hop\Model\ResourceModel\Point::class);
+        $this->_init(\Hop\Envios\Model\Point::class, \Hop\Envios\Model\ResourceModel\Point::class);
     }
 }

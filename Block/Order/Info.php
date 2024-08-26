@@ -1,5 +1,5 @@
 <?php
-namespace Improntus\Hop\Block\Order;
+namespace Hop\Envios\Block\Order;
 
 use Magento\Sales\Model\Order\Address;
 use Magento\Framework\View\Element\Template\Context as TemplateContext;
@@ -13,14 +13,14 @@ use Magento\Sales\Model\Order\Address\Renderer as AddressRenderer;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Block\Order
+ * @package Hop\Envios\Block\Order
  */
 class Info extends \Magento\Sales\Block\Order\Info
 {
     /**
      * @var string
      */
-    protected $_template = 'Improntus_Hop::order/info.phtml';
+    protected $_template = 'Hop_Envios::order/info.phtml';
 
     /**
      * Core registry
@@ -42,7 +42,7 @@ class Info extends \Magento\Sales\Block\Order\Info
     /**
      * @var
      */
-    protected $_improntusHopFactory;
+    protected $_hopEnviosFactory;
 
     /**
      * @param TemplateContext $context
@@ -50,17 +50,17 @@ class Info extends \Magento\Sales\Block\Order\Info
      * @param PaymentHelper $paymentHelper
      * @param AddressRenderer $addressRenderer
      * @param array $data
-     * @param \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+     * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
      */
     public function __construct(
         TemplateContext $context,
         Registry $registry,
         PaymentHelper $paymentHelper,
         AddressRenderer $addressRenderer,
-        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory,
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory,
         array $data = []
     ) {
-        $this->_improntusHopFactory = $improntusHopFactory;
+        $this->_hopEnviosFactory = $hopEnviosFactory;
         parent::__construct($context,$registry, $paymentHelper, $addressRenderer, $data);
     }
 
@@ -78,16 +78,16 @@ class Info extends \Magento\Sales\Block\Order\Info
     {
         $order = $this->getOrder();
 
-        $improntusHop = $this->_improntusHopFactory->create();
-        $improntusHop = $improntusHop->getCollection()
+        $hopEnvios = $this->_hopEnviosFactory->create();
+        $hopEnvios = $hopEnvios->getCollection()
             ->addFieldToFilter('order_id', ['eq' => $order->getEntityId()])
             ->getFirstItem();
 
         $tracking_nro = '';
 
-        if (count($improntusHop->getData()) > 0)
+        if (count($hopEnvios->getData()) > 0)
         {
-            $infoHop = $improntusHop->getInfoHop();
+            $infoHop = $hopEnvios->getInfoHop();
             $infoHop = json_decode($infoHop ?? '');
             $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
         }

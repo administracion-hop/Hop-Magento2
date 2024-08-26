@@ -1,5 +1,5 @@
 <?php
-namespace Improntus\Hop\Observer;
+namespace Hop\Envios\Observer;
 
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\NoSuchEntityException as NoSuchEntityExceptionAlias;
@@ -11,7 +11,7 @@ use Magento\Quote\Api\CartRepositoryInterface;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Observer
+ * @package Hop\Envios\Observer
  */
 class SalesOrderPlaceBefore implements ObserverInterface
 {
@@ -39,8 +39,8 @@ class SalesOrderPlaceBefore implements ObserverInterface
         $order = $observer->getEvent()->getOrder();
         $quote = $this->_quoteRepository->get($order->getQuoteId());
 
-        if($order->getShippingMethod() == \Improntus\Hop\Model\Carrier\Hop::CARRIER_CODE . '_'
-            . \Improntus\Hop\Model\Carrier\Hop::CARRIER_CODE)
+        if($order->getShippingMethod() == \Hop\Envios\Model\Carrier\Hop::CARRIER_CODE . '_'
+            . \Hop\Envios\Model\Carrier\Hop::CARRIER_CODE)
         {
             $order->setHopData($quote->getHopData());
         }

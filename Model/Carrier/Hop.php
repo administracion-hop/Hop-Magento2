@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model\Carrier;
+namespace Hop\Envios\Model\Carrier;
 
 use Exception;
 use Magento\Backend\App\Area\FrontNameResolver;
@@ -27,12 +27,12 @@ use Magento\Shipping\Model\Tracking\Result\StatusFactory;
 use Psr\Log\LoggerInterface;
 use Magento\Shipping\Model\Rate\ResultFactory;
 use Magento\Quote\Model\Quote\Address\RateResult\MethodFactory;
-use Improntus\Hop\Helper\Data as HopHelper;
-use Improntus\Hop\Model\Webservice;
+use Hop\Envios\Helper\Data as HopHelper;
+use Hop\Envios\Model\Webservice;
 use Magento\Framework\Xml\Security;
-use Improntus\Hop\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
-use Improntus\Hop\Model\ResourceModel\Point;
-use Improntus\Hop\Model\PointFactory;
+use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
+use Hop\Envios\Model\ResourceModel\Point;
+use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 
 /**
@@ -41,7 +41,7 @@ use Magento\Checkout\Model\Session;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model\Carrier
+ * @package Hop\Envios\Model\Carrier
  */
 class Hop extends AbstractCarrierOnline implements CarrierInterface
 {

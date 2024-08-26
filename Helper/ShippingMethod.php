@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Helper;
+namespace Hop\Envios\Helper;
 
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Sales\Model\Order;

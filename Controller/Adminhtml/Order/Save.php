@@ -1,13 +1,13 @@
 <?php
 
-namespace Improntus\Hop\Controller\Adminhtml\Order;
+namespace Hop\Envios\Controller\Adminhtml\Order;
 
 use Magento\Backend\App\Action\Context;
 use Magento\Backend\App\Action;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\UrlInterface;
 use Magento\Framework\Controller\ResultFactory;
-use Improntus\Hop\Helper\ShippingMethod;
+use Hop\Envios\Helper\ShippingMethod;
 
 class Save extends Action
 {

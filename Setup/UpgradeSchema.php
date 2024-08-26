@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Setup;
+namespace Hop\Envios\Setup;
 
 use Magento\Framework\Setup\UpgradeSchemaInterface;
 use Magento\Framework\Setup\SchemaSetupInterface;
@@ -13,7 +13,7 @@ use Magento\Framework\DB\Ddl\Table;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Setup
+ * @package Hop\Envios\Setup
  */
 class UpgradeSchema implements UpgradeSchemaInterface
 {
@@ -45,8 +45,8 @@ class UpgradeSchema implements UpgradeSchemaInterface
 
         if(version_compare($context->getVersion(), '1.0.2', '<')) {
 
-            $improntusHop = $installer->getConnection()
-                ->newTable($installer->getTable('improntus_hop'))
+            $hopEnvios = $installer->getConnection()
+                ->newTable($installer->getTable('hop_envios'))
                 ->addColumn(
                     'entity_id',
                     Table::TYPE_INTEGER,
@@ -65,7 +65,7 @@ class UpgradeSchema implements UpgradeSchemaInterface
                 ->addColumn('info_hop', Table::TYPE_TEXT, null, ['nullable' => true])
                 ->setComment('Guarda info del shipping generado para envios hop');
 
-            $installer->getConnection()->createTable($improntusHop);
+            $installer->getConnection()->createTable($hopEnvios);
 
         }
 

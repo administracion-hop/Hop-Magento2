@@ -1,10 +1,10 @@
 <?php
 
-namespace Improntus\Hop\Model;
+namespace Hop\Envios\Model;
 
-use Improntus\Hop\Model\Webservice;
+use Hop\Envios\Model\Webservice;
 use Magento\Checkout\Model\ConfigProviderInterface;
-use Improntus\Hop\Helper\Data;
+use Hop\Envios\Helper\Data;
 use Magento\Framework\View\Asset\Repository;
 
 /**
@@ -13,7 +13,7 @@ use Magento\Framework\View\Asset\Repository;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model
+ * @package Hop\Envios\Model
  */
 class ConfigProvider implements ConfigProviderInterface
 {
@@ -23,7 +23,7 @@ class ConfigProvider implements ConfigProviderInterface
     protected $_helper;
 
     /**
-     * @var \Improntus\Hop\Model\Webservice
+     * @var \Hop\Envios\Model\Webservice
      */
     protected $_webservice;
 
@@ -36,7 +36,7 @@ class ConfigProvider implements ConfigProviderInterface
 
     /**
      * ConfigProvider constructor.
-     * @param \Improntus\Hop\Model\Webservice $webservice
+     * @param \Hop\Envios\Model\Webservice $webservice
      * @param Data $data
      * @param Repository $assetRepo
      */
@@ -58,7 +58,7 @@ class ConfigProvider implements ConfigProviderInterface
     {
         return $this->_helper->isActive() ? [
             'hop' => [
-                'hop_icon' => $this->_assetRepo->getUrlWithParams('Improntus_Hop::images/hop_marker.png',[])
+                'hop_icon' => $this->_assetRepo->getUrlWithParams('Hop_Envios::images/hop_marker.png',[])
             ],
         ] : [];
     }

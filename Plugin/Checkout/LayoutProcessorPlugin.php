@@ -1,5 +1,5 @@
 <?php
-namespace Improntus\Hop\Plugin\Checkout;
+namespace Hop\Envios\Plugin\Checkout;
 
 class LayoutProcessorPlugin
 {

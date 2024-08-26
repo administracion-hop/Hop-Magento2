@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../Magento/Backend/etc/menu.xsd">
     <menu>
-        <add id="Improntus_Hop::menuPrincipal" title="Envíos Hop" module="Magento_Config" sortOrder="70" resource="Magento_Config::brand"/>
-        <add id="Improntus_Hop::settings" title="Configuración" module="Improntus_Hop" parent="Improntus_Hop::menuPrincipal" action="adminhtml/system_config/edit/section/shipping/webservice_hop" resource="Improntus_Hop::settings" sortOrder="120"/>
-        <add id="Improntus_Hop::carriers" title="Métodos de envío" module="Improntus_Hop" parent="Improntus_Hop::menuPrincipal" action="adminhtml/system_config/edit/section/carriers/hop_bicicleta" resource="Improntus_Hop::carriers" sortOrder="130"/>
+        <add id="hop_envios::menuPrincipal" title="Envíos Hop" module="Magento_Config" sortOrder="70" resource="Magento_Config::brand"/>
+        <add id="hop_envios::settings" title="Configuración" module="Hop_Envios" parent="Hop_Envios::menuPrincipal" action="adminhtml/system_config/edit/section/shipping/webservice_hop" resource="hop_envios::settings" sortOrder="120"/>
+        <add id="hop_envios::carriers" title="Métodos de envío" module="Hop_Envios" parent="Hop_Envios::menuPrincipal" action="adminhtml/system_config/edit/section/carriers/hop_bicicleta" resource="hop_envios::carriers" sortOrder="130"/>
     </menu>
 </config>

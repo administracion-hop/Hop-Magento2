@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Controller\Adminhtml\Order;
+namespace Hop\Envios\Controller\Adminhtml\Order;
 
 use Magento\Backend\App\Action\Context;
 use Magento\Backend\App\Action;
@@ -44,7 +44,7 @@ class View extends Action
         if (!empty($post['id'])) {
             $orderId = $post['id'];
             $content = $this->layoutFactory->create()->createBlock(
-                \Improntus\Hop\Block\Adminhtml\View::class,
+                \Hop\Envios\Block\Adminhtml\View::class,
                 'hop_selector',
                 [
                     'data' => [

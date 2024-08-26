@@ -1,4 +1,4 @@
-.admin__menu #menu-improntus-hop-menuprincipal > a:before  {
+.admin__menu #menu-hop-envios-menuprincipal > a:before  {
     opacity: 0.7;
     content: '';
     font-size: 2.4rem;
@@ -12,7 +12,7 @@
     margin: 0 auto;
 }
 
-.admin__menu #menu-improntus-hop-menuprincipal:hover > a:before {opacity: 1;}
+.admin__menu #menu-hop-envios-menuprincipal:hover > a:before {opacity: 1;}
 
 .hop-shipment-button{
     background: url('../images/logo.png');

@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model\ResourceModel;
+namespace Hop\Envios\Model\ResourceModel;
 
 class Point extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
 {

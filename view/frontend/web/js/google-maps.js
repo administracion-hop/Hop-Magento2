@@ -3,7 +3,7 @@ define([
     'underscore',
     'jquery',
     'uiComponent',
-    'Improntus_Hop/js/google-maps-loader',
+    'Hop_Envios/js/google-maps-loader',
     'Magento_Checkout/js/checkout-data' ,
 ], function (
     ko,

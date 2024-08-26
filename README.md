@@ -12,7 +12,7 @@ Instalación en modo de "developer"
 
 ```sh
 php bin/magento deploy:mode:set developer
-php bin/magento module:enable Improntus_Hop
+php bin/magento module:enable Hop_Envios
 php bin/magento setup:upgrade
 php bin/magento setup:static-content:deploy es_AR en_US
 php bin/magento setup:di:compile
@@ -21,7 +21,7 @@ php bin/magento setup:di:compile
 Instalación para el modo "production"
 
 ```sh
-php bin/magento module:enable Improntus_Hop
+php bin/magento module:enable Hop_Envios
 php bin/magento setup:upgrade
 php bin/magento deploy:mode:set production
 ```

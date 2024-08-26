@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model\Config\Source;
+namespace Hop\Envios\Model\Config\Source;
 
 use Magento\Sales\Model\ResourceModel\Order\Status\Collection;
 
@@ -10,7 +10,7 @@ use Magento\Sales\Model\ResourceModel\Order\Status\Collection;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model\Config\Source
+ * @package Hop\Envios\Model\Config\Source
  */
 class StatusOrderOption implements \Magento\Framework\Option\ArrayInterface
 {

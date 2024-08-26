@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Model;
+namespace Hop\Envios\Model;
 
 use Magento\Framework\Data\Collection\AbstractDb;
 use Magento\Framework\Model\AbstractModel;
@@ -9,19 +9,19 @@ use Magento\Framework\Model\ResourceModel\AbstractResource;
 use Magento\Framework\Registry;
 
 /**
- * Class ImprontusHop
+ * Class HopEnvios
  *
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model
+ * @package Hop\Envios\Model
  */
-class ImprontusHop extends AbstractModel
+class HopEnvios extends AbstractModel
 {
     /**
      * @var string
      */
-    protected $_eventPrefix = 'improntus_hop_event';
+    protected $_eventPrefix = 'hop_envios_event';
 
     /**
      * Parameter name in event
@@ -30,7 +30,7 @@ class ImprontusHop extends AbstractModel
      *
      * @var string
      */
-    protected $_eventObject = 'improntus_hop_object';
+    protected $_eventObject = 'hop_envios_object';
 
     /**
      * True if data changed
@@ -62,6 +62,6 @@ class ImprontusHop extends AbstractModel
      */
     protected function _construct()
     {
-        $this->_init('Improntus\Hop\Model\ResourceModel\ImprontusHop');
+        $this->_init('Hop\Envios\Model\ResourceModel\HopEnvios');
     }
 }

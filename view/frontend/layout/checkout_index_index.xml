@@ -1,7 +1,7 @@
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <body>
         <referenceContainer name="content">
-            <block class="Magento\Framework\View\Element\Template" name="Improntus_Hop_Head" template="Improntus_Hop::head.phtml" cacheable="false" />
+            <block class="Magento\Framework\View\Element\Template" name="Hop_Envios_Head" template="Hop_Envios::head.phtml" cacheable="false" />
         </referenceContainer>
         <referenceBlock name="checkout.root">
             <arguments>
@@ -15,7 +15,7 @@
                                             <item name="children" xsi:type="array">
                                                 <item name="shippingAddress" xsi:type="array">
                                                     <item name="config" xsi:type="array">
-                                                        <item name="shippingMethodItemTemplate" xsi:type="string">Improntus_Hop/hop-shipping-item</item>
+                                                        <item name="shippingMethodItemTemplate" xsi:type="string">Hop_Envios/hop-shipping-item</item>
                                                     </item>
                                                 </item>
                                             </item>

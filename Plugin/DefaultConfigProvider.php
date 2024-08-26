@@ -1,8 +1,8 @@
 <?php
 
-namespace Improntus\Hop\Plugin;
+namespace Hop\Envios\Plugin;
 
-use Improntus\Hop\Helper\Data;
+use Hop\Envios\Helper\Data;
 
 /**
  * Class DefaultConfigProvider
@@ -10,12 +10,12 @@ use Improntus\Hop\Helper\Data;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Plugin
+ * @package Hop\Envios\Plugin
  */
 class DefaultConfigProvider
 {
     /**
-     * @var Improntus\Hop\Helper\Data
+     * @var Hop\Envios\Helper\Data
      */
     protected $_helper;
 

@@ -1,16 +1,16 @@
 <?php
 
-namespace Improntus\Hop\Model\ResourceModel;
+namespace Hop\Envios\Model\ResourceModel;
 
 /**
- * Class ImprontusHop
+ * Class HopEnvios
  *
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Model\ResourceModel
+ * @package Hop\Envios\Model\ResourceModel
  */
-class ImprontusHop extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
+class HopEnvios extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
 {
     /**
      * Construct
@@ -27,6 +27,6 @@ class ImprontusHop extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
 
     public function _construct()
     {
-        $this->_init('improntus_hop','entity_id');
+        $this->_init('hop_envios','entity_id');
     }
 }

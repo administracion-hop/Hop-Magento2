@@ -1,10 +1,10 @@
 <?php
-namespace Improntus\Hop\Observer;
+namespace Hop\Envios\Observer;
 
-use Improntus\Hop\Helper\Data;
+use Hop\Envios\Helper\Data;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Model\Order;
-use Improntus\Hop\Model\Webservice;
+use Hop\Envios\Model\Webservice;
 
 /**
  * Class SalesOrderSaveAfter
@@ -12,7 +12,7 @@ use Improntus\Hop\Model\Webservice;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Observer
+ * @package Hop\Envios\Observer
  */
 class SalesOrderSaveAfter implements ObserverInterface
 {
@@ -27,24 +27,24 @@ class SalesOrderSaveAfter implements ObserverInterface
     protected $_webservice;
 
     /**
-     * @var \Improntus\Hop\Model\ImprontusHopFactory
+     * @var \Hop\Envios\Model\HopEnviosFactory
      */
-    protected $_improntusHopFactory;
+    protected $_hopEnviosFactory;
 
     /**
      * SalesOrderSaveAfter constructor.
      * @param Data $data
      * @param Webservice $webservice
-     * @param \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+     * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
      */
     public function __construct(
         Data $data,
         Webservice $webservice,
-        \Improntus\Hop\Model\ImprontusHopFactory $improntusHopFactory
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
     ) {
         $this->_helper = $data;
         $this->_webservice = $webservice;
-        $this->_improntusHopFactory = $improntusHopFactory;
+        $this->_hopEnviosFactory = $hopEnviosFactory;
     }
 
     /**
@@ -68,25 +68,25 @@ class SalesOrderSaveAfter implements ObserverInterface
 
                         if(in_array($orderStatus, $statuses))
                         {
-                            $improntusHop = $this->_improntusHopFactory->create();
-                            $improntusHop = $improntusHop->getCollection()
+                            $hopEnvios = $this->_hopEnviosFactory->create();
+                            $hopEnvios = $hopEnvios->getCollection()
                                 ->addFieldToFilter('order_id', ['eq' => $order->getId()])
                                 ->getFirstItem();
 
-                            if (!count($improntusHop->getData()))
+                            if (!count($hopEnvios->getData()))
                             {
-                                $improntusHop = $this->_improntusHopFactory->create();
-                                $improntusHop->setOrderId($order->getId());
-                                $improntusHop->setIncrementId($order->getIncrementId());
-                                $improntusHop->save();
+                                $hopEnvios = $this->_hopEnviosFactory->create();
+                                $hopEnvios->setOrderId($order->getId());
+                                $hopEnvios->setIncrementId($order->getIncrementId());
+                                $hopEnvios->save();
                             }
 
-                            if(!$improntusHop->getInfoHop())
+                            if(!$hopEnvios->getInfoHop())
                             {
                                 $result = $this->_webservice->createShipping($order);
                                 if(!isset($result['error'])){
-                                    $improntusHop->setInfoHop($result);
-                                    $improntusHop->save();
+                                    $hopEnvios->setInfoHop($result);
+                                    $hopEnvios->save();
                                 } else {
                                     $order->setShippingDescription($result['error']);
                                     $order->getResource()->saveAttribute($order, "shipping_description");

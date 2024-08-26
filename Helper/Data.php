@@ -1,6 +1,6 @@
 <?php
 
-namespace Improntus\Hop\Helper;
+namespace Hop\Envios\Helper;
 
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Config\ScopeConfigInterface;
@@ -22,7 +22,7 @@ use Psr\Log\LoggerInterface;
  * @version 1.0.0
  * @author Improntus <http://www.improntus.com> - Ecommerce done right
  * @copyright Copyright (c) 2021 Improntus
- * @package Improntus\Hop\Helper
+ * @package Hop\Envios\Helper
  */
 class Data extends AbstractHelper
 {

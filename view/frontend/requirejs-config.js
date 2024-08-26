@@ -2,7 +2,7 @@ var config = {
     config: {
         mixins: {
             'Magento_Checkout/js/view/shipping': {
-                'Improntus_Hop/js/view/shipping': true
+                'Hop_Envios/js/view/shipping': true
             }
         }
     }

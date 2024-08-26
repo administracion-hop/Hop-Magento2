@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <preference for="Improntus\Hop\Api\PointsInterface" type="Improntus\Hop\Model\Points" />
+    <preference for="Hop\Envios\Api\PointsInterface" type="Hop\Envios\Model\Points" />
     <type name="Magento\Backend\Block\Widget\Context">
-        <plugin name="Improntus_Hop_button_label" type="Improntus\Hop\Plugin\Widget\Context" sortOrder="100"/>
+        <plugin name="Hop_Envios_button_label" type="Hop\Envios\Plugin\Widget\Context" sortOrder="100"/>
     </type>
     <type name="Magento\Checkout\Model\DefaultConfigProvider">
-        <plugin name="Improntus_Hop::DefaultConfigProvider" type="Improntus\Hop\Plugin\DefaultConfigProvider" />
+        <plugin name="Hop_Envios::DefaultConfigProvider" type="Hop\Envios\Plugin\DefaultConfigProvider" />
     </type>
-    <preference for="Magento\Sales\Block\Order\Info" type="Improntus\Hop\Block\Order\Info" />
+    <preference for="Magento\Sales\Block\Order\Info" type="Hop\Envios\Block\Order\Info" />
     <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
-        <plugin name="improntus_vat_id_required" type="Improntus\Hop\Plugin\Checkout\LayoutProcessorPlugin" sortOrder="10"/>
+        <plugin name="improntus_vat_id_required" type="Hop\Envios\Plugin\Checkout\LayoutProcessorPlugin" sortOrder="10"/>
     </type>
 </config>

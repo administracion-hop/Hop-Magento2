@@ -1,5 +1,5 @@
 <?php
-namespace Improntus\Hop\Block\Adminhtml;
+namespace Hop\Envios\Block\Adminhtml;
 
 class HopSelector extends \Magento\Backend\Block\Template
 {

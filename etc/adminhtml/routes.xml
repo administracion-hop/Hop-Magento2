@@ -2,7 +2,7 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../../lib/internal/Magento/Framework/App/etc/routes.xsd">
     <router id="admin">
         <route id="hop" frontName="hop">
-            <module name="Improntus_Hop" before="Magento_Adminhtml"/>
+            <module name="Hop_Envios" before="Magento_Adminhtml"/>
         </route>
     </router>
 </config>

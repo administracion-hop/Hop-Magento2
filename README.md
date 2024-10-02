@@ -1,38 +1,70 @@
 # Módulo de envíos HOP para Magento 2
 
-[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
+Este plugin oficial de **Envíos Hop** permite integrar fácilmente el servicio en tu sitio **Magento 2**. Está desarrollado sobre la base del SDK oficial de HOP, asegurando compatibilidad y facilidad de uso.
 
-## Descripción
-Este plugin oficial de [Envíos Hop](https://www.hopenvios.com.ar/) te permite integrar fácilmente el servicio en tu sitio Magento2. Está desarrollado en base al SDK oficial de HOP.
+## Requisitos
 
-### Instalación
-El módulo requiere Magento 2.0.x o superior para su correcto funcionamiento. Se deberá instalar mediante los comandos de consola de Magento.
+- Magento 2.0.x o superior.
 
-Instalación en modo de "developer"
+## Instalación
 
-```sh
-php bin/magento deploy:mode:set developer
-php bin/magento module:enable Hop_Envios
-php bin/magento setup:upgrade
-php bin/magento setup:static-content:deploy es_AR en_US
-php bin/magento setup:di:compile
-```
+   ```bash
+   composer require hopenvios/magento2
+   ```
 
-Instalación para el modo "production"
+### Modo de Desarrollador
 
-```sh
-php bin/magento module:enable Hop_Envios
-php bin/magento setup:upgrade
-php bin/magento deploy:mode:set production
-```
+Para habilitar el módulo en modo de desarrollador, sigue estos pasos:
 
-### Credenciales de testing
-Se deberán solicitar a https://www.hopenvios.com.ar/
+1. Configura el modo de desarrollador:
+   ```bash
+   php bin/magento deploy:mode:set developer
+   ```
 
-### Paso a producción
-Se deberán solicitar a https://www.hopenvios.com.ar/
- 
-## Autor
+2. Habilita el módulo:
+   ```bash
+   php bin/magento module:enable Hop_Envios
+   ```
 
-[![N|Solid](https://www.improntus.com/developed-by-small.png)](https://www.improntus.com)
+3. Actualiza la configuración del módulo:
+   ```bash
+   php bin/magento setup:upgrade
+   ```
 
+4. Despliega el contenido estático:
+   ```bash
+   php bin/magento setup:static-content:deploy es_AR en_US
+   ```
+
+5. Compila el código de dependencias:
+   ```bash
+   php bin/magento setup:di:compile
+   ```
+
+### Modo de Producción
+
+Para habilitar el módulo en modo de producción, sigue estos pasos:
+
+1. Habilita el módulo:
+   ```bash
+   php bin/magento module:enable Hop_Envios
+   ```
+
+2. Actualiza la configuración del módulo:
+   ```bash
+   php bin/magento setup:upgrade
+   ```
+
+3. Configura el modo de producción:
+   ```bash
+   php bin/magento deploy:mode:set production
+   ```
+
+## Credenciales
+Las credenciales para el entorno de testing y el entorno productivo deben ser solicitadas a [HOP Envíos](https://www.hopenvios.com.ar/).
+
+---
+
+### Autor
+
+[HOP Envíos](https://www.hopenvios.com.ar/)

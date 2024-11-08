@@ -378,15 +378,19 @@ class Webservice
             return $responseJson;
         }else{
             $error = __('Hubo un error al enviar su pedido a Hop: ');
-            $keys = get_object_vars($responseObject);
-            foreach($keys as $key){
-                if (is_array($key)){
-                    foreach($key as $message){
-                        if (is_string($message)){
-                            $error .= $message . ". ";
+            if (gettype($responseObject) == 'object'){
+                $keys = get_object_vars($responseObject);
+                foreach($keys as $key){
+                    if (is_array($key)){
+                        foreach($key as $message){
+                            if (is_string($message)){
+                                $error .= $message . ". ";
+                            }
                         }
                     }
                 }
+            } else if (is_string($responseObject)){
+                $error .= $responseObject . ".";
             }
             $this->_helper->log('Error:', true);
             $this->_helper->log($error, true);

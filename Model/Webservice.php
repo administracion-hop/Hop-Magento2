@@ -7,6 +7,11 @@ use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFac
 use Hop\Envios\Model\PointFactory;
 use Hop\Envios\Model\ResourceModel\Point;
 use Magento\Framework\Message\ManagerInterface;
+use Hop\Envios\Model\ResourceModel\Token\CollectionFactory as TokenCollectionFactory;
+use Hop\Envios\Model\TokenFactory;
+use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Phrase;
 
 /**
  * Class Webservice
@@ -54,11 +59,6 @@ class Webservice
     private $_accessToken;
 
     /**
-     * @var string
-     */
-    private $_refreshToken;
-
-    /**
      * @var PointCollectionFactory
      */
     private $pointCollectionFactory;
@@ -78,6 +78,21 @@ class Webservice
      */
     private $messageManager;
 
+    /**
+     * @var TokenCollectionFactory
+     */
+    protected $tokenCollectionFactory;
+
+    /**
+     * @var TokenFactory
+     */
+    protected $tokenFactory;
+
+    /**
+     * @var TokenResourceModel
+     */
+    protected $tokenResourceModel;
+
 
     /**
      * Webservice constructor.
@@ -92,7 +107,10 @@ class Webservice
         PointCollectionFactory $pointCollectionFactory,
         PointFactory $pointFactory,
         Point $pointResource,
-        ManagerInterface $messageManager
+        ManagerInterface $messageManager,
+        CollectionFactory $tokenCollectionFactory,
+        TokenFactory $tokenFactory,
+        TokenResourceModel $tokenResourceModel
     )
     {
         $this->_helper = $helperHop;
@@ -100,6 +118,9 @@ class Webservice
         $this->pointFactory = $pointFactory;
         $this->pointResource = $pointResource;
         $this->messageManager = $messageManager;
+        $this->tokenCollectionFactory = $tokenCollectionFactory;
+        $this->tokenFactory = $tokenFactory;
+        $this->tokenResourceModel = $tokenResourceModel;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -114,6 +135,19 @@ class Webservice
      */
     public function login()
     {
+        $lastToken = $this->getLastToken();
+        if ($lastToken && $lastToken->getId()) {
+            $createdAt = strtotime($lastToken->getCreatedAt());
+            $expiresIn = $lastToken->getExpiresIn();
+
+            if (time() < ($createdAt + $expiresIn)){
+                $this->_tokenType = $lastToken->getTokenType();
+                $this->_accessToken = $lastToken->getAccessToken();
+                return true;
+            }
+        }
+
+
         $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
 
         $curl = curl_init();
@@ -141,9 +175,80 @@ class Webservice
 
         $this->_tokenType = isset($response->token_type) ? $response->token_type : null;
         $this->_accessToken = isset($response->access_token) ? $response->access_token : null;
-        $this->_refreshToken = isset($response->refresh_token) ? $response->refresh_token : null;
 
+        try {
+            $this->saveNewToken(
+                $this->_tokenType,
+                $this->_accessToken,
+                isset($response->expires_in) ? $response->expires_in : 0
+            );
+        } catch (LocalizedException  $e){
+            $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
+        }
         return true;
+    }
+
+    /**
+     * Get the last added token record
+     *
+     * @param string|null $tokenType Optional token type to filter
+     * @return Token|null
+     */
+    public function getLastToken($tokenType = null)
+    {
+        /** @var \Hop\Envios\Model\ResourceModel\Token\Collection $collection */
+        $collection = $this->tokenCollectionFactory->create();
+        $collection->setOrder('created_at', 'DESC');
+        if ($tokenType !== null) {
+            $collection->addFieldToFilter('token_type', $tokenType);
+        }
+        $collection->setPageSize(1);
+        return $collection->getFirstItem();
+    }
+
+    /**
+     * Save a new token to the database
+     *
+     * @param string $tokenType Type of token (e.g., 'access', 'refresh')
+     * @param string $accessToken The actual token string
+     * @param int $expiresIn Expiration time in seconds
+     * @return \Hop\Envios\Model\Token
+     * @throws LocalizedException
+     */
+    public function saveNewToken($tokenType, $accessToken, $expiresIn)
+    {
+        if (empty($tokenType)) {
+            throw new LocalizedException(
+                new Phrase('Token type cannot be empty')
+            );
+        }
+
+        if (empty($accessToken)) {
+            throw new LocalizedException(
+                new Phrase('Access token cannot be empty')
+            );
+        }
+
+        if ($expiresIn <= 0) {
+            throw new LocalizedException(
+                new Phrase('Expires in must be a positive number')
+            );
+        }
+
+        $token = $this->tokenFactory->create();
+        $token->setTokenType($tokenType);
+        $token->setAccessToken($accessToken);
+        $token->setExpiresIn($expiresIn);
+
+        try {
+            $this->tokenResourceModel->save($token);
+            return $token;
+        } catch (\Exception $e) {
+            $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
+            throw new LocalizedException(
+                new Phrase('Unable to save token: %1', [$e->getMessage()])
+            );
+        }
     }
 
     /**

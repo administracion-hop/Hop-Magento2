@@ -108,7 +108,7 @@ class Webservice
         PointFactory $pointFactory,
         Point $pointResource,
         ManagerInterface $messageManager,
-        CollectionFactory $tokenCollectionFactory,
+        TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel
     )

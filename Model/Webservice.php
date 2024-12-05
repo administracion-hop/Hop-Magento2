@@ -166,7 +166,7 @@ class Webservice
             ];
     
             if ($postFields){
-                $curlData[CURLOPT_POSTFIELDS] = json_encode($postFields);
+                $curlData[CURLOPT_POSTFIELDS] = $postFields;
             }
             curl_setopt_array($curl, $curlData);
     

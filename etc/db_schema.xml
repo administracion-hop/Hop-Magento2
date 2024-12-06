@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="hop_tokens">
+        <column xsi:type="int" name="id" padding="10" unsigned="true" nullable="false" identity="true" />
+        <column xsi:type="varchar" name="token_type" nullable="true" length="255"/>
+        <column xsi:type="text" name="access_token" nullable="true"/>
+        <column xsi:type="int" name="expires_in" padding="10" unsigned="true" nullable="true"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+    </table>
+</schema>

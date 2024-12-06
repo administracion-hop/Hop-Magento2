@@ -7,6 +7,11 @@ use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFac
 use Hop\Envios\Model\PointFactory;
 use Hop\Envios\Model\ResourceModel\Point;
 use Magento\Framework\Message\ManagerInterface;
+use Hop\Envios\Model\ResourceModel\Token\CollectionFactory as TokenCollectionFactory;
+use Hop\Envios\Model\TokenFactory;
+use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Phrase;
 
 /**
  * Class Webservice
@@ -54,11 +59,6 @@ class Webservice
     private $_accessToken;
 
     /**
-     * @var string
-     */
-    private $_refreshToken;
-
-    /**
      * @var PointCollectionFactory
      */
     private $pointCollectionFactory;
@@ -78,6 +78,21 @@ class Webservice
      */
     private $messageManager;
 
+    /**
+     * @var TokenCollectionFactory
+     */
+    protected $tokenCollectionFactory;
+
+    /**
+     * @var TokenFactory
+     */
+    protected $tokenFactory;
+
+    /**
+     * @var TokenResourceModel
+     */
+    protected $tokenResourceModel;
+
 
     /**
      * Webservice constructor.
@@ -92,7 +107,10 @@ class Webservice
         PointCollectionFactory $pointCollectionFactory,
         PointFactory $pointFactory,
         Point $pointResource,
-        ManagerInterface $messageManager
+        ManagerInterface $messageManager,
+        TokenCollectionFactory $tokenCollectionFactory,
+        TokenFactory $tokenFactory,
+        TokenResourceModel $tokenResourceModel
     )
     {
         $this->_helper = $helperHop;
@@ -100,6 +118,9 @@ class Webservice
         $this->pointFactory = $pointFactory;
         $this->pointResource = $pointResource;
         $this->messageManager = $messageManager;
+        $this->tokenCollectionFactory = $tokenCollectionFactory;
+        $this->tokenFactory = $tokenFactory;
+        $this->tokenResourceModel = $tokenResourceModel;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -110,10 +131,85 @@ class Webservice
     }
 
     /**
+     * Performs an HTTP request using cURL with automatic authentication retry
+     * 
+     * This method sends HTTP requests to an API endpoint with support for different HTTP verbs,
+     * automatic token refresh on 401 (Unauthorized) errors, and logging.
+     * 
+     * @param string $verb The HTTP method to use (e.g., 'GET', 'POST', 'PUT', 'DELETE')
+     * @param string $path The API endpoint path (without the full URL)
+     * @param mixed $postFields Optional data to be sent with the request (typically for POST/PUT)
+     * 
+     * @return string|false The API response body on success, or false on failure
+     * 
+     * @throws Exception Potential exceptions from cURL operations
+     */
+    protected function curl($verb, $path, $postFields = false)
+    {
+        $retry = false;
+        do {
+            $curl = curl_init();
+            $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+            $url = "https://" . $entorno . $path;
+            $this->_helper->log('API URL: ' . $url);
+            $curlData = [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => "",
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_CUSTOMREQUEST => $verb,
+                CURLINFO_HEADER_OUT => true,
+                CURLOPT_HTTPHEADER => [
+                    "Authorization: Bearer {$this->_accessToken}",
+                    "Content-Type: application/json"
+                ],
+            ];
+    
+            if ($postFields){
+                $curlData[CURLOPT_POSTFIELDS] = $postFields;
+            }
+            curl_setopt_array($curl, $curlData);
+    
+            $response = curl_exec($curl);
+    
+            if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401){
+                $this->login(true);
+                $retry = true;
+            } else {
+                $retry = false;
+            }
+        } while($retry);
+        
+        if(curl_error($curl))
+        {
+            $error = 'Se produjo un error: '. curl_error($curl);
+            $this->_helper->log($error ,true);
+            $this->messageManager->addError($error);
+            $response = false;
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param bool $forceNewToken
      * @return bool
      */
-    public function login()
+    public function login($forceNewToken = false)
     {
+        if (!$forceNewToken) {
+            $lastToken = $this->getLastToken();
+            if ($lastToken && $lastToken->getId()) {
+                $createdAt = strtotime($lastToken->getCreatedAt());
+                $expiresIn = $lastToken->getExpiresIn();
+                if (time() < ($createdAt + $expiresIn)){
+                    $this->_tokenType = $lastToken->getTokenType();
+                    $this->_accessToken = $lastToken->getAccessToken();
+                    return true;
+                }
+            }
+        }
+
         $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
 
         $curl = curl_init();
@@ -141,9 +237,80 @@ class Webservice
 
         $this->_tokenType = isset($response->token_type) ? $response->token_type : null;
         $this->_accessToken = isset($response->access_token) ? $response->access_token : null;
-        $this->_refreshToken = isset($response->refresh_token) ? $response->refresh_token : null;
 
+        try {
+            $this->saveNewToken(
+                $this->_tokenType,
+                $this->_accessToken,
+                isset($response->expires_in) ? $response->expires_in / 1000 : 0
+            );
+        } catch (LocalizedException  $e){
+            $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
+        }
         return true;
+    }
+
+    /**
+     * Get the last added token record
+     *
+     * @param string|null $tokenType Optional token type to filter
+     * @return Token|null
+     */
+    public function getLastToken($tokenType = null)
+    {
+        /** @var \Hop\Envios\Model\ResourceModel\Token\Collection $collection */
+        $collection = $this->tokenCollectionFactory->create();
+        $collection->setOrder('created_at', 'DESC');
+        if ($tokenType !== null) {
+            $collection->addFieldToFilter('token_type', $tokenType);
+        }
+        $collection->setPageSize(1);
+        return $collection->getFirstItem();
+    }
+
+    /**
+     * Save a new token to the database
+     *
+     * @param string $tokenType Type of token (e.g., 'access', 'refresh')
+     * @param string $accessToken The actual token string
+     * @param int $expiresIn Expiration time in seconds
+     * @return \Hop\Envios\Model\Token
+     * @throws LocalizedException
+     */
+    public function saveNewToken($tokenType, $accessToken, $expiresIn)
+    {
+        if (empty($tokenType)) {
+            throw new LocalizedException(
+                new Phrase('Token type cannot be empty')
+            );
+        }
+
+        if (empty($accessToken)) {
+            throw new LocalizedException(
+                new Phrase('Access token cannot be empty')
+            );
+        }
+
+        if ($expiresIn <= 0) {
+            throw new LocalizedException(
+                new Phrase('Expires in must be a positive number')
+            );
+        }
+
+        $token = $this->tokenFactory->create();
+        $token->setTokenType($tokenType);
+        $token->setAccessToken($accessToken);
+        $token->setExpiresIn($expiresIn);
+
+        try {
+            $this->tokenResourceModel->save($token);
+            return $token;
+        } catch (\Exception $e) {
+            $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
+            throw new LocalizedException(
+                new Phrase('Unable to save token: %1', [$e->getMessage()])
+            );
+        }
     }
 
     /**
@@ -159,43 +326,12 @@ class Webservice
             return json_decode($pointData);
         }
 
-        $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
-
-        $curl = curl_init();
-
-        $curlRequest = "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points";
+        $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";
         if($zipCode){
-            $curlRequest = "https://".$entorno."api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=".$zipCode;
+            $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=".$zipCode;
         }
 
-        $this->_helper->log('pickup_points API URL' ,true);
-        $this->_helper->log($curlRequest ,true);
-
-        curl_setopt_array($curl,
-            [
-                CURLOPT_URL => $curlRequest,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => "",
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_CUSTOMREQUEST => "GET",
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_HTTPHEADER => [
-                    "Authorization: Bearer {$this->_accessToken}",
-                    "Content-Type: application/json"
-                ],
-            ]);
-
-        $response = curl_exec($curl);
-
-
-
-        if(curl_error($curl))
-        {
-            $error = 'Se produjo un error al solicitar cotización: '. curl_error($curl);
-            $this->_helper->log($error ,true);
-
-            return false;
-        }
+        $response = $this->curl("GET", $curlRequest);
 
         if (json_decode($response)) {
             try {
@@ -222,45 +358,20 @@ class Webservice
      */
     public function estimatePrice($originZipCode,$destinyZipCode,$sellerCode,$hopPointId,$shippingType = 'E',$package = [])
     {
-        $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
-
-        $curl = curl_init();
         $width = $package['width'];
         $length = $package['length'];
         $height = $package['height'];
         $weight = $package['weight'];
         $value = $package['value'];
 
-        $url = "https://".$entorno."api.hopenvios.com.ar/api/v1/pricing/estimate";
+        $url = "api.hopenvios.com.ar/api/v1/pricing/estimate";
         $url .= "?origin_zipcode=$originZipCode";
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
         $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height&pickup_point_id=$hopPointId";
 
-        curl_setopt_array($curl,
-            [
-                CURLOPT_URL => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => "",
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_CUSTOMREQUEST => "GET",
-                CURLOPT_HTTPHEADER => [
-                    "Authorization: Bearer {$this->_accessToken}",
-                    "Content-Type: application/json"
-                ],
-            ]);
-
-        $response = curl_exec($curl);
+        $response = $this->curl("GET", $url);
         $responseObject = json_decode($response);
-
-        if(curl_error($curl))
-        {
-            $error = 'Se produjo un error al solicitar cotización: '. curl_error($curl);
-            $this->_helper->log('Error:', true);
-            $this->_helper->log($error, true);
-
-            return false;
-        }
 
         if(isset($responseObject->data->amount)){
             return $responseObject->data->amount;
@@ -277,8 +388,6 @@ class Webservice
      */
     public function createShipping($order)
     {
-        $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
-
         $sellerCode = $this->_helper->getSellerCode();
         $shippingType = $this->_helper->getShippingType();
         $labelType = $this->_helper->getLabelType();
@@ -345,34 +454,13 @@ class Webservice
 
         $this->_helper->log($params, false, true);
 
-        $curl = curl_init();
-        $url = "https://".$entorno."api.hopenvios.com.ar/api/v1/shipping";
-        curl_setopt_array($curl,
-            [
-                CURLOPT_URL => $url,
-                CURLOPT_POST => 1,
-                CURLOPT_POSTFIELDS => $postFields,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER => [
-                    "Authorization: Bearer {$this->_accessToken}",
-                    "Content-Type: application/json"
-                ],
-            ]);
-
-        $responseJson = curl_exec($curl);
+        $url = "api.hopenvios.com.ar/api/v1/shipping";
+        
+        $responseJson = $this->curl('POST', $url, $postFields);
         $responseObject = json_decode($responseJson);
 
         $this->_helper->log('Request POST: '.$url);
         $this->_helper->log($responseObject, false, true);
-
-        if(curl_error($curl))
-        {
-            $error = 'Se produjo un error al generar el shipping: '. curl_error($curl);
-            $this->_helper->log('Error:', true);
-            $this->_helper->log($error, true);
-            $this->messageManager->addError($error);
-            return false;
-        }
 
         if(isset($responseObject->tracking_nro)){
             return $responseJson;

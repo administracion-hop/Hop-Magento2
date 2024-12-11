@@ -458,11 +458,21 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 return $error;
             }
         } else if (!$isAdmin){
-            $method->setPrice(0);
-            $method->setCost(0);
-            $result->append($method);
-            $this->_checkoutSession->setCustomerZipcode($currentZipCode);
-            return $result;
+            $pickupPoints = $webservice->getPickupPoints($currentZipCode);
+            if (!empty($pickupPoints->data)){
+                $method->setPrice(0);
+                $method->setCost(0);
+                $result->append($method);
+                $this->_checkoutSession->setCustomerZipcode($currentZipCode);
+                return $result;
+            }
+            $error = $this->_rateErrorFactory->create();
+            $error->setCarrier($this->_code);
+            $error->setCarrierTitle($this->getConfigData('title'));
+            $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
+
+            return $error;
+            
         }
         return $result;
     }

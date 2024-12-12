@@ -1,8 +1,10 @@
 <td class="col" data-bind="scope:'hop_envios_map'">
+    <!-- ko if: disponible() -->
     <a href="javascript:void(0)" data-bind="event: {click: getHopPoints}">
         <button class="select-hop-button" data-bind="i18n: 'Seleccioná un Punto HOP'"></button>
     </a>
     <a href="javascript:void(0)" style="display: none" id="select-hop-point" data-bind='event: {click: selectHopPoint}'>
         SELECT HOP POINT
     </a>
+    <!-- /ko -->
 </td>

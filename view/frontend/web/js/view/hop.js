@@ -15,7 +15,8 @@ define(
         'Magento_Checkout/js/model/shipping-rate-processor/new-address',
         'Magento_Checkout/js/model/shipping-rate-processor/customer-address',
         'Magento_Checkout/js/model/shipping-rate-registry',
-        'Magento_Checkout/js/action/select-shipping-method'
+        'Magento_Checkout/js/action/select-shipping-method',
+        'Magento_Checkout/js/model/shipping-service'
     ],
     function (
         ko,
@@ -31,7 +32,8 @@ define(
         defaultProcessor,
         customerAddressProcessor,
         rateRegistry,
-        selectShippingMethodAction
+        selectShippingMethodAction,
+        shippingService
     ) {
         'use strict';
         var map;
@@ -146,9 +148,19 @@ define(
                 template: 'Hop_Envios/hop-map',
                 options: {}
             },
-
+            disponible: ko.observable(false),
             nombre: ko.observable(''),
             initialize: function () {
+                const this_component = this;
+                shippingService.getShippingRates().subscribe(function (rates) {
+                    for (let rate of rates){
+                        if (rate.carrier_code != 'hop'){
+                            continue;
+                        }
+                        this_component.disponible(rate.available);
+                        break;
+                    }
+                });
                 this._super();
                 var options = {
                     type: "popup",

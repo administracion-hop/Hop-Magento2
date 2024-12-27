@@ -34,6 +34,10 @@ use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFac
 use Hop\Envios\Model\ResourceModel\Point;
 use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Framework\App\ResourceConnection;
+use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Magento\Framework\ObjectManagerInterface;
 
 /**
  * Class Hop
@@ -120,6 +124,18 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected $appState;
 
     /**
+     * @var OrderRepositoryInterface
+     */
+    private $orderRepository;
+
+    protected $_resourceConnection;
+
+    protected $hopEnviosResource;
+
+    protected $objectManager;
+
+
+    /**
      * Hop constructor.
      * @param ScopeConfigInterface $scopeConfig
      * @param ErrorFactory $rateErrorFactory
@@ -169,6 +185,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         PointFactory $pointFactory,
         Point $pointResource,
         State $appState,
+        OrderRepositoryInterface $orderRepository,
+        ResourceConnection $resourceConnection,
+        HopEnviosResource $hopEnviosResource,
+        ObjectManagerInterface $objectManager,
         array $data = []
     )
     {
@@ -184,6 +204,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->pointResource = $pointResource;
         $this->trackStatusFactory = $trackStatusFactory;
         $this->appState = $appState;
+        $this->orderRepository = $orderRepository;
+         $this->_resourceConnection = $resourceConnection;
+         $this->hopEnviosResource = $hopEnviosResource;
+         $this->objectManager = $objectManager;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -478,6 +502,43 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     }
 
     /**
+     * Return Tracking Number
+     *
+     * @param array $pieceResponses
+     * @return string
+     */
+    private function getTrackingNumber($pieceResponses): string
+    {
+        return $pieceResponses['tracking_nro'] ?? 'TEST123456789';
+    }
+
+    /**
+     * Return Packaging Label
+     *
+     * @param array|object $pieceResponses
+     * @return string
+     */
+    private function getPackagingLabel($pieceResponses): string
+    {
+        return $pieceResponses['label_url'] ?? 'Etiqueta de prueba';
+    }
+
+        /**
+     * Filtra la tabla hop_envios por order_id
+     * @param int $orderId
+     * @return string|null
+     */
+    public function getInfoHopByOrderId($orderId)
+    {
+        $tableName = $this->_resourceConnection->getTableName($this->_table);
+        $query = $this->_connection->select()
+            ->from($tableName, ['info_hop'])
+            ->where('order_id = ?', $orderId);
+
+        return $this->_connection->fetchOne($query);
+    }
+
+    /**
      * Do shipment request to carrier web service, obtain Print Shipping Labels and process errors in response
      *
      * @param DataObject $request
@@ -487,32 +548,46 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
-        $xmlRequest = $this->_formShipmentRequest($request);
-        $xmlResponse = $this->_getCachedQuotes($xmlRequest);
+     
+        $shipment = $request->getData('order_shipment');
 
-        if ($xmlResponse === null)
-        {
-            $url = $this->getShipConfirmUrl();
-
-            $debugData = ['request' => $xmlRequest];
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_HEADER, 0);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $xmlRequest);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, (bool)$this->getConfigFlag('mode_xml'));
-            $xmlResponse = curl_exec($ch);
-            if ($xmlResponse === false)
-            {
-                throw new Exception(curl_error($ch));
-            } else {
-                $debugData['result'] = $xmlResponse;
-                $this->_setCachedQuotes($xmlRequest, $xmlResponse);
+        if ($shipment && $shipment->getOrderId()) {
+            $orderId = $shipment->getOrderId();
+            $data = $this->hopEnviosResource->getDataByOrderId($orderId);  // Método personalizado que implementaremos
+            // Decodificar el JSON de la columna 'info_hop' para acceder a sus datos
+            $infoHop = json_decode($data[0]['info_hop'], true);
+        }
+        
+        // Datos simulados para generar una etiqueta
+        $trackingNumber = $infoHop['tracking_nro'];
+        $labelUrl = $infoHop['label_url'];
+        try {
+            // Descargar la imagen de la URL
+            $imageContent = file_get_contents($labelUrl);
+            if ($imageContent === false) {
+                file_put_contents(BP . "/var/log/fix-1.log", 'No se pudo descargar la etiqueta desde la URL: ' . $labelUrl);
             }
+
+            file_put_contents(BP . "/var/log/fix-hop-image.log", $imageContent);
+    
+            // Convertir la imagen a Base64
+            $base64LabelContent = base64_encode($imageContent);
+    
+            // Guardar un log para depuración
+            file_put_contents(BP . "/var/log/fix-hop.log", $base64LabelContent . ' ' . $trackingNumber);
+    
+            // Configurar el resultado para la etiqueta de envío
+            $result = new \Magento\Framework\DataObject();
+            $result->setTrackingNumber($trackingNumber);
+            $result->setShippingLabelContent($base64LabelContent); // Etiqueta en Base64
+    
+            return $result;
+        } catch (\Exception $e) {
+            // Log de errores
+            file_put_contents(BP . "/var/log/fix-hop-error.log", $e->getMessage());
         }
     }
+
 
     /**
      * Processing additional validation to check if carrier applicable.

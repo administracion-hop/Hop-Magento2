@@ -121,7 +121,7 @@ class Context
                     $buttonList->add(
                         'crear_etiqueta_hop',
                         [
-                            'label'     => __('Enviar a HOP'),
+                            'label'     => __('Enviar a Hop'),
                             'onclick' => "hopView.open('". $baseUrl."', ".$orderId.")",
                             'class'     => 'primary hop-shipment-button'
                         ]

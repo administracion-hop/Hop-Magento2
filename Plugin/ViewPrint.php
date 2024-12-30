@@ -36,8 +36,23 @@ class ViewPrint
         if ($shipment) {
             $orderId = $shipment->getOrderId() ?? $subject->getRequest()->getParam('order_id');
 
-            // Construye la URL personalizada
-            return $this->backendUrl->getUrl('hop/label/descargar', ['order_id' => $orderId]);
+            // Obtén la orden relacionada con el envío
+            $order = $shipment->getOrder();
+
+            if ($order) {
+                // Obtén el método de envío
+                $shippingMethod = $order->getShippingMethod();
+
+                // Comprueba si el método de envío es "hop"
+                if ($shippingMethod == 'hop_hop') {
+                    $orderId = $order->getId();
+
+                    // Construye la URL personalizada
+                    return $this->backendUrl->getUrl('hop/label/descargar', ['order_id' => $orderId]);
+                }
+            }
+
+
         }
 
         // Devuelve la URL original si no se puede obtener el ID de la orden

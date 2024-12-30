@@ -562,24 +562,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $trackingNumber = $infoHop['tracking_nro'];
         $labelUrl = $infoHop['label_url'];
         try {
-            // Descargar la imagen de la URL
-            $imageContent = file_get_contents($labelUrl);
-            if ($imageContent === false) {
-                file_put_contents(BP . "/var/log/fix-1.log", 'No se pudo descargar la etiqueta desde la URL: ' . $labelUrl);
-            }
-
-            file_put_contents(BP . "/var/log/fix-hop-image.log", $imageContent);
-    
-            // Convertir la imagen a Base64
-            $base64LabelContent = base64_encode($imageContent);
     
             // Guardar un log para depuración
-            file_put_contents(BP . "/var/log/fix-hop.log", $base64LabelContent . ' ' . $trackingNumber);
+            file_put_contents(BP . "/var/log/fix-hop.log", $labelUrl . ' ' . $trackingNumber);
     
             // Configurar el resultado para la etiqueta de envío
             $result = new \Magento\Framework\DataObject();
             $result->setTrackingNumber($trackingNumber);
-            $result->setShippingLabelContent($base64LabelContent); // Etiqueta en Base64
+            $result->setShippingLabelContent($labelUrl); // Etiqueta en Base64
     
             return $result;
         } catch (\Exception $e) {

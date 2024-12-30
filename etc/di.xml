@@ -12,6 +12,6 @@
         <plugin name="improntus_vat_id_required" type="Hop\Envios\Plugin\Checkout\LayoutProcessorPlugin" sortOrder="10"/>
     </type>
     <type name="Magento\Shipping\Model\Shipping\LabelGenerator">
-        <plugin name="custom_label_generator" type="Hop\Envios\Plugin\CustomLabelGeneratorPlugin" />
+        <plugin name="custom_label_generator" type="Hop\Envios\Plugin\Shipping\CustomLabelGeneratorPlugin" />
     </type>
 </config>

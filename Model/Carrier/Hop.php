@@ -502,43 +502,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     }
 
     /**
-     * Return Tracking Number
-     *
-     * @param array $pieceResponses
-     * @return string
-     */
-    private function getTrackingNumber($pieceResponses): string
-    {
-        return $pieceResponses['tracking_nro'] ?? 'TEST123456789';
-    }
-
-    /**
-     * Return Packaging Label
-     *
-     * @param array|object $pieceResponses
-     * @return string
-     */
-    private function getPackagingLabel($pieceResponses): string
-    {
-        return $pieceResponses['label_url'] ?? 'Etiqueta de prueba';
-    }
-
-        /**
-     * Filtra la tabla hop_envios por order_id
-     * @param int $orderId
-     * @return string|null
-     */
-    public function getInfoHopByOrderId($orderId)
-    {
-        $tableName = $this->_resourceConnection->getTableName($this->_table);
-        $query = $this->_connection->select()
-            ->from($tableName, ['info_hop'])
-            ->where('order_id = ?', $orderId);
-
-        return $this->_connection->fetchOne($query);
-    }
-
-    /**
      * Do shipment request to carrier web service, obtain Print Shipping Labels and process errors in response
      *
      * @param DataObject $request
@@ -562,10 +525,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $trackingNumber = $infoHop['tracking_nro'];
         $labelUrl = $infoHop['label_url'];
         try {
-    
-            // Guardar un log para depuración
-            file_put_contents(BP . "/var/log/fix-hop.log", $labelUrl . ' ' . $trackingNumber);
-    
             // Configurar el resultado para la etiqueta de envío
             $result = new \Magento\Framework\DataObject();
             $result->setTrackingNumber($trackingNumber);
@@ -574,7 +533,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             return $result;
         } catch (\Exception $e) {
             // Log de errores
-            file_put_contents(BP . "/var/log/fix-hop-error.log", $e->getMessage());
+            $this->_helper->log('Error: ' . $e->getMessage(), true);
         }
     }
 

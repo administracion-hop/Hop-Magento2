@@ -38,6 +38,7 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Framework\App\ResourceConnection;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
 use Magento\Framework\ObjectManagerInterface;
+use Hop\Envios\Block\Adminhtml\CreateShipmentHop;
 
 /**
  * Class Hop
@@ -126,6 +127,12 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     /**
      * @var OrderRepositoryInterface
      */
+
+    /**
+     * @var CreateShipmentHop
+     */
+    protected $_createShipmentHop;
+
     private $orderRepository;
 
     protected $_resourceConnection;
@@ -159,6 +166,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param CartRepositoryInterface $quoteRepository
      * @param State $appState
      * @param array $data
+     * @param CreateShipmentHop $createShipment
      */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -189,6 +197,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         ResourceConnection $resourceConnection,
         HopEnviosResource $hopEnviosResource,
         ObjectManagerInterface $objectManager,
+        CreateShipmentHop $createShipmentHop,
         array $data = []
     )
     {
@@ -208,6 +217,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
          $this->_resourceConnection = $resourceConnection;
          $this->hopEnviosResource = $hopEnviosResource;
          $this->objectManager = $objectManager;
+         $this->_createShipmentHop = $createShipmentHop;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -510,25 +520,25 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     protected function _doShipmentRequest(DataObject $request)
     {
+
+        $data = $this->_createShipmentHop->execute();
+
         $this->_prepareShipmentRequest($request);
      
         $shipment = $request->getData('order_shipment');
 
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
-            $data = $this->hopEnviosResource->getDataByOrderId($orderId);  // Método personalizado que implementaremos
-            // Decodificar el JSON de la columna 'info_hop' para acceder a sus datos
+            $data = $this->hopEnviosResource->getDataByOrderId($orderId);
             $infoHop = json_decode($data[0]['info_hop'], true);
         }
         
-        // Datos simulados para generar una etiqueta
         $trackingNumber = $infoHop['tracking_nro'];
         $labelUrl = $infoHop['label_url'];
         try {
-            // Configurar el resultado para la etiqueta de envío
             $result = new \Magento\Framework\DataObject();
             $result->setTrackingNumber($trackingNumber);
-            $result->setShippingLabelContent($labelUrl); // Etiqueta en Base64
+            $result->setShippingLabelContent($labelUrl);
     
             return $result;
         } catch (\Exception $e) {

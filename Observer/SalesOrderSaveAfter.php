@@ -5,6 +5,7 @@ use Hop\Envios\Helper\Data;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Model\Webservice;
+use Hop\Envios\Block\Adminhtml\CreateShipmentHop;
 
 /**
  * Class SalesOrderSaveAfter
@@ -32,19 +33,27 @@ class SalesOrderSaveAfter implements ObserverInterface
     protected $_hopEnviosFactory;
 
     /**
+     * @var CreateShipment
+     */
+    protected $_createShipment;
+
+    /**
      * SalesOrderSaveAfter constructor.
      * @param Data $data
      * @param Webservice $webservice
      * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+     * @param CreateShipment $createShipment
      */
     public function __construct(
         Data $data,
         Webservice $webservice,
-        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory,
+        CreateShipment $createShipment
     ) {
         $this->_helper = $data;
         $this->_webservice = $webservice;
         $this->_hopEnviosFactory = $hopEnviosFactory;
+        $this->_createShipment = $createShipment;
     }
 
     /**
@@ -54,6 +63,7 @@ class SalesOrderSaveAfter implements ObserverInterface
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        
         try {
             if ($this->_helper->isActive())
             {
@@ -100,5 +110,6 @@ class SalesOrderSaveAfter implements ObserverInterface
         } catch (\Exception $e) {
             $this->_helper->log($e->getMessage(), true);
         }
+
     }
 }

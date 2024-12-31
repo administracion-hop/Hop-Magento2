@@ -521,8 +521,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function _doShipmentRequest(DataObject $request)
     {
 
-        $this->_createShipmentHop->execute();
-
         $this->_prepareShipmentRequest($request);
      
         $shipment = $request->getData('order_shipment');
@@ -530,21 +528,40 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-            $infoHop = json_decode($data[0]['info_hop'], true);
+
+            if (empty($data)) {
+                $this->_helper->log('Error: ' . 'No existen los datos y se crean', true);
+                $this->_createShipmentHop->crearShimentHop();
+                $this->_helper->log('Error: ' . 'No existen los datos y se crean 2', true);
+                $data = $this->hopEnviosResource->getDataByOrderId($orderId);
+            }
+            
+            if (!empty($data)) {
+
+                $infoHop = json_decode($data[0]['info_hop'], true);
+
+                $this->_helper->log('Error: ' . $infoHop['tracking_nro'] . $infoHop['label_url'], true);
+
+                if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
+
+                    $trackingNumber = $infoHop['tracking_nro'];
+                    $labelUrl = $infoHop['label_url'];
+                    try {
+                        $result = new \Magento\Framework\DataObject();
+                        $result->setTrackingNumber($trackingNumber);
+                        $result->setShippingLabelContent($labelUrl);
+                
+                        return $result;
+                    } catch (\Exception $e) {
+                        $this->_helper->log('Error: ' . $e->getMessage(), true);
+                    }
+                } else {
+                    $this->_helper->log('Error: Los valores tracking_nro o label_url están vacíos o no existen.', true);
+                }
+            }
+
         }
         
-        $trackingNumber = $infoHop['tracking_nro'];
-        $labelUrl = $infoHop['label_url'];
-        try {
-            $result = new \Magento\Framework\DataObject();
-            $result->setTrackingNumber($trackingNumber);
-            $result->setShippingLabelContent($labelUrl);
-    
-            return $result;
-        } catch (\Exception $e) {
-            // Log de errores
-            $this->_helper->log('Error: ' . $e->getMessage(), true);
-        }
     }
 
 

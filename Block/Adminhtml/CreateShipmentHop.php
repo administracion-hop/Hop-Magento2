@@ -63,7 +63,7 @@ class CreateShipmentHop extends \Magento\Backend\Block\Template
      * @throws \Magento\Framework\Exception\InputException
      * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
-    public function execute()
+    public function crearShimentHop()
     {
         try {
             if ($this->_helper->isActive())

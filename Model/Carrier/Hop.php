@@ -521,7 +521,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function _doShipmentRequest(DataObject $request)
     {
 
-        $data = $this->_createShipmentHop->execute();
+        $this->_createShipmentHop->execute();
 
         $this->_prepareShipmentRequest($request);
      

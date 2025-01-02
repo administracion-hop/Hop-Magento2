@@ -530,9 +530,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
 
             if (empty($data)) {
-                $this->_helper->log('Error: ' . 'No existen los datos y se crean', true);
                 $this->_createShipmentHop->crearShimentHop();
-                $this->_helper->log('Error: ' . 'No existen los datos y se crean 2', true);
                 $data = $this->hopEnviosResource->getDataByOrderId($orderId);
             }
             
@@ -540,7 +538,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
                 $infoHop = json_decode($data[0]['info_hop'], true);
 
-                $this->_helper->log('Error: ' . $infoHop['tracking_nro'] . $infoHop['label_url'], true);
+                $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . 'label url: '. $infoHop['label_url']);
 
                 if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
 

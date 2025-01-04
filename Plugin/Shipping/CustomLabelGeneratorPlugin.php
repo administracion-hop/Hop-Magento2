@@ -9,6 +9,7 @@ use Zend_Pdf;
 use Magento\Framework\Filesystem;
 use Magento\Shipping\Block\Adminhtml\View;
 use Hop\Envios\Helper\Data as HopHelper;
+use Hop\Envios\Model\Webservice;
 
 class CustomLabelGeneratorPlugin
 {
@@ -16,14 +17,21 @@ class CustomLabelGeneratorPlugin
     protected $_filesystem;
     protected $_shipment;
 
+    /**
+     * @var Webservice
+     */
+    protected $_webservice;
+
     public function __construct(
         Filesystem $filesystem,
         View $shipment,
-        HopHelper $hopHelper
+        HopHelper $hopHelper,
+        Webservice $webservice
     ) {
         $this->_filesystem = $filesystem;
         $this->_shipment = $shipment;
         $this->_helper = $hopHelper;
+        $this->_webservice = $webservice;
     }
 
     public function aroundCreatePdfPageFromImageString(
@@ -49,31 +57,19 @@ class CustomLabelGeneratorPlugin
                     $filename = basename($url);
                     $filePath = $mediapath . $filename;
 
+                    $lastToken = $this->_webservice->getLastToken();
+                    $_accessToken = $lastToken->getAccessToken();
+
                     try {
-                        $curl = curl_init($url);
+                        $curl = curl_init($url);  
                         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
                         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);  
-                        /*$filesize =  curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);    
-                        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);                 
-                        $imageData = curl_exec($curl);*/
-
-                        $attempts = 0;
-                        $maxRetries = 5; // Número máximo de intentos de descarga
-                        $imageData = false;
-                        $httpCode = 0;
-
-                        // Intentar descargar la imagen hasta que sea exitosa
-                        do {
-                            $imageData = curl_exec($curl);
-                            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
-                            if ($imageData !== false && $httpCode == 200) {
-                                break;
-                            }
-
-                            $attempts++;
-                            sleep(2);
-                        } while ($attempts < $maxRetries);
+                        curl_setopt($curl, CURLOPT_HTTPHEADER, [
+                            "Authorization: Bearer {$_accessToken}"
+                        ]);     
+                        $filesize =  curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);    
+                        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                        $imageData = curl_exec($curl);
 
                         curl_close($curl);
 
@@ -81,6 +77,7 @@ class CustomLabelGeneratorPlugin
                             $this->_helper->log('No se pudo descargar la imagen desde la URL: ' . $url, true);
                         }
                         file_put_contents($filePath, $imageData);
+                        
                         if (!file_exists($filePath)) {
                             $this->_helper->log('No se pudo guardar la imagen desde la URL: ' . $url, true);
                         }
@@ -91,18 +88,14 @@ class CustomLabelGeneratorPlugin
                         $image = Zend_Pdf_Image::imageWithPath($filePath);
                         $pdfPage->drawImage($image, 0, 0, $width, $height);
 
-                        if (file_exists($filePath)) {
-                            unlink($filePath);
-                        }
-
                         return $pdfPage;
+
                     } catch (\Exception $e) {
                         $this->_helper->log('Error al procesar la etiqueta PDF: ' . $e->getMessage(), true);
                         throw new \Magento\Framework\Exception\LocalizedException(
                             __('Error al generar la etiqueta de envío: %1', $e->getMessage())
                         );
                     } finally {
-                        // Limpiar archivo temporal, si existe
                         if (file_exists($filePath)) {
                             unlink($filePath);
                         }

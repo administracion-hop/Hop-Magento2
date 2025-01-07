@@ -11,7 +11,7 @@ use Magento\Shipping\Block\Adminhtml\View;
 use Hop\Envios\Helper\Data as HopHelper;
 use Hop\Envios\Model\Webservice;
 
-class CustomLabelGeneratorPlugin
+class LabelGeneratorPlugin
 {
     protected $_helper;
     protected $_filesystem;

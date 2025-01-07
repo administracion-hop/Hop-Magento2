@@ -35,10 +35,7 @@ use Hop\Envios\Model\ResourceModel\Point;
 use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Magento\Framework\App\ResourceConnection;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
-use Magento\Framework\ObjectManagerInterface;
-use Hop\Envios\Block\Adminhtml\CreateShipmentHop;
 
 /**
  * Class Hop
@@ -128,18 +125,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @var OrderRepositoryInterface
      */
 
-    /**
-     * @var CreateShipmentHop
-     */
-    protected $_createShipmentHop;
-
     private $orderRepository;
 
-    protected $_resourceConnection;
+    /**
+     * @var HopEnviosResource
+     */
 
     protected $hopEnviosResource;
 
-    protected $objectManager;
 
 
     /**
@@ -164,9 +157,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopHelper $hopHelper
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
+     * @param HopEnviosResource $hopEnviosResource
      * @param State $appState
      * @param array $data
-     * @param CreateShipmentHop $createShipment
      */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -194,10 +187,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         Point $pointResource,
         State $appState,
         OrderRepositoryInterface $orderRepository,
-        ResourceConnection $resourceConnection,
         HopEnviosResource $hopEnviosResource,
-        ObjectManagerInterface $objectManager,
-        CreateShipmentHop $createShipmentHop,
         array $data = []
     )
     {
@@ -214,10 +204,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->trackStatusFactory = $trackStatusFactory;
         $this->appState = $appState;
         $this->orderRepository = $orderRepository;
-         $this->_resourceConnection = $resourceConnection;
-         $this->hopEnviosResource = $hopEnviosResource;
-         $this->objectManager = $objectManager;
-         $this->_createShipmentHop = $createShipmentHop;
+        $this->hopEnviosResource = $hopEnviosResource;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -527,11 +514,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-            
-            /*if (empty($data)) {
-                $this->_createShipmentHop->crearShimentHop();
-                $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-            }*/
     
             if (!empty($data)) {
 

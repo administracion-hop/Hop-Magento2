@@ -3,7 +3,7 @@
     <event name="sales_order_place_before">
         <observer name="Hop_Envios::SalesOrderPlaceBefore" instance="Hop\Envios\Observer\SalesOrderPlaceBefore"/>
     </event>
-    <!--<event name="sales_order_save_after">
+    <event name="sales_order_save_after">
         <observer name="Hop_Envios::SalesOrderSaveAfter" instance="Hop\Envios\Observer\SalesOrderSaveAfter" />
-    </event>-->
+    </event>
 </config>

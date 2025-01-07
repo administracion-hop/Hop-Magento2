@@ -61,14 +61,19 @@ class CustomLabelGeneratorPlugin
                     $_accessToken = $lastToken->getAccessToken();
 
                     try {
-                        $curl = curl_init($url);  
-                        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);  
-                        curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                            "Authorization: Bearer {$_accessToken}"
-                        ]);     
-                        $filesize =  curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);    
-                        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                        $curl = curl_init();
+
+                        curl_setopt_array($curl, array(
+                        CURLOPT_URL => $url,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'GET',
+                        ));
+
                         $imageData = curl_exec($curl);
 
                         curl_close($curl);

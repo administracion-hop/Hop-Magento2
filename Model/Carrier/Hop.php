@@ -527,28 +527,25 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-    
-            if (empty($data)) {
+            
+            /*if (empty($data)) {
                 $this->_createShipmentHop->crearShimentHop();
                 $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-            }
+            }*/
     
             if (!empty($data)) {
 
-                // Validar que info_hop existe y contiene un string válido
                 if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
                     $infoHop = json_decode($data[0]['info_hop'], true);
 
-                    // Validar que json_decode no devuelve null
                     if ($infoHop !== null && is_array($infoHop)) {
 
                         $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
     
-                        // Validar los valores tracking_nro y label_url
                         if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
                             $trackingNumber = $infoHop['tracking_nro'];
                             $labelUrl = $infoHop['label_url'];
-    
+      
                             try {
                                 $result = new \Magento\Framework\DataObject();
                                 $result->setTrackingNumber($trackingNumber);
@@ -583,7 +580,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
         }
     
-        return null; // Asegurarse de devolver null en caso de error
+        return null;
     }
     
 

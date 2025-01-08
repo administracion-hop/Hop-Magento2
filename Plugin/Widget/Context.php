@@ -94,14 +94,14 @@ class Context
                 {
                     $baseUrl = $this->_backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
     
-                    $buttonList->add(
+                    /*$buttonList->add(
                         'descargar_etiqueta_hop',
                         [
                             'label'     => __('Descargar etiqueta HOP'),
                             'onclick' => "setLocation('{$baseUrl}')",
                             'class'     => 'primary hop-shipment-button'
                         ]
-                    );
+                    );*/
                     if(!empty($tracking_nro))
                     {
                         $trackingUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
@@ -121,7 +121,7 @@ class Context
                     $buttonList->add(
                         'crear_etiqueta_hop',
                         [
-                            'label'     => __('Enviar a HOP'),
+                            'label'     => __('Enviar a Hop'),
                             'onclick' => "hopView.open('". $baseUrl."', ".$orderId.")",
                             'class'     => 'primary hop-shipment-button'
                         ]

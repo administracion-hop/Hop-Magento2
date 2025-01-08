@@ -34,6 +34,8 @@ use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFac
 use Hop\Envios\Model\ResourceModel\Point;
 use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
 
 /**
  * Class Hop
@@ -120,6 +122,20 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected $appState;
 
     /**
+     * @var OrderRepositoryInterface
+     */
+
+    private $orderRepository;
+
+    /**
+     * @var HopEnviosResource
+     */
+
+    protected $hopEnviosResource;
+
+
+
+    /**
      * Hop constructor.
      * @param ScopeConfigInterface $scopeConfig
      * @param ErrorFactory $rateErrorFactory
@@ -141,6 +157,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopHelper $hopHelper
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
+     * @param HopEnviosResource $hopEnviosResource
      * @param State $appState
      * @param array $data
      */
@@ -169,6 +186,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         PointFactory $pointFactory,
         Point $pointResource,
         State $appState,
+        OrderRepositoryInterface $orderRepository,
+        HopEnviosResource $hopEnviosResource,
         array $data = []
     )
     {
@@ -184,6 +203,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->pointResource = $pointResource;
         $this->trackStatusFactory = $trackStatusFactory;
         $this->appState = $appState;
+        $this->orderRepository = $orderRepository;
+        $this->hopEnviosResource = $hopEnviosResource;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -487,32 +508,64 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
-        $xmlRequest = $this->_formShipmentRequest($request);
-        $xmlResponse = $this->_getCachedQuotes($xmlRequest);
+    
+        $shipment = $request->getData('order_shipment');
+    
+        if ($shipment && $shipment->getOrderId()) {
+            $orderId = $shipment->getOrderId();
+            $data = $this->hopEnviosResource->getDataByOrderId($orderId);
+    
+            if (!empty($data)) {
 
-        if ($xmlResponse === null)
-        {
-            $url = $this->getShipConfirmUrl();
+                if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
+                    $infoHop = json_decode($data[0]['info_hop'], true);
 
-            $debugData = ['request' => $xmlRequest];
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_HEADER, 0);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $xmlRequest);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, (bool)$this->getConfigFlag('mode_xml'));
-            $xmlResponse = curl_exec($ch);
-            if ($xmlResponse === false)
-            {
-                throw new Exception(curl_error($ch));
+                    if ($infoHop !== null && is_array($infoHop)) {
+
+                        $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
+    
+                        if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
+                            $trackingNumber = $infoHop['tracking_nro'];
+                            $labelUrl = $infoHop['label_url'];
+      
+                            try {
+                                $result = new \Magento\Framework\DataObject();
+                                $result->setTrackingNumber($trackingNumber);
+                                $result->setShippingLabelContent($labelUrl);
+    
+                                return $result;
+                            } catch (\Exception $e) {
+                                $this->_helper->log('Error: ' . $e->getMessage(), true);
+                                throw new \Magento\Framework\Exception\LocalizedException(
+                                    __('Error: ' . $e->getMessage() )
+                                );
+                            }
+                        } else {
+                            $this->_helper->log('Error: Los valores tracking_nro o label_url están vacíos o no existen.', true);
+                        }
+                    } else {
+                        $this->_helper->log('Error: JSON inválido en info_hop.', true);
+                        throw new \Magento\Framework\Exception\LocalizedException(
+                            __('Error: Respuesta Invalida, Formato invalido')
+                        );
+                    }
+                } else {
+                    $this->_helper->log('Error: El campo info_hop está vacío, no es un string válido, o no existe.', true);
+                    throw new \Magento\Framework\Exception\LocalizedException(
+                        __('Error: Respuesta Invalidad, No existen los datos.')
+                    );
+                }
             } else {
-                $debugData['result'] = $xmlResponse;
-                $this->_setCachedQuotes($xmlRequest, $xmlResponse);
+                $this->_helper->log('Error: No se encontraron datos para el pedido con ID ' . $orderId, true);
             }
+        } else {
+            $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
         }
+    
+        return null;
     }
+    
+
 
     /**
      * Processing additional validation to check if carrier applicable.

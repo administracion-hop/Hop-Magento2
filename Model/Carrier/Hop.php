@@ -189,8 +189,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         OrderRepositoryInterface $orderRepository,
         HopEnviosResource $hopEnviosResource,
         array $data = []
-    )
-    {
+    ) {
         $this->_rateResultFactory = $rateFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         $this->_helper            = $hopHelper;
@@ -291,8 +290,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     public function collectRates(RateRequest $request)
     {
-        if (!$this->getConfigFlag('active'))
-        {
+        if (!$this->getConfigFlag('active')) {
             return false;
         }
 
@@ -311,190 +309,152 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $totalPrice = 0;
 
-        $currentZipCode = (int)$request->getDestPostcode();
         $zipCode = (int)$request->getDestPostcode();
         $quote = $this->_checkoutSession->getQuote();
-        // $quoteId = $quote->getId(); // get the current quote id
-        // $quoteFromDb = $this->_quoteRepository->get($quoteId); // load the quote from the database
-        // $shippingAddressFromDb = $quoteFromDb->getShippingAddress();
-        // $quotePostcode = (int)$this->_checkoutSession->getCustomerZipcode(); // get the zipcode stored in the session
 
-        $isAdmin = $this->isAdmin();
-
+        if (!$zipCode) {
+            return $result;
+        }
 
         $hopData = $this->_checkoutSession->getHopData();
 
-        if($zipCode && ($isAdmin || (is_array($hopData) && count($hopData))))
-        {
-            $hopAltoTotal = 0;
-            $hopLargoTotal = [];
-            $hopAnchoTotal = [];
-            foreach($request->getAllItems() as $_item)
-            {
-                if($_item->getProductType() == 'configurable')
-                    continue;
+        $hopAltoTotal = 0;
+        $hopLargoTotal = [];
+        $hopAnchoTotal = [];
 
-                $_product = $_item->getProduct();
-
-                if($_item->getParentItem())
-                    $_item = $_item->getParentItem();
-
-                $hopAlto = (int) $_product->getResource()
-                        ->getAttributeRawValue($_product->getId(),'hop_alto',$_product->getStoreId()) * $_item->getQty();
-                $hopAltoTotal += $hopAlto;
-
-                $hopLargo = (int) $_product->getResource()
-                        ->getAttributeRawValue($_product->getId(),'hop_largo',$_product->getStoreId()) * $_item->getQty();
-                $hopLargoTotal[] = $hopLargo;
-
-                $hopAncho = (int) $_product->getResource()
-                        ->getAttributeRawValue($_product->getId(),'hop_ancho',$_product->getStoreId()) * $_item->getQty();
-                $hopAnchoTotal[] = $hopAncho;
-
-                $totalPrice += $_product->getFinalPrice() * $_item->getQty();
+        /** @var \Magento\Quote\Model\Quote\Item $_item */
+        foreach ($request->getAllItems() as $_item) {
+            if ($_item->getProductType() == 'configurable') {
+                continue;
             }
 
-            $hopAnchoTotal = max($hopAnchoTotal);
-            $hopLargoTotal = max($hopLargoTotal);
-            $pesoTotal  = $request->getPackageWeight(); //Peso en unidad de kg
+            /** @var \Magento\Catalog\Model\Product $_product */
+            $_product = $_item->getProduct();
 
-            if($pesoTotal > (int)$helper->getMaxWeight())
-            {
-                $error = $this->_rateErrorFactory->create();
-                $error->setCarrier($this->_code);
-                $error->setCarrierTitle($this->getConfigData('title'));
-                $error->setErrorMessage(__('Su pedido supera el peso máximo permitido por Hop. Por favor divida su orden en más pedidos o consulte al administrador de la tienda.'));
-
-                return $error;
+            if ($_item->getParentItem()) {
+                $_item = $_item->getParentItem();
             }
 
-            if($request->getFreeShipping() || ($this->getConfigData('hop_free_shipping') && $totalPrice >= $this->getConfigData('hop_free_shipping')))
-            {
-                $method->setPrice(0);
-                $method->setCost(0);
-            }
-            else
-            {
-                $originZipCode = $this->_helper->getOriginZipcode();
-                $destZipCode = $isAdmin ? $zipCode : $hopData['hopPointPostcode'];
-                $hopPointId = $isAdmin ? '' : $hopData['hopPointId'];
-                $sellerCode = $helper->getSellerCode();
-                $costoEnvio = $webservice->estimatePrice(
-                    $originZipCode,
-                    $destZipCode,
-                    $sellerCode,
-                    $hopPointId,
-                    'E',
-                    [
-                        'width' => $hopAnchoTotal,
-                        'length' => $hopLargoTotal,
-                        'height' => $hopAltoTotal,
-                        'weight' => $pesoTotal * 1000,
-                        'value' => (int)$totalPrice
-                    ]
-                );
-                $dataForLog = array(
-                    'origin_zip_code' => $originZipCode,
-                    'hop_zip_code' => $destZipCode,
-                    'seller_code' => $sellerCode,
-                    'hop_point_id' => $hopPointId,
-                    'product_data' => [
-                        'width' => $hopAnchoTotal,
-                        'length' => $hopLargoTotal,
-                        'height' => $hopAltoTotal,
-                        'weight' => $pesoTotal,
-                        'value' => (int)$totalPrice
-                    ],
-                    'hop_cost' => $costoEnvio
-                );
-                $helper->log("COTIZACIÓN");
-                $helper->log($dataForLog, false, true);
-                if (!$costoEnvio) {
-                    return $result;
-                }
-                $percentageRate = $this->getConfigData('percentage_rate');
-                $fixedValue = $this->getConfigData('fixed_value');
+            $qty = $_item->getQty();
 
-                if (!empty($percentageRate)) {
+            $hopAltoTotal += $this->getMeasure($_product, 'hop_alto', $qty);
+            $hopLargoTotal[] = $this->getMeasure($_product, 'hop_largo', $qty);
+            $hopAnchoTotal[] = $this->getMeasure($_product, 'hop_ancho', $qty);
 
-                    $adjustedShippingCost = ($percentageRate == 1) ? $costoEnvio : $costoEnvio * $percentageRate;
+            $totalPrice += $_product->getFinalPrice() * $qty;
+        }
 
-                    if (!empty($fixedValue)) {
-                        if ($fixedValue >= 0)
-                        {
-                            $adjustedShippingCost += $fixedValue;
-                        }
-                        else
-                        {
-                            $adjustedShippingCost -= abs($fixedValue);
-                        }
-                    }
+        $hopAnchoTotal = max($hopAnchoTotal);
+        $hopLargoTotal = max($hopLargoTotal);
+        $pesoTotal  = $request->getPackageWeight(); //Peso en unidad de kg
 
-                } else {
-                    $adjustedShippingCost = $costoEnvio;
+        if ($pesoTotal > (int)$helper->getMaxWeight()) {
+            $error = $this->_rateErrorFactory->create();
+            $error->setCarrier($this->_code);
+            $error->setCarrierTitle($this->getConfigData('title'));
+            $error->setErrorMessage(__('Su pedido supera el peso máximo permitido por Hop. Por favor divida su orden en más pedidos o consulte al administrador de la tienda.'));
+            $quote = $this->_checkoutSession->getQuote();
+            $quote->setHopData(null);
+            $quote->save();
+            return $error;
+        }
 
-                    if (!empty($fixedValue)) {
-                       if ($fixedValue >= 0)
-                        {
-                            $adjustedShippingCost += $fixedValue;
-                        }
-                        else
-                        {
-                            $adjustedShippingCost -= abs($fixedValue);
-                        }
-                    }
-                }
+        if ($request->getFreeShipping() || ($this->getConfigData('hop_free_shipping') && $totalPrice >= $this->getConfigData('hop_free_shipping'))) {
+            $method->setPrice(0);
+            $method->setCost(0);
+        } else {
+            $originZipCode = $this->_helper->getOriginZipcode();
+            $destZipCode = $zipCode;
+            $hopPointId = !empty($hopData['hopPointId']) ? $hopData['hopPointId'] : '';
+            $sellerCode = $helper->getSellerCode();
+            $costoEnvio = $webservice->estimatePrice(
+                $originZipCode,
+                $destZipCode,
+                $sellerCode,
+                $hopPointId,
+                'E',
+                [
+                    'width' => $hopAnchoTotal,
+                    'length' => $hopLargoTotal,
+                    'height' => $hopAltoTotal,
+                    'weight' => $pesoTotal * 1000,
+                    'value' => (int)$totalPrice
+                ]
+            );
+            $dataForLog = array(
+                'origin_zip_code' => $originZipCode,
+                'hop_zip_code' => $destZipCode,
+                'seller_code' => $sellerCode,
+                'hop_point_id' => $hopPointId,
+                'product_data' => [
+                    'width' => $hopAnchoTotal,
+                    'length' => $hopLargoTotal,
+                    'height' => $hopAltoTotal,
+                    'weight' => $pesoTotal,
+                    'value' => (int)$totalPrice
+                ],
+                'hop_cost' => $costoEnvio
+            );
+            $helper->log("COTIZACIÓN");
+            $helper->log($dataForLog, false, true);
 
-                $adjustedShippingCost = max(0, $adjustedShippingCost);
-                $method->setPrice($adjustedShippingCost);
-                $method->setCost($adjustedShippingCost);
-
-
-            }
-            if($method->getPrice() !== false)
-            {
-                if(isset($hopData['hopPointName']) && isset($hopData['hopPointAddress']))
-                {
-                    $method->setMethodTitle(
-                        'Retirá tu pedido en: ' .
-                        $hopData['hopPointReferenceName']
-                        . " ({$hopData['hopPointAddress']}) " .
-                        ' - Horario: '.$hopData['hopPointSchedules']
-                    );
-
-                    $quote = $this->_checkoutSession->getQuote();
-                    $quote->setHopData(json_encode($hopData));
-                    $quote->save();
-                }
-
-                $result->append($method);
-            }
-            else
-            {
+            if (!$costoEnvio) {
                 $error = $this->_rateErrorFactory->create();
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
-
+                $quote = $this->_checkoutSession->getQuote();
+                $quote->setHopData(null);
+                $quote->save();
                 return $error;
             }
-        } else if (!$isAdmin){
-            $pickupPoints = $webservice->getPickupPoints($currentZipCode);
-            if (!empty($pickupPoints->data)){
-                $method->setPrice(0);
-                $method->setCost(0);
-                $result->append($method);
-                $this->_checkoutSession->setCustomerZipcode($currentZipCode);
-                return $result;
-            }
-            $error = $this->_rateErrorFactory->create();
-            $error->setCarrier($this->_code);
-            $error->setCarrierTitle($this->getConfigData('title'));
-            $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
 
-            return $error;
-            
+            $percentageRate = $this->getConfigData('percentage_rate');
+            $fixedValue = $this->getConfigData('fixed_value');
+
+            if (!empty($percentageRate)) {
+
+                $adjustedShippingCost = ($percentageRate == 1) ? $costoEnvio : $costoEnvio * $percentageRate;
+
+                if (!empty($fixedValue)) {
+                    if ($fixedValue >= 0) {
+                        $adjustedShippingCost += $fixedValue;
+                    } else {
+                        $adjustedShippingCost -= abs($fixedValue);
+                    }
+                }
+            } else {
+                $adjustedShippingCost = $costoEnvio;
+
+                if (!empty($fixedValue)) {
+                    if ($fixedValue >= 0) {
+                        $adjustedShippingCost += $fixedValue;
+                    } else {
+                        $adjustedShippingCost -= abs($fixedValue);
+                    }
+                }
+            }
+
+            $adjustedShippingCost = max(0, $adjustedShippingCost);
+            $method->setPrice($adjustedShippingCost);
+            $method->setCost($adjustedShippingCost);
         }
+
+        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress'])) {
+            $method->setMethodTitle(
+                'Retirá tu pedido en: ' .
+                    $hopData['hopPointReferenceName']
+                    . " ({$hopData['hopPointAddress']}) " .
+                    ' - Horario: ' . $hopData['hopPointSchedules']
+            );
+            $quote = $this->_checkoutSession->getQuote();
+            $quote->setHopData(json_encode($hopData));
+            $quote->save();
+        }
+
+
+        $result->append($method);
+
         return $result;
     }
 
@@ -508,13 +468,13 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
-    
+
         $shipment = $request->getData('order_shipment');
-    
+
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-    
+
             if (!empty($data)) {
 
                 if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
@@ -523,21 +483,21 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                     if ($infoHop !== null && is_array($infoHop)) {
 
                         $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
-    
+
                         if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
                             $trackingNumber = $infoHop['tracking_nro'];
                             $labelUrl = $infoHop['label_url'];
-      
+
                             try {
                                 $result = new \Magento\Framework\DataObject();
                                 $result->setTrackingNumber($trackingNumber);
                                 $result->setShippingLabelContent($labelUrl);
-    
+
                                 return $result;
                             } catch (\Exception $e) {
                                 $this->_helper->log('Error: ' . $e->getMessage(), true);
                                 throw new \Magento\Framework\Exception\LocalizedException(
-                                    __('Error: ' . $e->getMessage() )
+                                    __('Error: ' . $e->getMessage())
                                 );
                             }
                         } else {
@@ -561,10 +521,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         } else {
             $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
         }
-    
+
         return null;
     }
-    
+
 
 
     /**
@@ -594,5 +554,20 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             'url' => $url,
         ]);
         return $tracking;
+    }
+
+    /**
+     * @param \Magento\Catalog\Model\Product $product
+     * @param string $measure_code
+     * @param int $qty
+     * @return int
+     */
+    protected function getMeasure($product, $measure_code, $qty)
+    {
+        return (int) $product->getResource()->getAttributeRawValue(
+            $product->getId(),
+            $measure_code,
+            $product->getStoreId()
+        ) * $qty;
     }
 }

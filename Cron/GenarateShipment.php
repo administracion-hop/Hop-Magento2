@@ -11,6 +11,7 @@ use Magento\Shipping\Model\ShipmentNotifier;
 use Hop\Envios\Model\Carrier\Hop;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Sales\Model\Order;
+use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
 
 class GenarateShipment
 {
@@ -22,13 +23,13 @@ class GenarateShipment
     protected $shipmentNotifier;
     protected $hopCarrier;
     protected $resourceConnection;
+    protected $hopEnviosResource;
 
     const SHIPMENT_STATUS_PENDING = 'pending';
 
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
     const CARRIER_CODE_HOP = 'HOP';
-    const TRACKING_NUMBER = '1234567890';
 
     public function __construct(
         OrderFactory $orderFactory,
@@ -38,7 +39,8 @@ class GenarateShipment
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
         Hop $hopCarrier,
-        ResourceConnection $resourceConnection
+        ResourceConnection $resourceConnection,
+        HopEnviosResource $hopEnviosResource
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -48,6 +50,7 @@ class GenarateShipment
         $this->shipmentNotifier = $shipmentNotifier;
         $this->hopCarrier = $hopCarrier;
         $this->resourceConnection = $resourceConnection;
+        $this->hopEnviosResource = $hopEnviosResource;
     }
 
     /**
@@ -64,7 +67,19 @@ class GenarateShipment
             $this->logger->info('Ordenes pendientes encontradas: ' . count($orderIds));
 
             foreach ($orderIds as $orderId) {
-                $this->processOrder($orderId, $connection, $hopEnviosTable);
+                $data = $this->hopEnviosResource->getDataByOrderId($orderId);
+
+                if (!empty($data)) {
+                    if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
+                        $infoHop = json_decode($data[0]['info_hop'], true);
+                        $this->processOrder($orderId, $connection, $hopEnviosTable, $infoHop);
+                    } else {
+                        $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_PENDING);
+                    }
+                } else {
+                    $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_PENDING);
+                }
+
             }
 
         } catch (\Exception $e) {
@@ -92,7 +107,7 @@ class GenarateShipment
      * @param \Magento\Framework\DB\Adapter\Pdo\Mysql $connection
      * @param string $hopEnviosTable
      */
-    protected function processOrder($orderId, $connection, $hopEnviosTable)
+    protected function processOrder($orderId, $connection, $hopEnviosTable, $infoHop)
     {
         $order = $this->orderFactory->create()->load($orderId);
 
@@ -103,7 +118,44 @@ class GenarateShipment
 
             try {
                 $shipment = $this->createShipment($order, $items);
-                $track = $this->createTracking($shipment);
+
+                $packageData = [
+                    "1" => [
+                        "params" => [
+                            "container" => "",
+                            "weight" => "1",
+                            "customs_value" => "100",
+                            "length" => "",
+                            "width" => "",
+                            "height" => "",
+                            "weight_units" => "POUND",
+                            "dimension_units" => "INCH",
+                            "content_type" => "",
+                            "content_type_other" => ""
+                        ],
+                        "items" => []
+                    ]
+                ];
+                // Agregar los productos al paquete
+                foreach ($order->getAllItems() as $item) {
+                    if ($item->getQtyShipped() > 0 && !$item->getIsVirtual()) {
+                        $packageData["1"]["items"][$item->getId()] = [
+                            "qty" => (string)$item->getQtyShipped(),
+                            "customs_value" => (string)$item->getPrice(),
+                            "price" => (string)$item->getPrice(),
+                            "name" => $item->getName(),
+                            "weight" => (string)$item->getWeight(),
+                            "product_id" => (string)$item->getProductId(),
+                            "order_item_id" => (string)$item->getId()
+                        ];
+                    }
+                }
+
+                // Agregar el paquete al envío
+                $shipment->setData('packages', $packageData);
+
+
+                $track = $this->createTracking($shipment, $infoHop);
                 $this->shipmentNotifier->notify($shipment);
                 $this->transaction->addObject($shipment)
                     ->addObject($order->save())
@@ -167,12 +219,13 @@ class GenarateShipment
      * @param \Magento\Sales\Model\Order\Shipment $shipment
      * @return \Magento\Sales\Model\Order\Shipment\Track
      */
-    protected function createTracking($shipment)
+    protected function createTracking($shipment, $infoHop)
     {
+        $trackingNumber = $infoHop['tracking_nro'];
         $track = $this->trackFactory->create();
         $track->setCarrierCode('hop')
             ->setTitle(self::CARRIER_CODE_HOP)
-            ->setTrackNumber(self::TRACKING_NUMBER);
+            ->setTrackNumber($trackingNumber);
 
         $shipment->addTrack($track);
 

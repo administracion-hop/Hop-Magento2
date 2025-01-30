@@ -4,7 +4,7 @@
         <job name="hop_envios_load_points" instance="Hop\Envios\Cron\LoadPoints" method="execute">
             <schedule>0 * * * *</schedule>
         </job>
-        <job name="hop_envios_pending_orders" instance="Hop\Envios\Cron\PendingOrders" method="execute">
+        <job name="hop_envios_genarate_shipment" instance="Hop\Envios\Cron\GenarateShipment" method="execute">
             <schedule>* * * * *</schedule>
         </job>
     </group>

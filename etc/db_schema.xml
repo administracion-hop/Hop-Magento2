@@ -12,4 +12,7 @@
             <column name="id"/>
         </constraint>
     </table>
+    <table name="hop_envios" comment="Hop Envios Table">
+        <column xsi:type="varchar" name="status_shipment" length="255"  nullable="true" default="pending" comment="New Column for Hop Envios" />
+    </table>
 </schema>

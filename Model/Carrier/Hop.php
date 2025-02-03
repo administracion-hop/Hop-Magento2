@@ -465,15 +465,18 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @return DataObject
      * @throws Exception
      */
-    protected function _doShipmentRequest(DataObject $request)
+    public function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
 
+
         $shipment = $request->getData('order_shipment');
+
 
         if ($shipment && $shipment->getOrderId()) {
             $orderId = $shipment->getOrderId();
             $data = $this->hopEnviosResource->getDataByOrderId($orderId);
+
 
             if (!empty($data)) {
 
@@ -484,14 +487,17 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
                         $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
 
+
                         if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
                             $trackingNumber = $infoHop['tracking_nro'];
                             $labelUrl = $infoHop['label_url'];
+
 
                             try {
                                 $result = new \Magento\Framework\DataObject();
                                 $result->setTrackingNumber($trackingNumber);
                                 $result->setShippingLabelContent($labelUrl);
+
 
                                 return $result;
                             } catch (\Exception $e) {
@@ -521,6 +527,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         } else {
             $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
         }
+
 
         return null;
     }

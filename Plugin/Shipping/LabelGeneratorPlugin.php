@@ -82,7 +82,7 @@ class LabelGeneratorPlugin
                             $this->_helper->log('No se pudo descargar la imagen desde la URL: ' . $url, true);
                         }
                         file_put_contents($filePath, $imageData);
-                        
+
                         if (!file_exists($filePath)) {
                             $this->_helper->log('No se pudo guardar la imagen desde la URL: ' . $url, true);
                         }
@@ -115,4 +115,73 @@ class LabelGeneratorPlugin
 
         return $proceed($imageString);
     }
+
+    public function beforeCombineLabelsPdf(
+        \Magento\Shipping\Model\Shipping\LabelGenerator $subject,
+        array $labelsContent = []
+    ) {
+        $logPath = BP . '/var/log/yeah.log';
+        $mediaPath = BP . '/pub/media/Hop/';
+
+        if (!file_exists($mediaPath) || !is_dir($mediaPath)) {
+            mkdir($mediaPath, 0775, true);
+        }
+
+        foreach ($labelsContent as &$content) {
+            if (filter_var($content, FILTER_VALIDATE_URL)) {
+                $url = $content;
+                $filename = basename(parse_url($url, PHP_URL_PATH));
+                $filePath = $mediaPath . $filename;
+
+                try {
+                    $curl = curl_init();
+                    curl_setopt_array($curl, [
+                        CURLOPT_URL            => $url,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_TIMEOUT        => 10
+                    ]);
+                    $imageData = curl_exec($curl);
+                    curl_close($curl);
+
+                    if ($imageData === false) {
+                        file_put_contents($logPath, "Error descargando imagen desde: $url" . PHP_EOL, FILE_APPEND);
+                        continue;
+                    }
+
+                    file_put_contents($filePath, $imageData);
+
+                    if (!file_exists($filePath)) {
+                        file_put_contents($logPath, "No se pudo guardar la imagen en: $filePath" . PHP_EOL, FILE_APPEND);
+                        continue;
+                    }
+
+                    list($width, $height) = getimagesize($filePath);
+
+                    $pdf = new \Zend_Pdf();
+                    $pdfPage = new \Zend_Pdf_Page($width, $height);
+                    $image = \Zend_Pdf_Image::imageWithPath($filePath);
+                    $pdfPage->drawImage($image, 0, 0, $width, $height);
+                    $pdf->pages[] = $pdfPage;
+
+                    // Convertimos el PDF en string binario
+                    $pdfBinary = $pdf->render();
+
+                    // Reemplazamos la URL con el contenido binario del PDF
+                    $content = $pdfBinary;
+
+                } catch (\Exception $e) {
+                    file_put_contents($logPath, "Error procesando la imagen: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+                    continue;
+                } finally {
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
+                }
+            }
+        }
+
+        return [$labelsContent];
+    }
+
 }

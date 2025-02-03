@@ -132,16 +132,16 @@ class Webservice
 
     /**
      * Performs an HTTP request using cURL with automatic authentication retry
-     * 
+     *
      * This method sends HTTP requests to an API endpoint with support for different HTTP verbs,
      * automatic token refresh on 401 (Unauthorized) errors, and logging.
-     * 
+     *
      * @param string $verb The HTTP method to use (e.g., 'GET', 'POST', 'PUT', 'DELETE')
      * @param string $path The API endpoint path (without the full URL)
      * @param mixed $postFields Optional data to be sent with the request (typically for POST/PUT)
-     * 
+     *
      * @return string|false The API response body on success, or false on failure
-     * 
+     *
      * @throws Exception Potential exceptions from cURL operations
      */
     protected function curl($verb, $path, $postFields = false)
@@ -164,14 +164,14 @@ class Webservice
                     "Content-Type: application/json"
                 ],
             ];
-    
+
             if ($postFields){
                 $curlData[CURLOPT_POSTFIELDS] = $postFields;
             }
             curl_setopt_array($curl, $curlData);
-    
+
             $response = curl_exec($curl);
-    
+
             if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401){
                 $this->login(true);
                 $retry = true;
@@ -179,7 +179,7 @@ class Webservice
                 $retry = false;
             }
         } while($retry);
-        
+
         if(curl_error($curl))
         {
             $error = 'Se produjo un error: '. curl_error($curl);
@@ -368,7 +368,10 @@ class Webservice
         $url .= "?origin_zipcode=$originZipCode";
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
-        $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height&pickup_point_id=$hopPointId";
+        $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height";
+        if ($hopPointId){
+            $url .= "&pickup_point_id=$hopPointId";
+        }
 
         $response = $this->curl("GET", $url);
         $responseObject = json_decode($response);
@@ -455,7 +458,7 @@ class Webservice
         $this->_helper->log($params, false, true);
 
         $url = "api.hopenvios.com.ar/api/v1/shipping";
-        
+
         $responseJson = $this->curl('POST', $url, $postFields);
         $responseObject = json_decode($responseJson);
 

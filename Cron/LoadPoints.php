@@ -37,9 +37,9 @@ class LoadPoints
                 $points = $this->PointFactory->create()->getCollection();
                 foreach ($points as $key => $point) {
                     $zipCode = $point->getZipCode();
-                    $apiData = $this->webservice->getPickupPoints($zipCode);
-                        $point->setPointData(json_encode($apiData));
-                        $point->save();
+                    $apiData = $this->webservice->getPickupPoints($zipCode, true);
+                    $point->setPointData(json_encode($apiData));
+                    $point->save();
                 }
             $this->logger->info('Load points cron job completed successfully.');
         } catch (\Exception $e) {

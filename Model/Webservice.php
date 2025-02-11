@@ -317,13 +317,15 @@ class Webservice
      * @param integer $zipCode
      * @return bool|mixed
      */
-    public function getPickupPoints($zipCode)
+    public function getPickupPoints($zipCode, $force_from_api = false)
     {
-        $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
-        if ($collection->getSize()) {
-            $pointes = $collection->getFirstItem();
-            $pointData = $pointes->getPointData();
-            return json_decode($pointData);
+        if (!$force_from_api){
+            $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
+            if ($collection->getSize()) {
+                $pointes = $collection->getFirstItem();
+                $pointData = $pointes->getPointData();
+                return json_decode($pointData);
+            }
         }
 
         $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";

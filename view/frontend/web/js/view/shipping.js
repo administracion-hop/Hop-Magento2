@@ -66,7 +66,7 @@ define(
 
                 if(hopSucursalRadio === 'hop_hop')
                 {
-                    if(!$('#hopsucursal-sucursal').val())
+                    if($('#hopsucursal-sucursal').val() === "0")
                     {
                         alert('Seleccione una sucursal Hop para continuar');
                         return false;

@@ -66,7 +66,8 @@ define(
 
                 if(hopSucursalRadio === 'hop_hop')
                 {
-                    if($('#hopsucursal-sucursal').val() === "0")
+                    console.log(quote.shippingMethod().method_title.includes('Horario:'));
+                    if(!quote.shippingMethod().method_title.includes('Horario:'))
                     {
                         alert('Seleccione una sucursal Hop para continuar');
                         return false;

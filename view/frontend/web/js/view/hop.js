@@ -327,7 +327,7 @@ define(
                     'hopPointDistributorId': selectedPointHop.attr('data-distributorid'),
                     'hopPointAgencycode': selectedPointHop.attr('data-agencycode')
                 };
-
+                window.checkoutConfig.quoteData.hop_data = JSON.stringify(hopData);
                 var processors = [];
                 $('#points-maps-hop').addClass('loading-hop');
 

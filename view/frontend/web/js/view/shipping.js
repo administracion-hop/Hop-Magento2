@@ -66,7 +66,7 @@ define(
 
                 if(hopSucursalRadio === 'hop_hop')
                 {
-                    if(!quote.shippingMethod().method_title.includes('Horario:'))
+                    if(!window.checkoutConfig.quoteData.hop_data)
                     {
                         alert('Seleccione una sucursal Hop para continuar');
                         return false;

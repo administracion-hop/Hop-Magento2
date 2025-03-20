@@ -340,7 +340,9 @@ class Webservice
                 $point = $this->pointFactory->create();
                 $point->setZipCode($zipCode);
                 $point->setPointData(json_encode(json_decode($response)));
-                $this->pointResource->save($point);
+                if (!$force_from_api){
+                    $this->pointResource->save($point);
+                }
             } catch (\Exception $e) {
                 $this->_helper->log($e->getMessage(), true);
             }

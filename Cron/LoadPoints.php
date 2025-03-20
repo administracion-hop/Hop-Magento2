@@ -2,7 +2,7 @@
 
 namespace Hop\Envios\Cron;
 
-use Psr\Log\LoggerInterface;
+use Hop\Envios\Logger\LoggerInterface;
 use Hop\Envios\Model\PointFactory;
 use Hop\Envios\Model\ResourceModel\Point as PointResource;
 use Hop\Envios\Helper\Data as HelperData;
@@ -10,10 +10,29 @@ use Hop\Envios\Model\Webservice;
 
 class LoadPoints
 {
+    /**
+     * @var LoggerInterface
+     */
     protected $logger;
+
+    /**
+     * @var PointFactory
+     */
     protected $PointFactory;
+
+    /**
+     * @var PointResource
+     */
     protected $PointResource;
+
+    /**
+     * @var HelperData
+     */
     protected $helper;
+
+    /**
+     * @var Webservice
+     */
     protected $webservice;
 
     public function __construct(

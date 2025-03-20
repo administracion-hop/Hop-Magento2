@@ -14,7 +14,7 @@ use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Directory\Model\Region;
 use Magento\Shipping\Helper\Data as ShippingData;
-use Psr\Log\LoggerInterface;
+use Hop\Envios\Logger\LoggerInterface;
 
 /**
  * Class Data
@@ -297,20 +297,15 @@ class Data extends AbstractHelper
      */
     public function log($mensaje, $isError = false, $isArray = false)
     {
-        if($isError){
-            $file = 'error_hop_'.date('m_Y').'.log';
-        }else{
-            $file = 'hop'.date('m_Y').'.log';
-        }
-
-        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/'.$file);
-        $logger = new \Zend_Log();
-        $logger->addWriter($writer);
 
         if($isArray){
-            $logger->info(print_r($mensaje, true));
-        }else{
-            $logger->info($mensaje);
+            $mensaje = print_r($mensaje, true);
+        }
+
+        if($isError){
+            $this->logger->error($mensaje);
+        } else {
+            $this->logger->info($mensaje);
         }
     }
 

@@ -1,0 +1,19 @@
+{
+    "hop_tokens": {
+        "column": {
+            "id": true,
+            "token_type": true,
+            "access_token": true,
+            "expires_in": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hop_envios": {
+        "column": {
+            "status_shipment": true
+        }
+    }
+}

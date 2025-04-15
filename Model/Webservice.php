@@ -371,6 +371,10 @@ class Webservice
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
         $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height";
+        $sizeCategory = $this->_helper->getSizeCategory();
+        if ($sizeCategory){
+            $url .= "&package[size_category]=$sizeCategory";
+        }
         if ($hopPointId){
             $url .= "&pickup_point_id=$hopPointId";
         }
@@ -440,7 +444,9 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        $paramPackage['size_category'] = $sizeCategory;
+        if ($sizeCategory){
+            $paramPackage['size_category'] = $sizeCategory;
+        }
         $paramPackage['width'] = $packageData['width'];
         $paramPackage['length'] = $packageData['length'];
         $paramPackage['height'] = $packageData['height'];

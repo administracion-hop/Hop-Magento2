@@ -90,7 +90,7 @@
                 <field id="type_label" translate="label" type="select" sortOrder="120" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Tipo de Etiqueta</label>
                     <source_model>Hop\Envios\Model\Config\Source\TypeLabelOption</source_model>
-                    <comment>Formato de descarga para eetiquetas de despacho</comment>
+                    <comment>Formato de descarga para etiquetas de despacho</comment>
                 </field>
                 <field id="days_offset" translate="label" type="text" sortOrder="130" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Dias de preparacion</label>
@@ -99,7 +99,36 @@
                 <field id="size_category" translate="label" type="select" sortOrder="140" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Tamaño de categoria</label>
                     <source_model>Hop\Envios\Model\Config\Source\SizeCategoryOption</source_model>
-                    <comment>Ejemplo: 1 (chico), 2 (mediano), 3 (grande), 4 (extra grande)</comment>
+                        <comment><![CDATA[
+                            <div class="admin__field-note">
+                                <table class="admin__table-secondary">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align: center;">Tamaño</th>
+                                            <th style="text-align: center;">Altura</th>
+                                            <th style="text-align: center;">Profundidad</th>
+                                            <th style="text-align: center;">Ancho</th>
+                                            <th style="text-align: center;">Peso</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">1</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">13</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">7</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">19,5</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">0 a 0,500</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">2</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">20</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">11</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">30</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">0,501 a 1,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">3</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">25</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">16</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">35</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">1,001 a 2,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">4</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">80</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">80</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">80</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">2,001 a 5,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">5</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">90</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">90</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">90</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">5,001 a 10,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">6</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">100</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">100</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">100</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">10,001 a 15,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">7</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">110</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">110</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">110</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">15,001 a 20,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">8</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">120</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">120</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">120</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">20,001 a 25,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">9</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">130</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">130</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">130</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">25,501 a 30,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">10</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">140</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">140</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">140</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">30,001 a 35,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">11</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">150</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">150</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">150</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">35,001 a 40,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">12</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">160</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">160</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">160</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">40,001 a 45,000</td></tr>
+                                        <tr><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">13</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">170</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">170</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">170</td><td style="text-align: center;vertical-align: middle;padding-bottom: 2.2rem;">45,001 a 165,000</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        ]]></comment>
                 </field>
                 <field id="validate_client_id" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Validar cliente</label>

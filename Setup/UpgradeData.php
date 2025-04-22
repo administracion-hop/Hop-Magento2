@@ -6,7 +6,7 @@ use Magento\Framework\Setup\ModuleContextInterface;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\Setup\UpgradeDataInterface;
 use Magento\Eav\Setup\EavSetupFactory;
-
+use Magento\Catalog\Model\Product;
 /**
  * Class UpgradeData
  *
@@ -120,6 +120,28 @@ class UpgradeData implements UpgradeDataInterface
             );
         }
 
+        if (version_compare($context->getVersion(), '1.4.6', '<')) {
+            $eavSetup->updateAttribute(
+                Product::ENTITY,
+                'hop_alto',
+                'is_required',
+                false
+            );
+
+            $eavSetup->updateAttribute(
+                Product::ENTITY,
+                'hop_largo',
+                'is_required',
+                false
+            );
+
+            $eavSetup->updateAttribute(
+                Product::ENTITY,
+                'hop_ancho',
+                'is_required',
+                false
+            );
+        }
         $setup->endSetup();
     }
 }

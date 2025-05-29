@@ -12,6 +12,38 @@
                 <fixed_value>0</fixed_value>
                 <model>Hop\Envios\Model\Carrier\Hop</model>
                 <max_package_weight>100</max_package_weight>
+                <statuses>
+                    <processing>
+                        <E_CON>processing_E_CON</E_CON>
+                        <E_DEP>processing_E_DEP</E_DEP>
+                        <E_DIS>processing_E_DIS</E_DIS>
+                        <E_LIS>processing_E_LIS</E_LIS>
+                        <E_ENT>processing_E_ENT</E_ENT>
+                        <E_VEN>processing_E_VEN</E_VEN>
+                        <E_ICDD>processing_E_ICDD</E_ICDD>
+                        <E_EDE>processing_E_EDE</E_EDE>
+                        <E_DEV>processing_E_DEV</E_DEV>
+                        <E_RESC>processing_E_RESC</E_RESC>
+                        <E_ANU>processing_E_ANU</E_ANU>
+                        <E_ROT>processing_E_ROT</E_ROT>
+                        <E_NDEST>processing_E_NDEST</E_NDEST>
+                    </processing>
+                    <complete>
+                        <E_CON>complete_E_CON</E_CON>
+                        <E_DEP>complete_E_DEP</E_DEP>
+                        <E_DIS>complete_E_DIS</E_DIS>
+                        <E_LIS>complete_E_LIS</E_LIS>
+                        <E_ENT>complete_E_ENT</E_ENT>
+                        <E_VEN>complete_E_VEN</E_VEN>
+                        <E_ICDD>complete_E_ICDD</E_ICDD>
+                        <E_EDE>complete_E_EDE</E_EDE>
+                        <E_DEV>complete_E_DEV</E_DEV>
+                        <E_RESC>complete_E_RESC</E_RESC>
+                        <E_ANU>complete_E_ANU</E_ANU>
+                        <E_ROT>complete_E_ROT</E_ROT>
+                        <E_NDEST>complete_E_NDEST</E_NDEST>
+                    </complete>
+                </statuses>
             </hop>
         </carriers>
     </default>

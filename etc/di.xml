@@ -24,4 +24,6 @@
         </arguments>
     </type>
     <preference for="Hop\Envios\Logger\LoggerInterface" type="Hop\Envios\Logger\Logger"/>
+    <preference for="Hop\Envios\Api\Data\WebhookResponseInterface" type="Hop\Envios\Model\Data\WebhookResponse" />
+    <preference for="Hop\Envios\Api\WebhookManagementInterface" type="Hop\Envios\Model\WebhookManagement" />
 </config>

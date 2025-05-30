@@ -8,7 +8,7 @@ use Magento\Integration\Api\IntegrationServiceInterface;
 use Magento\Integration\Model\AuthorizationService;
 use Magento\Integration\Api\OauthServiceInterface;
 use Psr\Log\LoggerInterface;
-
+use Magento\Framework\App\State;
 class CreateHopIntegration implements DataPatchInterface, PatchRevertableInterface
 {
     private $integrationService;
@@ -17,22 +17,28 @@ class CreateHopIntegration implements DataPatchInterface, PatchRevertableInterfa
     private $moduleDataSetup;
     private $logger;
 
+    /** @var \Magento\Framework\App\State **/
+    private $appState;
+
     public function __construct(
         IntegrationServiceInterface $integrationService,
         AuthorizationService $authorizationService,
         OauthServiceInterface $oauthService,
         ModuleDataSetupInterface $moduleDataSetup,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        State $appState
     ) {
         $this->integrationService = $integrationService;
         $this->authorizationService = $authorizationService;
         $this->oauthService = $oauthService;
         $this->moduleDataSetup = $moduleDataSetup;
         $this->logger = $logger;
+        $this->appState = $appState;
     }
 
     public function apply()
     {
+        $this->appState->setAreaCode(\Magento\Framework\App\Area::AREA_GLOBAL);
         $this->moduleDataSetup->startSetup();
 
         $integrationData = [

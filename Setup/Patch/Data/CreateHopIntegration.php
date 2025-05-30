@@ -43,8 +43,6 @@ class CreateHopIntegration implements DataPatchInterface, PatchRevertableInterfa
 
         $integrationData = [
             'name' => 'Hop Integration',
-            'email' => 'contact@hop.com',
-            'endpoint' => 'https://api.hop.com',
             'status' => \Magento\Integration\Model\Integration::STATUS_ACTIVE
         ];
 

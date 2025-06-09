@@ -10,8 +10,7 @@ use Psr\Log\LoggerInterface;
 use Magento\Shipping\Model\ShipmentNotifier;
 use Hop\Envios\Model\Carrier\Hop;
 use Magento\Sales\Model\Order;
-use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
-use Hop\Envios\Model\ResourceModel\HopEnvios\CollectionFactory as HopEnviosCollectionFactory;
+use Hop\Envios\Model\HopEnviosRepository;
 
 class GenarateShipment
 {
@@ -52,14 +51,9 @@ class GenarateShipment
     protected $hopCarrier;
 
     /**
-     * @var HopEnviosResource
+     * @var HopEnviosRepository
      */
-    protected $hopEnviosResource;
-
-    /**
-     * @var HopEnviosCollectionFactory
-     */
-    protected $hopEnviosCollectionFactory;
+    protected $hopEnviosRepository;
 
     const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
@@ -74,8 +68,7 @@ class GenarateShipment
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
         Hop $hopCarrier,
-        HopEnviosResource $hopEnviosResource,
-        HopEnviosCollectionFactory $hopEnviosCollectionFactory
+        HopEnviosRepository $hopEnviosRepository
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -84,8 +77,7 @@ class GenarateShipment
         $this->logger = $logger;
         $this->shipmentNotifier = $shipmentNotifier;
         $this->hopCarrier = $hopCarrier;
-        $this->hopEnviosResource = $hopEnviosResource;
-        $this->hopEnviosCollectionFactory = $hopEnviosCollectionFactory;
+        $this->hopEnviosRepository = $hopEnviosRepository;
     }
 
     /**
@@ -95,8 +87,9 @@ class GenarateShipment
     {
         try {
 
+            /** @var \Hop\Envios\Model\ResourceModel\HopEnvios\Collection $pendingOrders */
             $pendingOrders = $this->getPendingOrders();
-            $this->logger->info('Ordenes pendientes encontradas: ' . $pendingOrders->count());
+            $this->logger->info(__('Ordenes pendientes encontradas: ') . $pendingOrders->count());
 
             foreach ($pendingOrders as $pendingOrder) {
                 $info = $pendingOrder->getInfoHop();
@@ -112,7 +105,7 @@ class GenarateShipment
             }
 
         } catch (\Exception $e) {
-            $this->logger->error('Error en el cron de envíos: ' . $e->getMessage());
+            $this->logger->error(__('Error en el cron de envíos: ') . $e->getMessage());
         }
     }
 
@@ -123,10 +116,7 @@ class GenarateShipment
      */
     protected function getPendingOrders()
     {
-        /** @var \Hop\Envios\Model\ResourceModel\HopEnvios\Collection $collection */
-        $collection = $this->hopEnviosCollectionFactory->create();
-        $collection->addFieldToFilter('status_shipment', self::SHIPMENT_STATUS_PENDING);
-        return $collection;
+        return $this->hopEnviosRepository->getCollectionByStatusShipment(self::SHIPMENT_STATUS_PENDING);
     }
 
     /**
@@ -164,7 +154,7 @@ class GenarateShipment
                         "items" => []
                     ]
                 ];
-                // Agregar los productos al paquete
+
                 foreach ($order->getAllItems() as $item) {
                     if ($item->getQtyShipped() > 0 && !$item->getIsVirtual()) {
                         $packageData["1"]["items"][$item->getId()] = [
@@ -179,7 +169,6 @@ class GenarateShipment
                     }
                 }
 
-                // Agregar el paquete al envío
                 $shipment->setData('packages', $packageData);
 
 
@@ -199,12 +188,12 @@ class GenarateShipment
 
                 $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
 
-                $this->logger->info('Shipment generated successfully for order ID: ' . $order->getId());
+                $this->logger->info(__('Shipment generated successfully for order ID: ') . $order->getId());
             } catch (\Exception $e) {
-                $this->logger->error('Error generando el envío para la orden ' . $order->getId() . ': ' . $e->getMessage());
+                $this->logger->error(__('Error generando el envío para la orden ') . $order->getId() . ': ' . $e->getMessage());
             }
         } else {
-            $this->logger->warning('Orden no lista para envío o no existe: ' . $hopEnvio->getOrderId());
+            $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
         }
     }
 
@@ -307,6 +296,6 @@ class GenarateShipment
     protected function updateShipmentStatus($hopEnvio, $status)
     {
         $hopEnvio->setStatusShipment($status);
-        $this->hopEnviosResource->save($hopEnvio);
+        $this->hopEnviosRepository->save($hopEnvio);
     }
 }

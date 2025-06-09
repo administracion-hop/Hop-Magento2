@@ -29,25 +29,4 @@ class HopEnvios extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     {
         $this->_init('hop_envios','entity_id');
     }
-
-     /**
-     * Obtener datos de la base de datos por Order ID
-     * @ToDo evitar SQL y pasar a repository
-     * @param int $orderId
-     * @return array
-     */
-    public function getDataByOrderId($orderId)
-    {
-        $connection = $this->getConnection();
-        $tableName = $this->getTable('hop_envios');  // Nombre de la tabla
-
-        // Crear consulta
-        $select = $connection->select()
-                             ->from($tableName)
-                             ->where('order_id = ?', $orderId);
-
-        // Ejecutar la consulta y devolver los resultados
-        $result = $connection->fetchAll($select);
-        return $result;
-    }
 }

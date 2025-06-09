@@ -35,7 +35,7 @@ use Hop\Envios\Model\ResourceModel\Point;
 use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Hop\Envios\Model\HopEnviosRepository;
 
 /**
  * Class Hop
@@ -128,10 +128,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     private $orderRepository;
 
     /**
-     * @var HopEnviosResource
+     * @var HopEnviosRepository
      */
 
-    protected $hopEnviosResource;
+    protected $hopEnviosRepository;
 
 
 
@@ -157,7 +157,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopHelper $hopHelper
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
-     * @param HopEnviosResource $hopEnviosResource
+     * @param HopEnviosRepository $hopEnviosRepository
      * @param State $appState
      * @param array $data
      */
@@ -187,7 +187,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         Point $pointResource,
         State $appState,
         OrderRepositoryInterface $orderRepository,
-        HopEnviosResource $hopEnviosResource,
+        HopEnviosRepository $hopEnviosRepository,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -203,7 +203,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->trackStatusFactory = $trackStatusFactory;
         $this->appState = $appState;
         $this->orderRepository = $orderRepository;
-        $this->hopEnviosResource = $hopEnviosResource;
+        $this->hopEnviosRepository = $hopEnviosRepository;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -468,67 +468,49 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     public function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
-
-
         $shipment = $request->getData('order_shipment');
 
-
-        if ($shipment && $shipment->getOrderId()) {
-            $orderId = $shipment->getOrderId();
-            $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-
-
-            if (!empty($data)) {
-
-                if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
-                    $infoHop = json_decode($data[0]['info_hop'], true);
-
-                    if ($infoHop !== null && is_array($infoHop)) {
-
-                        $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
-
-
-                        if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
-                            $trackingNumber = $infoHop['tracking_nro'];
-                            $labelUrl = $infoHop['label_url'];
-
-
-                            try {
-                                $result = new \Magento\Framework\DataObject();
-                                $result->setTrackingNumber($trackingNumber);
-                                $result->setShippingLabelContent($labelUrl);
-
-
-                                return $result;
-                            } catch (\Exception $e) {
-                                $this->_helper->log('Error: ' . $e->getMessage(), true);
-                                throw new \Magento\Framework\Exception\LocalizedException(
-                                    __('Error: ' . $e->getMessage())
-                                );
-                            }
-                        } else {
-                            $this->_helper->log('Error: Los valores tracking_nro o label_url están vacíos o no existen.', true);
-                        }
-                    } else {
-                        $this->_helper->log('Error: JSON inválido en info_hop.', true);
-                        throw new \Magento\Framework\Exception\LocalizedException(
-                            __('Error: Respuesta Invalida, Formato invalido')
-                        );
-                    }
-                } else {
-                    $this->_helper->log('Error: El campo info_hop está vacío, no es un string válido, o no existe.', true);
-                    throw new \Magento\Framework\Exception\LocalizedException(
-                        __('Error: Respuesta Invalidad, No existen los datos.')
-                    );
-                }
-            } else {
-                $this->_helper->log('Error: No se encontraron datos para el pedido con ID ' . $orderId, true);
-            }
-        } else {
-            $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
+        if (!$shipment || !$shipment->getOrderId()) {
+            $this->_helper->log(__('Error: No se encontró un envío válido en la solicitud.'), true);
+            return null;
         }
 
+        $orderId = $shipment->getOrderId();
+        $hopEnvio = $this->hopEnviosRepository->getByOrderId($orderId);
 
+        if (empty($hopEnvio->getInfoHop()) || !is_string($hopEnvio->getInfoHop())) {
+            $this->_helper->log(__('Error: El campo info_hop está vacío, no es un string válido, o no existe.'), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Respuesta Invalidad, No existen los datos.')
+            );
+        }
+
+        $infoHop = json_decode($hopEnvio->getInfoHop(), true);
+        if ($infoHop === null || !is_array($infoHop)) {
+            $this->_helper->log(__('Error: JSON inválido en info_hop.'), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Respuesta Invalida, Formato invalido')
+            );
+        }
+
+        if (empty($infoHop['tracking_nro']) || empty($infoHop['label_url'])) {
+            $this->_helper->log(__('Error: Los valores tracking_nro o label_url están vacíos o no existen.'), true);
+            return null;
+        }
+
+        $trackingNumber = $infoHop['tracking_nro'];
+        $labelUrl = $infoHop['label_url'];
+        try {
+            $result = new \Magento\Framework\DataObject();
+            $result->setTrackingNumber($trackingNumber);
+            $result->setShippingLabelContent($labelUrl);
+            return $result;
+        } catch (\Exception $e) {
+            $this->_helper->log('Error: ' . $e->getMessage(), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: ' . $e->getMessage())
+            );
+        }
         return null;
     }
 

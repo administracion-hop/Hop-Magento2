@@ -9,24 +9,59 @@ use Magento\Framework\DB\Transaction;
 use Psr\Log\LoggerInterface;
 use Magento\Shipping\Model\ShipmentNotifier;
 use Hop\Envios\Model\Carrier\Hop;
-use Magento\Framework\App\ResourceConnection;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Hop\Envios\Model\ResourceModel\HopEnvios\CollectionFactory as HopEnviosCollectionFactory;
 
 class GenarateShipment
 {
+
+    /**
+     * @var OrderFactory
+     */
     protected $orderFactory;
+
+    /**
+     * @var ShipmentFactory
+     */
     protected $shipmentFactory;
+
+    /**
+     * @var TrackFactory
+     */
     protected $trackFactory;
+
+    /**
+     * @var Transaction
+     */
     protected $transaction;
+
+    /**
+     * @var LoggerInterface
+     */
     protected $logger;
+
+    /**
+     * @var ShipmentNotifier
+     */
     protected $shipmentNotifier;
+
+    /**
+     * @var Hop
+     */
     protected $hopCarrier;
-    protected $resourceConnection;
+
+    /**
+     * @var HopEnviosResource
+     */
     protected $hopEnviosResource;
 
-    const SHIPMENT_STATUS_PENDING = 'pending';
+    /**
+     * @var HopEnviosCollectionFactory
+     */
+    protected $hopEnviosCollectionFactory;
 
+    const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
     const CARRIER_CODE_HOP = 'HOP';
@@ -39,8 +74,8 @@ class GenarateShipment
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
         Hop $hopCarrier,
-        ResourceConnection $resourceConnection,
-        HopEnviosResource $hopEnviosResource
+        HopEnviosResource $hopEnviosResource,
+        HopEnviosCollectionFactory $hopEnviosCollectionFactory
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -49,8 +84,8 @@ class GenarateShipment
         $this->logger = $logger;
         $this->shipmentNotifier = $shipmentNotifier;
         $this->hopCarrier = $hopCarrier;
-        $this->resourceConnection = $resourceConnection;
         $this->hopEnviosResource = $hopEnviosResource;
+        $this->hopEnviosCollectionFactory = $hopEnviosCollectionFactory;
     }
 
     /**
@@ -59,25 +94,19 @@ class GenarateShipment
     public function execute()
     {
         try {
-            $connection = $this->resourceConnection->getConnection();
-            $hopEnviosTable = $this->resourceConnection->getTableName('hop_envios');
 
-            // Obtener órdenes con estado 'pending'
-            $orderIds = $this->getPendingOrders($connection, $hopEnviosTable);
-            $this->logger->info('Ordenes pendientes encontradas: ' . count($orderIds));
+            $pendingOrders = $this->getPendingOrders();
+            $this->logger->info('Ordenes pendientes encontradas: ' . $pendingOrders->count());
 
-            foreach ($orderIds as $orderId) {
-                $data = $this->hopEnviosResource->getDataByOrderId($orderId);
+            foreach ($pendingOrders as $pendingOrder) {
+                $info = $pendingOrder->getInfoHop();
 
-                if (!empty($data)) {
-                    if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
-                        $infoHop = json_decode($data[0]['info_hop'], true);
-                        $this->processOrder($orderId, $connection, $hopEnviosTable, $infoHop);
-                    } else {
-                        $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_PENDING);
-                    }
+                if (!empty($info)) {
+                    $infoHop = json_decode($info, true);
+                    $trackingNro = !empty($infoHop['tracking_nro']) ? $infoHop['tracking_nro'] : '';
+                    $this->processOrder($pendingOrder, $trackingNro);
                 } else {
-                    $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_PENDING);
+                    $this->updateShipmentStatus($pendingOrder, self::SHIPMENT_STATUS_PENDING);
                 }
 
             }
@@ -90,29 +119,28 @@ class GenarateShipment
     /**
      * Obtener las órdenes pendientes.
      *
-     * @param \Magento\Framework\DB\Adapter\Pdo\Mysql $connection
-     * @param string $hopEnviosTable
-     * @return array
+     * @return \Hop\Envios\Model\ResourceModel\HopEnvios\Collection
      */
-    protected function getPendingOrders($connection, $hopEnviosTable)
+    protected function getPendingOrders()
     {
-        $sql = "SELECT order_id FROM " . $hopEnviosTable . " WHERE status_shipment = ?";
-        return $connection->fetchCol($sql, [self::SHIPMENT_STATUS_PENDING]);
+        /** @var \Hop\Envios\Model\ResourceModel\HopEnvios\Collection $collection */
+        $collection = $this->hopEnviosCollectionFactory->create();
+        $collection->addFieldToFilter('status_shipment', self::SHIPMENT_STATUS_PENDING);
+        return $collection;
     }
 
     /**
      * Procesar cada orden pendiente.
      *
-     * @param int $orderId
-     * @param \Magento\Framework\DB\Adapter\Pdo\Mysql $connection
-     * @param string $hopEnviosTable
+     * @param \Hop\Envios\Model\HopEnvios $hopEnvio
+     * @param string $trackingNro
      */
-    protected function processOrder($orderId, $connection, $hopEnviosTable, $infoHop)
+    protected function processOrder($hopEnvio, $trackingNro)
     {
-        $order = $this->orderFactory->create()->load($orderId);
+        $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
 
         if ($order->getId() && $order->canShip()) {
-            $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_PROCESING);
+            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PROCESING);
 
             $items = $this->prepareItemsForShipment($order);
 
@@ -155,7 +183,7 @@ class GenarateShipment
                 $shipment->setData('packages', $packageData);
 
 
-                $track = $this->createTracking($shipment, $infoHop);
+                $track = $this->createTracking($shipment, $trackingNro);
                 $this->shipmentNotifier->notify($shipment);
                 $this->transaction->addObject($shipment)
                     ->addObject($order->save())
@@ -169,14 +197,14 @@ class GenarateShipment
                 $labelResponse = $this->hopCarrier->_doShipmentRequest($shipmentRequest);
                 $this->handleLabelResponse($labelResponse, $shipment, $order);
 
-                $this->updateShipmentStatus($orderId, $connection, $hopEnviosTable, self::SHIPMENT_STATUS_COMPLETED);
+                $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
 
                 $this->logger->info('Shipment generated successfully for order ID: ' . $order->getId());
             } catch (\Exception $e) {
                 $this->logger->error('Error generando el envío para la orden ' . $order->getId() . ': ' . $e->getMessage());
             }
         } else {
-            $this->logger->warning('Orden no lista para envío o no existe: ' . $orderId);
+            $this->logger->warning('Orden no lista para envío o no existe: ' . $hopEnvio->getOrderId());
         }
     }
 
@@ -217,16 +245,17 @@ class GenarateShipment
      * Crear un tracking para el envío.
      *
      * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @param string $trackingNumber
      * @return \Magento\Sales\Model\Order\Shipment\Track
      */
-    protected function createTracking($shipment, $infoHop)
+    protected function createTracking($shipment, $trackingNumber)
     {
-        $trackingNumber = $infoHop['tracking_nro'];
         $track = $this->trackFactory->create();
         $track->setCarrierCode('hop')
-            ->setTitle(self::CARRIER_CODE_HOP)
-            ->setTrackNumber($trackingNumber);
-
+            ->setTitle(self::CARRIER_CODE_HOP);
+        if ($trackingNumber) {
+            $track->setTrackNumber($trackingNumber);
+        }
         $shipment->addTrack($track);
 
         return $track;
@@ -271,16 +300,13 @@ class GenarateShipment
     }
 
     /**
-     * Actualizar el estado del envío en la tabla 'hop_envios'.
      *
-     * @param int $orderId
-     * @param \Magento\Framework\DB\Adapter\Pdo\Mysql $connection
-     * @param string $hopEnviosTable
+     * @param \Hop\Envios\Model\HopEnvios $hopEnvio
+     * @param string $status
      */
-    protected function updateShipmentStatus($orderId, $connection, $hopEnviosTable, $status)
+    protected function updateShipmentStatus($hopEnvio, $status)
     {
-        $updateData = ['status_shipment' => $status];
-        $where = ['order_id = ?' => $orderId];
-        $connection->update($hopEnviosTable, $updateData, $where);
+        $hopEnvio->setStatusShipment($status);
+        $this->hopEnviosResource->save($hopEnvio);
     }
 }

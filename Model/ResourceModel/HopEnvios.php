@@ -32,7 +32,7 @@ class HopEnvios extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
 
      /**
      * Obtener datos de la base de datos por Order ID
-     *
+     * @ToDo evitar SQL y pasar a repository
      * @param int $orderId
      * @return array
      */

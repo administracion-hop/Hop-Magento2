@@ -42,6 +42,9 @@ class PendingOrderscopy
         $this->resourceConnection = $resourceConnection;
     }
 
+    /**
+     * @ToDo evitar SQL
+     */
     public function execute()
     {
         try {

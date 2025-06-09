@@ -22,6 +22,9 @@ class LabelGeneratorPlugin
      */
     protected $_webservice;
 
+    /**
+     * @ToDo usar logger del modulo
+     */
     public function __construct(
         Filesystem $filesystem,
         View $shipment,

@@ -71,7 +71,7 @@ class HopAttributes implements DataPatchInterface
                         'class'                   => '',
                         'global'                  => ScopedAttributeInterface::SCOPE_GLOBAL,
                         'visible'                 => true,
-                        'required'                => true,
+                        'required'                => false,
                         'user_defined'            => false,
                         'default'                 => '',
                         'apply_to'                => '',

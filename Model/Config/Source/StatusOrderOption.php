@@ -12,7 +12,7 @@ use Magento\Sales\Model\ResourceModel\Order\Status\Collection;
  * @copyright Copyright (c) 2021 Improntus
  * @package Hop\Envios\Model\Config\Source
  */
-class StatusOrderOption implements \Magento\Framework\Option\ArrayInterface
+class StatusOrderOption implements \Magento\Framework\Data\OptionSourceInterface
 {
     /**
      * @var Magento\Sales\Model\ResourceModel\Order\Status\CollectionFactory $statusCollectionFactory

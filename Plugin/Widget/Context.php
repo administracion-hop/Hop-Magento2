@@ -4,6 +4,7 @@ namespace Hop\Envios\Plugin\Widget;
 use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
+use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Framework\UrlInterface;
 
 /**
@@ -19,41 +20,41 @@ class Context
     /**
      * @var Order
      */
-    protected $_order;
+    protected $order;
 
     /**
      * @var \Hop\Envios\Helper\Data
      */
-    protected $_helperHop;
+    protected $helperHop;
 
     /**
      * @var UrlInterface
      */
-    protected $_backendUrl;
+    protected $backendUrl;
 
     /**
-     * @var
+     * @var HopEnviosRepository
      */
-    protected $_hopEnviosFactory;
+    protected $hopEnviosRepository;
 
     /**
      * Context constructor.
      * @param Order $order
      * @param DataHop $helperHop
      * @param UrlInterface $urlInterface,
-     * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+     * @param HopEnviosRepository $hopEnviosRepository
      */
     public function __construct(
         Order $order,
         DataHop $helperHop,
         UrlInterface $urlInterface,
-        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+        HopEnviosRepository $hopEnviosRepository
     )
     {
-        $this->_order = $order;
-        $this->_helperHop = $helperHop;
-        $this->_backendUrl = $urlInterface;
-        $this->_hopEnviosFactory = $hopEnviosFactory;
+        $this->order = $order;
+        $this->helperHop = $helperHop;
+        $this->backendUrl = $urlInterface;
+        $this->hopEnviosRepository = $hopEnviosRepository;
     }
 
     /**
@@ -66,34 +67,27 @@ class Context
         $buttonList
     )
     {
-        if($this->_helperHop->isActive() && $subject->getRequest()->getFullActionName() == 'sales_order_view')
+        if($this->helperHop->isActive() && $subject->getRequest()->getFullActionName() == 'sales_order_view')
         {
             $orderId    = $subject->getRequest()->getParam('order_id');
-            $order      = $this->_order->load($orderId);
+            $order      = $this->order->load($orderId);
             if ($order->getShippingMethod() == 'hop_hop')
             {
-                $hopEnvios = $this->_hopEnviosFactory->create();
-                $hopEnvios = $hopEnvios->getCollection()
-                    ->addFieldToFilter('order_id', ['eq' => $orderId])
-                    ->getFirstItem();
-    
+                $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
                 $tracking_nro = '';
-    
-                if (count($hopEnvios->getData()) > 0)
-                {
+
+                if ($hopEnvios) {
                     $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
                     $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
-                }else
-                {
+                } else {
                     $baseUrl = '';
                 }
-    
-                if (!empty($baseUrl))
-                {
-                    $baseUrl = $this->_backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
-    
+
+                if (!empty($baseUrl)) {
+                    $baseUrl = $this->backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
+
                     /*$buttonList->add(
                         'descargar_etiqueta_hop',
                         [
@@ -102,10 +96,9 @@ class Context
                             'class'     => 'primary hop-shipment-button'
                         ]
                     );*/
-                    if(!empty($tracking_nro))
-                    {
+                    if (!empty($tracking_nro)) {
                         $trackingUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
-    
+
                         $buttonList->add(
                             'estado_hop',
                             [
@@ -115,9 +108,8 @@ class Context
                             ]
                         );
                     }
-                } else
-                {
-                    $baseUrl = $this->_backendUrl->getUrl('hop/order/view');
+                } else {
+                    $baseUrl = $this->backendUrl->getUrl('hop/order/view');
                     $buttonList->add(
                         'crear_etiqueta_hop',
                         [

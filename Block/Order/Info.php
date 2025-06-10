@@ -6,6 +6,7 @@ use Magento\Framework\View\Element\Template\Context as TemplateContext;
 use Magento\Framework\Registry;
 use Magento\Payment\Helper\Data as PaymentHelper;
 use Magento\Sales\Model\Order\Address\Renderer as AddressRenderer;
+use Hop\Envios\Model\HopEnviosRepository;
 
 /**
  * Class Info
@@ -40,9 +41,9 @@ class Info extends \Magento\Sales\Block\Order\Info
     protected $addressRenderer;
 
     /**
-     * @var
+     * @var HopEnviosRepository
      */
-    protected $_hopEnviosFactory;
+    protected $hopEnviosRepository;
 
     /**
      * @param TemplateContext $context
@@ -57,10 +58,10 @@ class Info extends \Magento\Sales\Block\Order\Info
         Registry $registry,
         PaymentHelper $paymentHelper,
         AddressRenderer $addressRenderer,
-        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory,
+        HopEnviosRepository $hopEnviosRepository,
         array $data = []
     ) {
-        $this->_hopEnviosFactory = $hopEnviosFactory;
+        $this->hopEnviosRepository = $hopEnviosRepository;
         parent::__construct($context,$registry, $paymentHelper, $addressRenderer, $data);
     }
 
@@ -77,23 +78,17 @@ class Info extends \Magento\Sales\Block\Order\Info
     public function getTrackingUrlStatus()
     {
         $order = $this->getOrder();
-
-        $hopEnvios = $this->_hopEnviosFactory->create();
-        $hopEnvios = $hopEnvios->getCollection()
-            ->addFieldToFilter('order_id', ['eq' => $order->getEntityId()])
-            ->getFirstItem();
+        $hopEnvios = $this->hopEnviosRepository->getByOrderId($order->getId());
 
         $tracking_nro = '';
 
-        if (count($hopEnvios->getData()) > 0)
-        {
+        if ($hopEnvios) {
             $infoHop = $hopEnvios->getInfoHop();
             $infoHop = json_decode($infoHop ?? '');
             $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
         }
 
-        if($order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro))
-        {
+        if ($order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro)) {
             $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
             return $baseUrl;
         }

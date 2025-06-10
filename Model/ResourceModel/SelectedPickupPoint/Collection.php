@@ -1,11 +1,7 @@
 <?php
-/**
- * Collection: SelectedPickUpPoint
- * Path: app/code/Hop/Envios/Model/ResourceModel/SelectedPickUpPoint/Collection.php
- */
 declare(strict_types=1);
 
-namespace Hop\Envios\Model\ResourceModel\SelectedPickUpPoint;
+namespace Hop\Envios\Model\ResourceModel\SelectedPickupPoint;
 
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
@@ -26,8 +22,8 @@ class Collection extends AbstractCollection
     protected function _construct()
     {
         $this->_init(
-            \Hop\Envios\Model\SelectedPickUpPoint::class,
-            \Hop\Envios\Model\ResourceModel\SelectedPickUpPoint::class
+            \Hop\Envios\Model\SelectedPickupPoint::class,
+            \Hop\Envios\Model\ResourceModel\SelectedPickupPoint::class
         );
     }
 }

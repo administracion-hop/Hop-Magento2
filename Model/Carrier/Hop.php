@@ -36,6 +36,7 @@ use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Hop\Envios\Model\SelectedPickupPointRepository;
 
 /**
  * Class Hop
@@ -133,6 +134,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
     protected $hopEnviosResource;
 
+    /**
+     * @var SelectedPickupPointRepository
+     */
+    protected $selectedPickupPointRepository;
+
 
 
     /**
@@ -159,6 +165,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param CartRepositoryInterface $quoteRepository
      * @param HopEnviosResource $hopEnviosResource
      * @param State $appState
+     * @param SelectedPickupPointRepository $selectedPickupPointRepository
      * @param array $data
      */
     public function __construct(
@@ -188,6 +195,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         State $appState,
         OrderRepositoryInterface $orderRepository,
         HopEnviosResource $hopEnviosResource,
+        SelectedPickupPointRepository $selectedPickupPointRepository,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -204,6 +212,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->appState = $appState;
         $this->orderRepository = $orderRepository;
         $this->hopEnviosResource = $hopEnviosResource;
+        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -354,8 +363,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $error->setCarrierTitle($this->getConfigData('title'));
             $error->setErrorMessage(__('Su pedido supera el peso máximo permitido por Hop. Por favor divida su orden en más pedidos o consulte al administrador de la tienda.'));
             $quote = $this->_checkoutSession->getQuote();
-            $quote->setHopData(null);
-            $quote->save();
+            $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
             return $error;
         }
 
@@ -404,8 +412,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
                 $quote = $this->_checkoutSession->getQuote();
-                $quote->setHopData(null);
-                $quote->save();
+                $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
                 return $error;
             }
 
@@ -440,16 +447,22 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setCost($adjustedShippingCost);
         }
 
-        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress'])) {
-            $method->setMethodTitle(
-                'Retirá tu pedido en: ' .
+        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress']) && !empty($hopData['hopPointId'])) {
+            $shippingDescription = 'Retirá tu pedido en: ' .
                     $hopData['hopPointReferenceName']
                     . " ({$hopData['hopPointAddress']}) " .
-                    ' - Horario: ' . $hopData['hopPointSchedules']
-            );
+                    ' - Horario: ' . $hopData['hopPointSchedules'];
+            $method->setMethodTitle($shippingDescription);
             $quote = $this->_checkoutSession->getQuote();
-            $quote->setHopData(json_encode($hopData));
-            $quote->save();
+            $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quote->getId());
+            if (!$selectedPickupPoint->getId()) {
+                $selectedPickupPoint->setQuoteId($quote->getId());
+            }
+            $pickupPointId = $hopData['hopPointId'];
+            $selectedPickupPoint->setPickupPointId($pickupPointId);
+            $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
+            $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
+            $this->selectedPickupPointRepository->save($selectedPickupPoint);
         }
 
 

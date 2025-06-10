@@ -12,6 +12,7 @@ use Hop\Envios\Model\TokenFactory;
 use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
+use Hop\Envios\Model\SelectedPickupPointRepository;
 
 /**
  * Class Webservice
@@ -93,6 +94,10 @@ class Webservice
      */
     protected $tokenResourceModel;
 
+    /**
+     * @var SelectedPickupPointRepository
+     */
+    protected $selectedPickupPointRepository;
 
     /**
      * Webservice constructor.
@@ -101,6 +106,10 @@ class Webservice
      * @param PointFactory $pointFactory
      * @param Point $pointResource
      * @param ManagerInterface $messageManager
+     * @param TokenCollectionFactory $tokenCollectionFactory
+     * @param TokenFactory $tokenFactory
+     * @param TokenResourceModel $tokenResourceModel
+     * @param SelectedPickupPointRepository $selectedPickupPointRepository
      */
     public function __construct(
         HelperHop $helperHop,
@@ -110,7 +119,8 @@ class Webservice
         ManagerInterface $messageManager,
         TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
-        TokenResourceModel $tokenResourceModel
+        TokenResourceModel $tokenResourceModel,
+        SelectedPickupPointRepository $selectedPickupPointRepository
     )
     {
         $this->_helper = $helperHop;
@@ -121,6 +131,7 @@ class Webservice
         $this->tokenCollectionFactory = $tokenCollectionFactory;
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
+        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -408,13 +419,11 @@ class Webservice
         $storageCode = $this->_helper->getStorageCode();
         $packageData = $this->_helper->getPackageData($order);
 
-        $hopData = $order->getHopData();
+        $hopData = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
         if (!$hopData) {
-            $this->_helper->log('No Hop Data', true);
+            $this->_helper->log(__('No Hop Data'), true);
             return false;
         }
-        $hopData = json_decode($hopData);
-        $pickupPointId = isset($hopData->hopPointId) ? $hopData->hopPointId : 0;
 
         $billingAddress = $order->getBillingAddress();
 
@@ -428,7 +437,7 @@ class Webservice
         $params['storage_code'] = $storageCode;
         $params['days_offset'] = $daysOffset;
         $params['validate_client_id'] = $validateClientId;
-        $params['pickup_point_id'] = $pickupPointId;
+        $params['pickup_point_id'] = $hopData->getPickupPointId() ?: 0;
 
         $paramClient = [];
         $paramClient['name'] = $order->getCustomerFirstname() . ' ' . $order->getCustomerLastname();

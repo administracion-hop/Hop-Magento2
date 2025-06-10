@@ -21,6 +21,7 @@
         <column xsi:type="int" name="quote_id" padding="10" unsigned="true" nullable="false" comment="Quote ID"/>
         <column xsi:type="varchar" name="original_pickup_point_id" nullable="false" length="255" comment="Original Pickup Point ID"/>
         <column xsi:type="varchar" name="pickup_point_id" nullable="false" length="255" comment="Pickup Point ID"/>
+        <column xsi:type="varchar" name="original_shipping_description" nullable="true" length="255" comment="Original Shipping Description"/>
         <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
         <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP" comment="Updated At"/>
 

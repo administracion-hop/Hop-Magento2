@@ -5,7 +5,7 @@ namespace Hop\Envios\Model;
 
 use Magento\Framework\Model\AbstractModel;
 
-class SelectedPickUpPoint extends AbstractModel
+class SelectedPickupPoint extends AbstractModel
 {
     /**
      * Initialize resource model
@@ -14,6 +14,6 @@ class SelectedPickUpPoint extends AbstractModel
      */
     protected function _construct()
     {
-        $this->_init(\Hop\Envios\Model\ResourceModel\SelectedPickUpPoint::class);
+        $this->_init(\Hop\Envios\Model\ResourceModel\SelectedPickupPoint::class);
     }
 }

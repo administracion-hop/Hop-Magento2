@@ -5,7 +5,7 @@ namespace Hop\Envios\Model\ResourceModel;
 
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 
-class SelectedPickUpPoint extends AbstractDb
+class SelectedPickupPoint extends AbstractDb
 {
     /**
      * Table name

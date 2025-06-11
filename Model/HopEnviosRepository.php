@@ -45,7 +45,7 @@ class HopEnviosRepository
      * @param int $quoteId
      * @return HopEnvios|null
      */
-    public function getByOrderId(int $orderId): ?string
+    public function getByOrderId(int $orderId)
     {
         $collection = $this->collectionFactory->create();
         $collection->addFieldToFilter('order_id', $orderId);

@@ -3,8 +3,12 @@
 namespace Hop\Envios\Controller\Adminhtml\Label;
 
 use Magento\Backend\App\Action;
+use Magento\Backend\App\Action\Context;
+use Magento\Framework\Filesystem;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Framework\Message\ManagerInterface;
+use Hop\Envios\Model\HopEnviosRepository;
 
 /**
  * Class Descargar
@@ -14,53 +18,54 @@ use Magento\Framework\Controller\ResultFactory;
  * @copyright Copyright (c) 2021 Improntus
  * @package Hop\Envios\Controller\Adminhtml\Label
  */
-class Descargar extends \Magento\Backend\App\Action
+class Descargar extends Action
 {
     /**
      * @var PageFactory
      */
-    protected $_resultPageFactory;
+    protected $resultPageFactory;
 
     /**
-     * @var \Magento\Framework\Controller\ResultFactory
+     * @var ResultFactory
      */
-    protected $_resultRedirect;
+    protected $resultRedirect;
 
     /**
-     * @var \Magento\Framework\Message\ManagerInterface
+     * @var ManagerInterface
      */
     protected $messageManager;
 
     /**
-     * @var \Magento\Framework\Filesystem
+     * @var Filesystem
      */
-    protected $_filesystem;
+    protected $filesystem;
 
     /**
-     * @var
+     * @var HopEnviosRepository
      */
-    protected $_hopEnviosFactory;
+    protected $hopEnviosRepository;
 
     /**
      * Descargar constructor.
-     * @param Action\Context $context
+     * @param Context $context
      * @param ResultFactory $resultFactory
-     * @param \Magento\Framework\Message\ManagerInterface $manager
-     * @param \Magento\Framework\Filesystem $filesystem
+     * @param ManagerInterface $manager
+     * @param Filesystem $filesystem
+     * @param HopEnviosRepository $hopEnviosRepository
      */
     public function __construct
     (
-        Action\Context $context,
-        \Magento\Framework\Controller\ResultFactory $resultFactory,
-        \Magento\Framework\Message\ManagerInterface $manager,
-        \Magento\Framework\Filesystem $filesystem,
-        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+        Context $context,
+        ResultFactory $resultFactory,
+        ManagerInterface $manager,
+        Filesystem $filesystem,
+        HopEnviosRepository $hopEnviosRepository
     )
     {
-        $this->_resultRedirect = $resultFactory;
+        $this->resultRedirect = $resultFactory;
         $this->messageManager = $manager;
-        $this->_filesystem = $filesystem;
-        $this->_hopEnviosFactory = $hopEnviosFactory;
+        $this->filesystem = $filesystem;
+        $this->hopEnviosRepository = $hopEnviosRepository;
 
         parent::__construct($context);
     }
@@ -73,43 +78,36 @@ class Descargar extends \Magento\Backend\App\Action
         $request = $this->getRequest();
         $orderId = $request->getParam('order_id');
 
-        try
-        {
-            $hopEnvios = $this->_hopEnviosFactory->create();
-            $hopEnvios = $hopEnvios->getCollection()
-                ->addFieldToFilter('order_id', ['eq' => $orderId])
-                ->getFirstItem();
+        try {
+            $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
 
-            if (count($hopEnvios->getData()) > 0)
-            {
+            if ($hopEnvios) {
                 $infoHop = $hopEnvios->getInfoHop();
                 $infoHop = json_decode($infoHop);
                 $url = isset($infoHop->label_url) ? $infoHop->label_url : '';
                 $filenameArr = explode('/', $url);
                 $filename = $filenameArr[count($filenameArr) - 1];
                 $filename = trim($filename, '-');
-            }else
-            {
+            } else {
                 $url = '';
             }
 
-            if(!empty($url)){
+            if (!empty($url)) {
 
-                $mediapath = $this->_filesystem->getDirectoryRead(DirectoryList::MEDIA)->getAbsolutePath() . 'Hop/';
+                $mediapath = $this->filesystem->getDirectoryRead(DirectoryList::MEDIA)->getAbsolutePath() . 'Hop/';
 
-                if (!file_exists($mediapath) || !is_dir($mediapath))
-                {
-                    mkdir("{$mediapath}", 0775,true);
+                if (!file_exists($mediapath) || !is_dir($mediapath)) {
+                    mkdir("{$mediapath}", 0775, true);
                 }
 
                 $filesize = -1;
 
                 $curl = curl_init($url);
 
-                curl_setopt( $curl, CURLOPT_NOBODY, true );
-                curl_setopt( $curl, CURLOPT_HEADER, true );
-                curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
-                curl_setopt( $curl, CURLOPT_FOLLOWLOCATION, true );
+                curl_setopt($curl, CURLOPT_NOBODY, true);
+                curl_setopt($curl, CURLOPT_HEADER, true);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 
                 $data = curl_exec($curl);
                 $filesize =  curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
@@ -117,7 +115,7 @@ class Descargar extends \Magento\Backend\App\Action
 
                 header('Content-Description: File Transfer');
                 header('Content-Type: application/octet-stream');
-                header('Content-Disposition: attachment; filename='.$filename);
+                header('Content-Disposition: attachment; filename=' . $filename);
                 header('Content-Transfer-Encoding: binary');
                 header('Expires: 0');
                 header('Cache-Control: must-revalidate');
@@ -127,17 +125,14 @@ class Descargar extends \Magento\Backend\App\Action
                 flush();
                 readfile($url);
                 return;
-            }
-            else{
+            } else {
                 $this->messageManager->addErrorMessage(__('Se produjo un error al descargar la etiqueta de Hop. Por favor intentelo nuevamente'));
             }
-        }
-        catch (\Exception $e)
-        {
+        } catch (\Exception $e) {
             $this->messageManager->addErrorMessage($e->getMessage());
         }
 
-        $resultRedirect = $this->_resultRedirect->create(ResultFactory::TYPE_REDIRECT);
+        $resultRedirect = $this->resultRedirect->create(ResultFactory::TYPE_REDIRECT);
         $resultRedirect->setUrl($this->_redirect->getRefererUrl());
 
         return $resultRedirect;

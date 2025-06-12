@@ -132,16 +132,16 @@ class Webservice
 
     /**
      * Performs an HTTP request using cURL with automatic authentication retry
-     * 
+     *
      * This method sends HTTP requests to an API endpoint with support for different HTTP verbs,
      * automatic token refresh on 401 (Unauthorized) errors, and logging.
-     * 
+     *
      * @param string $verb The HTTP method to use (e.g., 'GET', 'POST', 'PUT', 'DELETE')
      * @param string $path The API endpoint path (without the full URL)
      * @param mixed $postFields Optional data to be sent with the request (typically for POST/PUT)
-     * 
+     *
      * @return string|false The API response body on success, or false on failure
-     * 
+     *
      * @throws Exception Potential exceptions from cURL operations
      */
     protected function curl($verb, $path, $postFields = false)
@@ -164,14 +164,14 @@ class Webservice
                     "Content-Type: application/json"
                 ],
             ];
-    
+
             if ($postFields){
                 $curlData[CURLOPT_POSTFIELDS] = $postFields;
             }
             curl_setopt_array($curl, $curlData);
-    
+
             $response = curl_exec($curl);
-    
+
             if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401){
                 $this->login(true);
                 $retry = true;
@@ -179,7 +179,7 @@ class Webservice
                 $retry = false;
             }
         } while($retry);
-        
+
         if(curl_error($curl))
         {
             $error = 'Se produjo un error: '. curl_error($curl);
@@ -317,13 +317,15 @@ class Webservice
      * @param integer $zipCode
      * @return bool|mixed
      */
-    public function getPickupPoints($zipCode)
+    public function getPickupPoints($zipCode, $force_from_api = false)
     {
-        $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
-        if ($collection->getSize()) {
-            $pointes = $collection->getFirstItem();
-            $pointData = $pointes->getPointData();
-            return json_decode($pointData);
+        if (!$force_from_api){
+            $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
+            if ($collection->getSize()) {
+                $pointes = $collection->getFirstItem();
+                $pointData = $pointes->getPointData();
+                return json_decode($pointData);
+            }
         }
 
         $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";
@@ -338,7 +340,9 @@ class Webservice
                 $point = $this->pointFactory->create();
                 $point->setZipCode($zipCode);
                 $point->setPointData(json_encode(json_decode($response)));
-                $this->pointResource->save($point);
+                if (!$force_from_api){
+                    $this->pointResource->save($point);
+                }
             } catch (\Exception $e) {
                 $this->_helper->log($e->getMessage(), true);
             }
@@ -368,7 +372,14 @@ class Webservice
         $url .= "?origin_zipcode=$originZipCode";
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
-        $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height&pickup_point_id=$hopPointId";
+        $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height";
+        $sizeCategory = $this->_helper->getSizeCategory();
+        if ($sizeCategory){
+            $url .= "&package[size_category]=$sizeCategory";
+        }
+        if ($hopPointId){
+            $url .= "&pickup_point_id=$hopPointId";
+        }
 
         $response = $this->curl("GET", $url);
         $responseObject = json_decode($response);
@@ -435,7 +446,9 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        $paramPackage['size_category'] = $sizeCategory;
+        if ($sizeCategory){
+            $paramPackage['size_category'] = $sizeCategory;
+        }
         $paramPackage['width'] = $packageData['width'];
         $paramPackage['length'] = $packageData['length'];
         $paramPackage['height'] = $packageData['height'];
@@ -455,7 +468,7 @@ class Webservice
         $this->_helper->log($params, false, true);
 
         $url = "api.hopenvios.com.ar/api/v1/shipping";
-        
+
         $responseJson = $this->curl('POST', $url, $postFields);
         $responseObject = json_decode($responseJson);
 

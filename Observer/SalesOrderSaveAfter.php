@@ -36,11 +36,12 @@ class SalesOrderSaveAfter implements ObserverInterface
      * @param Data $data
      * @param Webservice $webservice
      * @param \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+     * @param CreateShipment $createShipment
      */
     public function __construct(
         Data $data,
         Webservice $webservice,
-        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory
+        \Hop\Envios\Model\HopEnviosFactory $hopEnviosFactory,
     ) {
         $this->_helper = $data;
         $this->_webservice = $webservice;
@@ -54,6 +55,7 @@ class SalesOrderSaveAfter implements ObserverInterface
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        
         try {
             if ($this->_helper->isActive())
             {
@@ -100,5 +102,6 @@ class SalesOrderSaveAfter implements ObserverInterface
         } catch (\Exception $e) {
             $this->_helper->log($e->getMessage(), true);
         }
+
     }
 }

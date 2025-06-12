@@ -2,7 +2,10 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/crontab.xsd">
     <group id="default">
         <job name="hop_envios_load_points" instance="Hop\Envios\Cron\LoadPoints" method="execute">
-            <schedule>0 0 * * *</schedule>
+            <schedule>0 * * * *</schedule>
+        </job>
+        <job name="hop_envios_genarate_shipment" instance="Hop\Envios\Cron\GenarateShipment" method="execute">
+            <schedule>* * * * *</schedule>
         </job>
     </group>
 </config>

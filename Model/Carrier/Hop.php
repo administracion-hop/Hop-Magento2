@@ -309,10 +309,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $totalPrice = 0;
 
-        $zipCode = (int)$request->getDestPostcode();
+        $destZipCode = (int)$request->getDestPostcode();
         $quote = $this->_checkoutSession->getQuote();
 
-        if (!$zipCode) {
+        if (!$destZipCode) {
             return $result;
         }
 
@@ -363,8 +363,18 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setPrice(0);
             $method->setCost(0);
         } else {
+            $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
+            if (empty($pointFromZipCode->data)) {
+                $error = $this->_rateErrorFactory->create();
+                $error->setCarrier($this->_code);
+                $error->setCarrierTitle($this->getConfigData('title'));
+                $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
+                $quote = $this->_checkoutSession->getQuote();
+                $quote->setHopData(null);
+                $quote->save();
+                return $error;
+            }
             $originZipCode = $this->_helper->getOriginZipcode();
-            $destZipCode = $zipCode;
             $hopPointId = !empty($hopData['hopPointId']) ? $hopData['hopPointId'] : '';
             $sellerCode = $helper->getSellerCode();
             $costoEnvio = $webservice->estimatePrice(

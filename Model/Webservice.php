@@ -234,7 +234,18 @@ class Webservice
         }
 
         $response = json_decode($response);
-
+        if (isset($response->errors)) {
+            $error = __('Error al iniciar sesión: ');
+            if (is_array($response->errors)) {
+                foreach ($response->errors as $err) {
+                    $error .= $err->detail . ' ';
+                }
+            } else {
+                $error .= $response->errors;
+            }
+            $this->_helper->log($error, true);
+            return false;
+        }
         $this->_tokenType = isset($response->token_type) ? $response->token_type : null;
         $this->_accessToken = isset($response->access_token) ? $response->access_token : null;
 

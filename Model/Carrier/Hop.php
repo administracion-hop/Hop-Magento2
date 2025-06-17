@@ -449,6 +449,13 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setPrice($adjustedShippingCost);
             $method->setCost($adjustedShippingCost);
         }
+        $zipCodeFromHopData = !empty($hopData['hopPointPostcode']) ? $hopData['hopPointPostcode'] : null;
+        if ($destZipCode != $zipCodeFromHopData){
+            $quote = $this->_checkoutSession->getQuote();
+            $quote->setHopData(null);
+            $quote->save();
+            $hopData = null;
+        }
 
         if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress'])) {
             $method->setMethodTitle(

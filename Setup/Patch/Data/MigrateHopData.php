@@ -80,7 +80,7 @@ class MigrateHopData implements DataPatchInterface
                             $selectedPickupPoint = $this->selectedPickupPointRepository->create();
                             $selectedPickupPoint->setOrderId($order['entity_id']);
                             $selectedPickupPoint->setQuoteId($order['quote_id']);
-                            $selectedPickupPoint->setoOriginalShippingDescription($order['shipping_description']);
+                            $selectedPickupPoint->setOriginalShippingDescription($order['shipping_description']);
                             $selectedPickupPoint->setOriginalPickupPointId($hopPointId);
                             $selectedPickupPoint->setPickupPointId($hopPointId);
                             $this->selectedPickupPointRepository->save($selectedPickupPoint);

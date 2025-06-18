@@ -6,7 +6,7 @@ namespace Hop\Envios\Setup\Patch\Data;
 use Magento\Framework\Setup\Patch\DataPatchInterface;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\App\ResourceConnection;
-use Psr\Log\LoggerInterface;
+use Hop\Envios\Logger\LoggerInterface;
 use Hop\Envios\Model\SelectedPickupPoint;
 use Hop\Envios\Model\SelectedPickupPointRepository;
 
@@ -73,7 +73,7 @@ class MigrateHopData implements DataPatchInterface
                     $hopEnviosData = json_decode($order['hop_data'], true);
 
                     if (json_last_error() === JSON_ERROR_NONE && is_array($hopEnviosData)) {
-                        $hopPointId = isset($data['hopPointId']) ? $hopEnviosData['hopPointId'] : null;
+                        $hopPointId = isset($hopEnviosData['hopPointId']) ? $hopEnviosData['hopPointId'] : null;
 
                         if ($hopPointId !== null) {
                             /** @var SelectedPickupPoint  */

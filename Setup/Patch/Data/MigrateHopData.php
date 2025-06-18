@@ -63,7 +63,7 @@ class MigrateHopData implements DataPatchInterface
                     $hopEnviosData = json_decode($order['hop_envios'], true);
 
                     if (json_last_error() === JSON_ERROR_NONE && is_array($hopEnviosData)) {
-                        $hopPointId = $this->extractHopPointId($hopEnviosData);
+                        $hopPointId = isset($data['hopPointId']) ? $hopEnviosData['hopPointId'] : null;
 
                         if ($hopPointId !== null) {
                             $this->logger->info(sprintf(
@@ -101,53 +101,6 @@ class MigrateHopData implements DataPatchInterface
         }
 
         $this->moduleDataSetup->getConnection()->endSetup();
-    }
-
-    /**
-     * Extrae el hopPointId del array de datos
-     *
-     * @param array $data
-     * @return string|null
-     */
-    private function extractHopPointId(array $data): ?string
-    {
-        // Buscar hopPointId directamente
-        if (isset($data['hopPointId'])) {
-            return (string)$data['hopPointId'];
-        }
-
-        // Buscar en estructura anidada (común en JSONs complejos)
-        if (isset($data['hop_point_id'])) {
-            return (string)$data['hop_point_id'];
-        }
-
-        // Buscar recursivamente en el array
-        return $this->searchRecursive($data, ['hopPointId', 'hop_point_id', 'pointId', 'point_id']);
-    }
-
-    /**
-     * Búsqueda recursiva de claves en el array
-     *
-     * @param array $array
-     * @param array $keys
-     * @return string|null
-     */
-    private function searchRecursive(array $array, array $keys): ?string
-    {
-        foreach ($array as $key => $value) {
-            if (in_array($key, $keys)) {
-                return (string)$value;
-            }
-
-            if (is_array($value)) {
-                $result = $this->searchRecursive($value, $keys);
-                if ($result !== null) {
-                    return $result;
-                }
-            }
-        }
-
-        return null;
     }
 
     /**

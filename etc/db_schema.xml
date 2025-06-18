@@ -71,9 +71,6 @@
                     table="hop_envios_selected_pickup_point" column="quote_id"
                     referenceTable="quote" referenceColumn="entity_id" onDelete="CASCADE"/>
 
-        <index referenceId="HOP_ENVIOS_SELECTED_PICKUP_POINT_QUOTE_ID" indexType="btree">
-            <column name="quote_id"/>
-        </index>
 
         <index referenceId="HOP_ENVIOS_SELECTED_PICKUP_POINT_PICKUP_POINT_ID" indexType="btree">
             <column name="pickup_point_id"/>

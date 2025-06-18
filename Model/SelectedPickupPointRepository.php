@@ -79,7 +79,7 @@ class SelectedPickupPointRepository
      * @param int $quoteId
      * @return SelectedPickupPoint|null
      */
-    public function getByQuoteId(int $quoteId): ?string
+    public function getByQuoteId(int $quoteId)
     {
         $collection = $this->collectionFactory->create();
         $collection->addFieldToFilter('quote_id', $quoteId);

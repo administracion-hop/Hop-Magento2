@@ -143,7 +143,7 @@ class SelectedPickupPointRepository
     {
         try {
             $model = $this->selectedPickupPointFactory->create();
-            $this->resourceModel->load($model, $quoteId);
+            $this->resourceModel->load($model, $quoteId, 'quote_id');
 
             if (!$model->getId()) {
                 return false;

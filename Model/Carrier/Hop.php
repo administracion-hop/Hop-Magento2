@@ -455,7 +455,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setMethodTitle($shippingDescription);
             $quote = $this->_checkoutSession->getQuote();
             $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quote->getId());
-            if (!$selectedPickupPoint->getId()) {
+            if (!$selectedPickupPoint) {
+                $selectedPickupPoint = $this->selectedPickupPointRepository->create();
                 $selectedPickupPoint->setQuoteId($quote->getId());
             }
             $pickupPointId = $hopData['hopPointId'];

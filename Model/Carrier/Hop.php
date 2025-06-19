@@ -362,8 +362,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $error->setCarrier($this->_code);
             $error->setCarrierTitle($this->getConfigData('title'));
             $error->setErrorMessage(__('Su pedido supera el peso máximo permitido por Hop. Por favor divida su orden en más pedidos o consulte al administrador de la tienda.'));
-            $quote = $this->_checkoutSession->getQuote();
-            $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
+            $this->cleanQuoteData();
             return $error;
         }
 
@@ -377,9 +376,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
-                $quote = $this->_checkoutSession->getQuote();
-                $quote->setHopData(null);
-                $quote->save();
+                $this->cleanQuoteData();
                 return $error;
             }
             $originZipCode = $this->_helper->getOriginZipcode();
@@ -421,8 +418,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
-                $quote = $this->_checkoutSession->getQuote();
-                $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
+                $this->cleanQuoteData();
                 return $error;
             }
 
@@ -459,8 +455,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $zipCodeFromHopData = !empty($hopData['hopPointPostcode']) ? $hopData['hopPointPostcode'] : null;
         if ($destZipCode != $zipCodeFromHopData){
-            $quote = $this->_checkoutSession->getQuote();
-            $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
+            $this->cleanQuoteData();
             $hopData = null;
         }
 
@@ -471,6 +466,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                     ' - Horario: ' . $hopData['hopPointSchedules'];
             $method->setMethodTitle($shippingDescription);
             $quote = $this->_checkoutSession->getQuote();
+            if (!$quote->getId()){
+                $this->_quoteRepository->save($quote);
+            }
             $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quote->getId());
             if (!$selectedPickupPoint) {
                 $selectedPickupPoint = $this->selectedPickupPointRepository->create();
@@ -589,5 +587,16 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $measure_code,
             $product->getStoreId()
         ) * $qty;
+    }
+
+    /**
+     * Clean quote data
+     */
+    protected function cleanQuoteData(){
+        $quote = $this->_checkoutSession->getQuote();
+        if (!$quote->getId()){
+            $this->_quoteRepository->save($quote);
+        }
+        $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
     }
 }

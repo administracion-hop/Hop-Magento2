@@ -1,0 +1,74 @@
+<script>
+    require(["jquery", "Magento_Ui/js/modal/confirm", "mage/translate", "mage/url"], ($, confirmation, $t, urlBuilder) => {
+        var sendToHopAction = {
+            /**
+             * @param {string} actionUrl - URL de la acción
+             * @param {int} orderId - ID de la orden
+             */
+            confirmAndExecute: function(actionUrl, orderId) {
+                if (!actionUrl || !orderId) {
+                    console.error("URL de acción u Order ID faltante")
+                    return
+                }
+
+                confirmation({
+                    title: $t("Confirmar Acción"),
+                    content: $t("¿Está seguro que desea ejecutar esta acción custom de envíos para la orden #%1?").replace(
+                        "%1",
+                        orderId,
+                    ),
+                    modalClass: "confirm hop-envios-confirm",
+                    actions: {
+                        confirm: () => {
+                            this.executeAction(actionUrl)
+                        },
+                        cancel: () => {
+                            return false
+                        },
+                    },
+                    buttons: [{
+                            text: $t("Cancelar"),
+                            class: "action-secondary action-dismiss",
+                            click: function(event) {
+                                this.closeModal(event)
+                            },
+                        },
+                        {
+                            text: $t("Aceptar"),
+                            class: "action-primary action-accept",
+                            click: function(event) {
+                                this.closeModal(event, true)
+                            },
+                        },
+                    ],
+                })
+            },
+
+            /**
+             * @param {string} actionUrl - URL de la acción
+             */
+            executeAction: (actionUrl) => {
+                $("body").trigger("processStart")
+
+                var form = $("<form>", {
+                    method: "POST",
+                    action: actionUrl,
+                    style: "display: none;",
+                })
+
+                form.append(
+                    $("<input>", {
+                        type: "hidden",
+                        name: "form_key",
+                        value: window.FORM_KEY,
+                    }),
+                )
+
+                $("body").append(form)
+                form.submit()
+            },
+
+        }
+        window.sendToHopAction = sendToHopAction;
+    })
+</script>

@@ -440,7 +440,7 @@ class Webservice
 
         $params = [];
         $params['shipping_type'] = $shippingType;
-        $params['reference_id'] = $sellerCode.'-'.$order->getIncrementId();
+        $params['reference_id'] = $sellerCode.'-'.$order->getIncrementId().'-'.time();
         $params['reference_2'] = '';
         $params['reference_3'] = '';
         $params['label_type'] = $labelType;
@@ -509,6 +509,9 @@ class Webservice
                             }
                         }
                     }
+                }
+                if (!empty($responseObject->error)){
+                    $error .= $responseObject->error . ". ";
                 }
             } else if (is_string($responseObject)){
                 $error .= $responseObject . ".";

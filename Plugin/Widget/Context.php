@@ -6,6 +6,7 @@ use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Framework\UrlInterface;
+use Hop\Envios\Model\SelectedPickupPointRepository;
 
 /**
  * Class Context
@@ -38,23 +39,31 @@ class Context
     protected $hopEnviosRepository;
 
     /**
+     * @var SelectedPickupPointRepository
+     */
+    protected $selectedPickupPointRepository;
+
+    /**
      * Context constructor.
      * @param Order $order
      * @param DataHop $helperHop
      * @param UrlInterface $urlInterface,
      * @param HopEnviosRepository $hopEnviosRepository
+     * @param SelectedPickupPointRepository $selectedPickupPointRepository
      */
     public function __construct(
         Order $order,
         DataHop $helperHop,
         UrlInterface $urlInterface,
-        HopEnviosRepository $hopEnviosRepository
+        HopEnviosRepository $hopEnviosRepository,
+        SelectedPickupPointRepository $selectedPickupPointRepository
     )
     {
         $this->order = $order;
         $this->helperHop = $helperHop;
         $this->backendUrl = $urlInterface;
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
     }
 
     /**
@@ -111,13 +120,29 @@ class Context
                 } else {
                     $baseUrl = $this->backendUrl->getUrl('hop/order/view');
                     $buttonList->add(
-                        'crear_etiqueta_hop',
+                        'cambiar_punto_hop',
                         [
-                            'label'     => __('Enviar a Hop'),
+                            'label'     => __('Cambiar punto Hop'),
                             'onclick' => "hopView.open('". $baseUrl."', ".$orderId.")",
                             'class'     => 'primary hop-shipment-button'
                         ]
                     );
+                    $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
+                    if ($selectedPickupPoint && $selectedPickupPoint->getPickupPointId()) {
+                        $actionUrl = $this->backendUrl->getUrl('hop/order/send', [
+                            'order_id' => $orderId,
+                            'form_key' => $subject->getFormKey()
+                        ]);
+                        $buttonList->add(
+                            'enviar_a_hop',
+                            [
+                                'label'     => __('Enviar a HOP'),
+                                'onclick' => 'sendToHopAction.confirmAndExecute("' . $actionUrl . '", ' . $orderId . ')',
+                                'class'     => 'primary hop-shipment-button'
+                            ]
+                        );
+                    }
+
                 }
             }
         }

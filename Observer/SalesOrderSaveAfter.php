@@ -1,11 +1,11 @@
 <?php
+
 namespace Hop\Envios\Observer;
 
 use Hop\Envios\Helper\Data;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Model\Order;
-use Hop\Envios\Model\HopEnviosRepository;
-use Hop\Envios\Model\Webservice;
+use Hop\Envios\Helper\ShippingMethod;
 
 /**
  * Class SalesOrderSaveAfter
@@ -23,29 +23,21 @@ class SalesOrderSaveAfter implements ObserverInterface
     protected $helper;
 
     /**
-     * @var Webservice
+     * @var ShippingMethod
      */
-    protected $webservice;
-
-    /**
-     * @var HopEnviosRepository
-     */
-    protected $hopEnviosRepository;
+    protected $shippingMethodHelper;
 
     /**
      * SalesOrderSaveAfter constructor.
      * @param Data $data
-     * @param Webservice $webservice
-     * @param HopEnviosRepository $hopEnviosRepository
+     * @param ShippingMethod $shippingMethodHelper
      */
     public function __construct(
         Data $data,
-        Webservice $webservice,
-        HopEnviosRepository $hopEnviosRepository
+        ShippingMethod $shippingMethodHelper
     ) {
         $this->helper = $data;
-        $this->webservice = $webservice;
-        $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->shippingMethodHelper = $shippingMethodHelper;
     }
 
     /**
@@ -57,38 +49,16 @@ class SalesOrderSaveAfter implements ObserverInterface
     {
 
         try {
-            if ($this->helper->isActive())
-            {
+            if ($this->helper->isActive()) {
                 $order = $observer->getEvent()->getOrder();
-                if($order->getShippingMethod() == 'hop_hop')
-                {
-                    if ($order instanceof \Magento\Framework\Model\AbstractModel)
-                    {
+                if ($order->getShippingMethod() == 'hop_hop') {
+                    if ($order instanceof \Magento\Framework\Model\AbstractModel) {
                         $statuses = $this->helper->getStatusOrderAllowed();
 
                         $orderStatus = $order->getStatus();
 
-                        if(in_array($orderStatus, $statuses))
-                        {
-                            $hopEnvios = $this->hopEnviosRepository->getByOrderId($order->getId());
-
-                            if (!$hopEnvios) {
-                                $hopEnvios = $this->hopEnviosRepository->create();
-                                $hopEnvios->setOrderId($order->getId());
-                                $hopEnvios->setIncrementId($order->getIncrementId());
-                                $this->hopEnviosRepository->save($hopEnvios);
-                            }
-
-                            if(!$hopEnvios->getInfoHop()) {
-                                $result = $this->webservice->createShipping($order);
-                                if(!isset($result['error'])){
-                                    $hopEnvios->setInfoHop($result);
-                                    $this->hopEnviosRepository->save($hopEnvios);
-                                } else {
-                                    $order->setShippingDescription($result['error']);
-                                    $order->getResource()->saveAttribute($order, "shipping_description");
-                                }
-                            }
+                        if (in_array($orderStatus, $statuses)) {
+                            $this->shippingMethodHelper->createShipmentData($order);
                         }
                     }
                 }
@@ -97,6 +67,5 @@ class SalesOrderSaveAfter implements ObserverInterface
         } catch (\Exception $e) {
             $this->helper->log($e->getMessage(), true);
         }
-
     }
 }

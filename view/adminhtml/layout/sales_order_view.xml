@@ -2,8 +2,11 @@
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
    <body>
       <referenceContainer name="content">
-         <block class="Hop\Envios\Block\Adminhtml\HopSelectorJS" template="Hop_Envios::view/select-js.phtml" name="hop.view.select.js" />
-         <block class="Hop\Envios\Block\Adminhtml\SendToHopJS" template="Hop_Envios::view/send-js.phtml" name="hop.view.send.js" />
+         <block class="Hop\Envios\Block\Adminhtml\Order\View\HopSelectorJS" template="Hop_Envios::order/view/select-js.phtml" name="hop.view.select.js" />
+         <block class="Hop\Envios\Block\Adminhtml\Order\View\SendToHopJS" template="Hop_Envios::order/view/send-js.phtml" name="hop.view.send.js" />
+      </referenceContainer>
+      <referenceContainer name="order_additional_info">
+        <block class="Hop\Envios\Block\Adminhtml\Order\View\ShippingInfo" name="hop.shipping.info" template="Hop_Envios::order/view/shipping-info.phtml"/>
       </referenceContainer>
    </body>
 </page>

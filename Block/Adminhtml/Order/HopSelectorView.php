@@ -1,6 +1,6 @@
 <?php
 
-namespace Hop\Envios\Block\Adminhtml;
+namespace Hop\Envios\Block\Adminhtml\Order;
 
 use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Template;
@@ -13,7 +13,7 @@ use Hop\Envios\Helper\Data;
 
 class HopSelectorView extends Template
 {
-    public $_template = 'Hop_Envios::select-view.phtml';
+    public $_template = 'Hop_Envios::order/select-view.phtml';
 
     /**
      * @var OrderInterface

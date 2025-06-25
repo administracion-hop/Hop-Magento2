@@ -1,5 +1,5 @@
 <?php
-namespace Hop\Envios\Block\Adminhtml;
+namespace Hop\Envios\Block\Adminhtml\Order\View;
 
 use Magento\Framework\UrlInterface;
 use Magento\Backend\Block\Template\Context;

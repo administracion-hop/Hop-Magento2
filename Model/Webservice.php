@@ -466,7 +466,7 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        if ($sizeCategory){
+        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])){
             $paramPackage['size_category'] = $sizeCategory;
         }
         $paramPackage['width'] = $packageData['width'];

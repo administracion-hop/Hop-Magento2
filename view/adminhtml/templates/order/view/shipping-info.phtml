@@ -1,0 +1,58 @@
+<?php
+/**
+ * @var \Hop\Envios\Block\Adminhtml\Order\View\ShippingInfo $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$info = $block->getSelectedPickupPointData();
+$order = $block->getOrder();
+
+?>
+
+<?php if (!empty($info)): ?>
+<div class="admin__page-section-item order-shipping-custom-info">
+    <div class="admin__page-section-item-title">
+        <span class="title"><?= __('Información Hop Envíos') ?></span>
+    </div>
+    <div class="admin__page-section-item-content">
+        <div class="admin__table-wrapper">
+            <table class="admin__table-secondary">
+                <tbody>
+                    <?php if (!empty($info['pickup_point_id'])): ?>
+                    <tr>
+                        <th><?= __('Punto seleccionado actualmente') ?></th>
+                        <td><?= $escaper->escapeHtml($info['pickup_point_id']) ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if (!empty($info['original_pickup_point_id'])): ?>
+                    <tr>
+                        <th><?= __('Punto seleccionado en el checkout') ?></th>
+                        <td><?= $escaper->escapeHtml($info['original_pickup_point_id']) ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if (!empty($info['original_shipping_description'])): ?>
+                    <tr>
+                        <th><?= __('Descripción original') ?></th>
+                        <td><?= $escaper->escapeHtml($info['original_shipping_description']) ?></td>
+                    </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<style>
+.shipping-cost-breakdown {
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+.shipping-cost-breakdown div {
+    margin-bottom: 2px;
+}
+.order-shipping-custom-info {
+    margin-top: 20px;
+    border-top: 1px solid #e3e3e3;
+    padding-top: 20px;
+}
+</style>

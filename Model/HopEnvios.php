@@ -40,24 +40,6 @@ class HopEnvios extends AbstractModel
     protected $_isStatusChanged = false;
 
     /**
-     * PlanPago constructor.
-     * @param Context $context
-     * @param Registry $registry
-     * @param AbstractResource|null $resource
-     * @param AbstractDb|null $resourceCollection
-     * @param array $data
-     */
-    public function __construct(
-        Context $context,
-        Registry $registry,
-        AbstractResource $resource = null,
-        AbstractDb $resourceCollection = null,
-        array $data = []
-    ) {
-        parent::__construct($context, $registry, $resource, $resourceCollection, $data);
-    }
-
-    /**
      * Inicia el resource model
      */
     protected function _construct()

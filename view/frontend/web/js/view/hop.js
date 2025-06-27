@@ -157,6 +157,16 @@ define(
                         if (rate.carrier_code != 'hop'){
                             continue;
                         }
+                        let shippingAddress = quote.shippingAddress();
+                        if (shippingAddress){
+                            if (window.checkoutConfig.quoteData.hop_data) {
+                                let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
+                                if (hopData.hopPointPostcode != shippingAddress.postcode){
+                                    window.checkoutConfig.quoteData.hop_data = null;
+                                }
+                            }
+                        }
+                        if (!rate.available) window.checkoutConfig.quoteData.hop_data = null;
                         this_component.disponible(rate.available);
                         break;
                     }

@@ -10,7 +10,7 @@ namespace Hop\Envios\Model\Config\Source;
  * @copyright Copyright (c) 2021 Improntus
  * @package Hop\Envios\Model\Config\Source
  */
-class TypeShippingOption implements \Magento\Framework\Option\ArrayInterface
+class TypeShippingOption implements \Magento\Framework\Data\OptionSourceInterface
 {
     /**
      * @return array|array[]

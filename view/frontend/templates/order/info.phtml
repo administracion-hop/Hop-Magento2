@@ -1,5 +1,11 @@
-<?php /** @var $block \Hop\Envios\Block\Order\Info */ ?>
-<?php $_order = $block->getOrder() ?>
+<?php
+/** @var $block \Hop\Envios\Block\Order\Info */
+/** @var $_order \Magento\Sales\Model\Order */
+$_order = $block->getOrder();
+if (!$_order) {
+    return;
+}
+?>
 <?php $trackingUrlStatus = $block->getTrackingUrlStatus(); ?>
 <div class="block block-order-details-view">
     <div class="block-title">

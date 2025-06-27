@@ -10,7 +10,7 @@ namespace Hop\Envios\Model\Config\Source;
  * @copyright Copyright (c) 2021 Improntus
  * @package Hop\Envios\Model\Config\Source
  */
-class DocumentAttributeOption implements \Magento\Framework\Option\ArrayInterface
+class DocumentAttributeOption implements \Magento\Framework\Data\OptionSourceInterface
 {
     /**
      * @return array|array[]

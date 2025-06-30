@@ -3,4 +3,7 @@
     <event name="sales_order_save_after">
         <observer name="Hop_Envios::SalesOrderSaveAfter" instance="Hop\Envios\Observer\SalesOrderSaveAfter" />
     </event>
+    <event name="sales_order_place_after">
+        <observer name="hop_envios_clear_hop_data" instance="Hop\Envios\Observer\ClearHopDataAfterOrderPlace" />
+    </event>
 </config>

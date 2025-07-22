@@ -56,6 +56,12 @@ class LabelGeneratorPlugin
         \Closure $proceed,
         $imageString
     ) {
+        $extension = pathinfo($imageString, PATHINFO_EXTENSION);
+        if (!empty($extension) && !in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif'])) {
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Formato de imagen no soportado: %1', $extension)
+            );
+        }
         $shipment = $this->_shipment->getShipment();
 
         if ($shipment && $shipment->getOrder()) {

@@ -30,7 +30,7 @@
                     <label>Mostrar mensaje de método no disponible en el checkout</label>
                     <frontend_class>shipping-skip-hide</frontend_class>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment><![CDATA[Cuhop esta opción este en <strong>SÍ</strong> y el método de envío tenga un error, lo mostrará en el checkout con su correspondiente mensaje (por ejemplo: "No existe cotización para el código postal ingresado"). En caso de estar seleccionado <strong>NO</strong>, y el método de envío tenga un error, éste no será mostrado en el checkout.]]></comment>
+                    <comment><![CDATA[Cuando esta opción este en <strong>SÍ</strong> y el método de envío tenga un error, lo mostrará en el checkout con su correspondiente mensaje (por ejemplo: "No existe cotización para el código postal ingresado"). En caso de estar seleccionado <strong>NO</strong>, y el método de envío tenga un error, éste no será mostrado en el checkout.]]></comment>
                 </field>
             <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Peso máximo habilitado</label>

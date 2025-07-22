@@ -88,14 +88,14 @@ class Context
                 if ($hopEnvios) {
                     $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
-                    $baseUrl = isset($infoHop->label_url) ? $infoHop->label_url : '';
+                    $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
                 } else {
                     $baseUrl = '';
                 }
 
                 if (!empty($baseUrl)) {
-                    $baseUrl = $this->backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
+                    // $baseUrl = $this->backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
 
                     $buttonList->add(
                         'descargar_etiqueta_hop',

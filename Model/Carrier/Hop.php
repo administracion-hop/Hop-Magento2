@@ -308,7 +308,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $result = $this->_rateResultFactory->create();
         $method = $this->_rateMethodFactory->create();
 
-
         $method->setCarrier($this->_code);
         $method->setCarrierTitle($this->getConfigData('title'));
         $method->setMethod($this->_code);
@@ -326,6 +325,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         }
 
         $hopData = $this->_checkoutSession->getHopData();
+        $showMethod = $this->getConfigData('showmethod');
 
         $hopAltoTotal = 0;
         $hopLargoTotal = [];
@@ -372,11 +372,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         } else {
             $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
             if (empty($pointFromZipCode->data)) {
+                $this->cleanQuoteData();
+                if (!$showMethod){
+                    return false;
+                }
                 $error = $this->_rateErrorFactory->create();
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
-                $this->cleanQuoteData();
                 return $error;
             }
             $originZipCode = $this->_helper->getOriginZipcode();
@@ -414,11 +417,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $helper->log($dataForLog, false, true);
 
             if (!$costoEnvio) {
+                $this->cleanQuoteData();
+                if (!$showMethod){
+                    return false;
+                }
                 $error = $this->_rateErrorFactory->create();
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
-                $this->cleanQuoteData();
                 return $error;
             }
 

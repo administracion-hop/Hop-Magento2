@@ -234,11 +234,14 @@ class Data extends AbstractHelper
     }
 
     /**
-     * @return false|string[]
+     * @return string[]
      */
     public function getStatusOrderAllowed()
     {
         $statusOrderAllowed = $this->_scopeConfig->getValue('shipping/hop/status_allowed', ScopeInterface::SCOPE_STORE);
+        if (empty($statusOrderAllowed)){
+            return array();
+        }
         $statusOrderAllowed = explode(',', $statusOrderAllowed);
         return $statusOrderAllowed;
     }

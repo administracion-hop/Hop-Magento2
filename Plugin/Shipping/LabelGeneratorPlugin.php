@@ -13,8 +13,19 @@ use Hop\Envios\Model\Webservice;
 
 class LabelGeneratorPlugin
 {
+    /**
+     * @var HopHelper
+     */
     protected $_helper;
+
+    /**
+     * @var Filesystem
+     */
     protected $_filesystem;
+
+    /**
+     * @var View
+     */
     protected $_shipment;
 
     /**
@@ -22,6 +33,12 @@ class LabelGeneratorPlugin
      */
     protected $_webservice;
 
+    /**
+     * @param Filesystem $filesystem
+     * @param View $shipment
+     * @param HopHelper $hopHelper
+     * @param Webservice $webservice
+     */
     public function __construct(
         Filesystem $filesystem,
         View $shipment,
@@ -39,6 +56,12 @@ class LabelGeneratorPlugin
         \Closure $proceed,
         $imageString
     ) {
+        $extension = pathinfo($imageString, PATHINFO_EXTENSION);
+        if (!empty($extension) && !in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif'])) {
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Formato de imagen no soportado: %1', $extension)
+            );
+        }
         $shipment = $this->_shipment->getShipment();
 
         if ($shipment && $shipment->getOrder()) {
@@ -120,7 +143,6 @@ class LabelGeneratorPlugin
         \Magento\Shipping\Model\Shipping\LabelGenerator $subject,
         array $labelsContent = []
     ) {
-        $logPath = BP . '/var/log/yeah.log';
         $mediaPath = BP . '/pub/media/Hop/';
 
         if (!file_exists($mediaPath) || !is_dir($mediaPath)) {
@@ -145,14 +167,14 @@ class LabelGeneratorPlugin
                     curl_close($curl);
 
                     if ($imageData === false) {
-                        file_put_contents($logPath, "Error descargando imagen desde: $url" . PHP_EOL, FILE_APPEND);
+                        $this->_helper->log(__('Error descargando imagen desde: ') . $url, true);
                         continue;
                     }
 
                     file_put_contents($filePath, $imageData);
 
                     if (!file_exists($filePath)) {
-                        file_put_contents($logPath, "No se pudo guardar la imagen en: $filePath" . PHP_EOL, FILE_APPEND);
+                        $this->_helper->log(__('No se pudo guardar la imagen en: ') . $filePath, true);
                         continue;
                     }
 
@@ -163,15 +185,11 @@ class LabelGeneratorPlugin
                     $image = \Zend_Pdf_Image::imageWithPath($filePath);
                     $pdfPage->drawImage($image, 0, 0, $width, $height);
                     $pdf->pages[] = $pdfPage;
-
-                    // Convertimos el PDF en string binario
                     $pdfBinary = $pdf->render();
-
-                    // Reemplazamos la URL con el contenido binario del PDF
                     $content = $pdfBinary;
 
                 } catch (\Exception $e) {
-                    file_put_contents($logPath, "Error procesando la imagen: " . $e->getMessage() . PHP_EOL, FILE_APPEND);
+                    $this->_helper->log(__('Error procesando la imagen: ') . $e->getMessage(), true);
                     continue;
                 } finally {
                     if (file_exists($filePath)) {

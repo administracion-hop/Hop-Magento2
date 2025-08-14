@@ -44,7 +44,7 @@ class View extends Action
         if (!empty($post['id'])) {
             $orderId = $post['id'];
             $content = $this->layoutFactory->create()->createBlock(
-                \Hop\Envios\Block\Adminhtml\View::class,
+                \Hop\Envios\Block\Adminhtml\Order\HopSelectorView::class,
                 'hop_selector',
                 [
                     'data' => [

@@ -32,11 +32,125 @@
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment><![CDATA[Cuando esta opción este en <strong>SÍ</strong> y el método de envío tenga un error, lo mostrará en el checkout con su correspondiente mensaje (por ejemplo: "No existe cotización para el código postal ingresado"). En caso de estar seleccionado <strong>NO</strong>, y el método de envío tenga un error, éste no será mostrado en el checkout.]]></comment>
                 </field>
-            <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                <field id="max_package_weight" translate="label" type="text" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Peso máximo habilitado</label>
                        <!--<source_model>Hop\Envios\Model\Source\PesoMaximo</source_model>-->
                 </field>
+                <group id="statuses" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Manejo de estado de las ventas</label>
+                    <group id="processing" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                        <label>Ventas en proceso</label>
+                        <field id="E_CON" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Pendiente de ingreso</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_DEP" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Paquete recibido</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_DIS" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En distribución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_LIS" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Listo para retirar</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_ENT" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Entrega confirmada</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_VEN" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Plazo de entrega vencido para devolución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_ICDD" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Inicio devolución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_EDE" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Devolución en proceso</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_DEV" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Devuelto</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_RESC" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En devolución (rescate)</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_ANU" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En devolución (cancelado)</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_ROT" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Rotura</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                        <field id="E_NDEST" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En distribución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
+                        </field>
+                    </group>
+                    <group id="complete" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                        <label>Ventas completadas</label>
+                        <field id="E_CON" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Pendiente de ingreso</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_DEP" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Paquete recibido</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_DIS" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En distribución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_LIS" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Listo para retirar</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_ENT" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Entrega confirmada</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_VEN" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Plazo de entrega vencido para devolución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_ICDD" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Inicio devolución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_EDE" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Devolución en proceso</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_DEV" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Devuelto</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_RESC" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En devolución (rescate)</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_ANU" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En devolución (cancelado)</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_ROT" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>Rotura</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                        <field id="E_NDEST" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
+                            <label>En distribución</label>
+                            <source_model>Hop\Envios\Model\Config\Source\CompleteStatus</source_model>
+                        </field>
+                    </group>
+                </group>
             </group>
+
         </section>
         <section id="shipping" translate="label" type="text" showInDefault="1" showInWebsite="1" showInStore="1">
             <group id="hop" translate="label" type="text" sortOrder="400" showInDefault="1" showInWebsite="1" showInStore="1">

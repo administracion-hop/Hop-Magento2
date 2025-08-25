@@ -24,6 +24,8 @@
         </arguments>
     </type>
     <preference for="Hop\Envios\Logger\LoggerInterface" type="Hop\Envios\Logger\Logger"/>
+    <preference for="Hop\Envios\Api\Data\WebhookResponseInterface" type="Hop\Envios\Model\Data\WebhookResponse" />
+    <preference for="Hop\Envios\Api\WebhookManagementInterface" type="Hop\Envios\Model\WebhookManagement" />
     <type name="Magento\Customer\ViewModel\Address">
         <plugin name="hop_envios_address_validation_plugin" type="Hop\Envios\Plugin\Customer\ViewModel\AddressPlugin" sortOrder="10"/>
     </type>

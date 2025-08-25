@@ -2,7 +2,7 @@
   "name": "hopenvios/magento2",
   "description": "Módulo de envíos Hop para Magento 2",
   "type": "magento2-module",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "require": {
   },
   "autoload": {

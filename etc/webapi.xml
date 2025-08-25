@@ -12,4 +12,10 @@
             <resource ref="anonymous" />
         </resources>
     </route>
+    <route url="/V1/hop-envios/notifications" method="POST">
+        <service class="Hop\Envios\Api\WebhookManagementInterface" method="processNotification"/>
+        <resources>
+            <resource ref="Hop_Envios::webhook_notifications"/>
+        </resources>
+    </route>
 </routes>

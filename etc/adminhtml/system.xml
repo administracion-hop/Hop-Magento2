@@ -261,8 +261,7 @@
                     <comment>Este atributo se obtiene de la tabla sales_order. Solo modificar este campo si posee conocimientos técnicos</comment>
                 </field>
                 <field id="status_allowed" translate="label" type="multiselect" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Estados para generacion etiqueta</label>
-                    <validate>required-entry</validate>
+                    <label>Estados para generación etiqueta</label>
                     <source_model>Hop\Envios\Model\Config\Source\StatusOrderOption</source_model>
                     <comment>Cuando el pedido cambie de estado a cualquiera de los seleccionados, se generará la etiqueta de despacho automáticamente.</comment>
                 </field>

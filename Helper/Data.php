@@ -295,6 +295,18 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @return string
+     */
+    public function getMeasureCode($code)
+    {
+        $attributeCode = $this->_scopeConfig->getValue('shipping/hop/measure_attribute_' . $code,ScopeInterface::SCOPE_STORE);
+        if (empty($attributeCode)){
+            return "hop_" . $code;
+        }
+        return $attributeCode;
+    }
+
+    /**
      * @param $mensaje String
      * @param $archivo String
      */
@@ -346,15 +358,15 @@ class Data extends AbstractHelper
                 $_item = $_item->getParentItem();
 
             $hopAlto = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(),'hop_alto',$_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('alto'), $_product->getStoreId()) * $_item->getQtyOrdered();
             $hopAltoTotal += $hopAlto;
 
             $hopLargo = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(),'hop_largo',$_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('largo'),$_product->getStoreId()) * $_item->getQtyOrdered();
             $hopLargoTotal[] = $hopLargo;
 
             $hopAncho = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(),'hop_ancho',$_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('ancho'),$_product->getStoreId()) * $_item->getQtyOrdered();
             $hopAnchoTotal[] = $hopAncho;
 
             $weightTotal += ($_product->getWeight() * 1000) * $_item->getQtyOrdered();

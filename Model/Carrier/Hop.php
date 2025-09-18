@@ -346,9 +346,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
             $qty = $_item->getQty();
 
-            $hopAltoTotal += $this->getMeasure($_product, 'hop_alto', $qty);
-            $hopLargoTotal[] = $this->getMeasure($_product, 'hop_largo', $qty);
-            $hopAnchoTotal[] = $this->getMeasure($_product, 'hop_ancho', $qty);
+            $hopAltoTotal += $this->getMeasure($_product, 'alto', $qty);
+            $hopLargoTotal[] = $this->getMeasure($_product, 'largo', $qty);
+            $hopAnchoTotal[] = $this->getMeasure($_product, 'ancho', $qty);
 
             $totalPrice += $_product->getFinalPrice() * $qty;
         }
@@ -586,11 +586,12 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param int $qty
      * @return int
      */
-    protected function getMeasure($product, $measure_code, $qty)
+    protected function getMeasure($product, $measureCode, $qty)
     {
+        $attributeCode = $this->_helper->getMeasureCode($measureCode);
         return (int) $product->getResource()->getAttributeRawValue(
             $product->getId(),
-            $measure_code,
+            $attributeCode,
             $product->getStoreId()
         ) * $qty;
     }

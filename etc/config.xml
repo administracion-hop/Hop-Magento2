@@ -46,5 +46,12 @@
                 </statuses>
             </hop>
         </carriers>
+        <shipping>
+            <hop>
+                <measure_attribute_alto>hop_alto</measure_attribute_alto>
+                <measure_attribute_largo>hop_largo</measure_attribute_largo>
+                <measure_attribute_ancho>hop_ancho</measure_attribute_ancho>
+            </hop>
+        </shipping>
     </default>
 </config>

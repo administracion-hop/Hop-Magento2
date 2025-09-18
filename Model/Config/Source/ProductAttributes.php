@@ -24,7 +24,7 @@ class ProductAttributes implements \Magento\Framework\Data\OptionSourceInterface
     {
         $options = [['value' => '', 'label' => __('-- Seleccione una opción --')]];
         $attributes = $this->attributeCollectionFactory->create()
-            ->addFieldToFilter('frontend_input', ['in' => ['text', 'select', 'multiselect', 'textarea']])
+            ->addFieldToFilter('frontend_input', ['in' => ['text', 'select']])
             ->setOrder('attribute_code', 'ASC');
 
         foreach ($attributes as $attribute) {

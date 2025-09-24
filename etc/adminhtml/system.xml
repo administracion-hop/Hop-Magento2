@@ -36,9 +36,16 @@
                     <label>Peso máximo habilitado</label>
                        <!--<source_model>Hop\Envios\Model\Source\PesoMaximo</source_model>-->
                 </field>
-                <group id="statuses" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                <group id="statuses" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Manejo de estado de las ventas</label>
-                    <group id="processing" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <field id="allow_notifications" translate="label" type="select" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
+                        <label>Permitir que Hop notifique a Magento novedades y cambie el estado de las órdenes</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    </field>
+                    <group id="processing" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="0">
+                        <depends>
+                            <field id="allow_notifications">1</field>
+                        </depends>
                         <label>Ventas en proceso</label>
                         <field id="E_CON" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
                             <label>Pendiente de ingreso</label>
@@ -93,7 +100,10 @@
                             <source_model>Hop\Envios\Model\Config\Source\ProcessingStatus</source_model>
                         </field>
                     </group>
-                    <group id="complete" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <group id="complete" translate="label" type="text" sortOrder="999" showInDefault="1" showInWebsite="1" showInStore="0">
+                        <depends>
+                            <field id="allow_notifications">1</field>
+                        </depends>
                         <label>Ventas completadas</label>
                         <field id="E_CON" translate="label" type="select" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="0">
                             <label>Pendiente de ingreso</label>

@@ -13,6 +13,7 @@
                 <model>Hop\Envios\Model\Carrier\Hop</model>
                 <max_package_weight>100</max_package_weight>
                 <statuses>
+                    <allow_notifications>0</allow_notifications>
                     <processing>
                         <E_CON>processing_E_CON</E_CON>
                         <E_DEP>processing_E_DEP</E_DEP>

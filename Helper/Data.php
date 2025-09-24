@@ -167,6 +167,14 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @return bool
+     */
+    public function getAllowNotifications()
+    {
+        return (bool)$this->_scopeConfig->getValue('shipping/hop/allow_notifications', ScopeInterface::SCOPE_STORE);
+    }
+
+    /**
      * @param $path
      * @param $params
      * @return string

@@ -1,8 +1,9 @@
 <div class="modal">
     <h1>Seleccionar un local HOP</h1>
     <p>Código Postal <?php echo $block->getZipcode(); ?></p>
+    <p>Advertencia: <?php echo $block->getWarning(); ?></p>
     <div id="selector-maps-hop">
-        <div id="points-maps-hop" style=""></div>
+        <div id="points-maps-hop"></div>
         <div class="admin__data-grid-wrap" data-role="grid-wrapper" id="points-list-hop">
             <table class="data-grid data-grid-draggable" data-role="grid">
                 <thead>

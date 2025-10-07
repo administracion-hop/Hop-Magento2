@@ -12,6 +12,7 @@ use Hop\Envios\Model\TokenFactory;
 use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
+use Hop\Envios\Model\SelectedPickupPointRepository;
 
 /**
  * Class Webservice
@@ -93,6 +94,10 @@ class Webservice
      */
     protected $tokenResourceModel;
 
+    /**
+     * @var SelectedPickupPointRepository
+     */
+    protected $selectedPickupPointRepository;
 
     /**
      * Webservice constructor.
@@ -101,6 +106,10 @@ class Webservice
      * @param PointFactory $pointFactory
      * @param Point $pointResource
      * @param ManagerInterface $messageManager
+     * @param TokenCollectionFactory $tokenCollectionFactory
+     * @param TokenFactory $tokenFactory
+     * @param TokenResourceModel $tokenResourceModel
+     * @param SelectedPickupPointRepository $selectedPickupPointRepository
      */
     public function __construct(
         HelperHop $helperHop,
@@ -110,7 +119,8 @@ class Webservice
         ManagerInterface $messageManager,
         TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
-        TokenResourceModel $tokenResourceModel
+        TokenResourceModel $tokenResourceModel,
+        SelectedPickupPointRepository $selectedPickupPointRepository
     )
     {
         $this->_helper = $helperHop;
@@ -121,6 +131,7 @@ class Webservice
         $this->tokenCollectionFactory = $tokenCollectionFactory;
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
+        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -234,7 +245,18 @@ class Webservice
         }
 
         $response = json_decode($response);
-
+        if (isset($response->errors)) {
+            $error = __('Error al iniciar sesión: ');
+            if (is_array($response->errors)) {
+                foreach ($response->errors as $err) {
+                    $error .= $err->detail . ' ';
+                }
+            } else {
+                $error .= $response->errors;
+            }
+            $this->_helper->log($error, true);
+            return false;
+        }
         $this->_tokenType = isset($response->token_type) ? $response->token_type : null;
         $this->_accessToken = isset($response->access_token) ? $response->access_token : null;
 
@@ -408,13 +430,11 @@ class Webservice
         $storageCode = $this->_helper->getStorageCode();
         $packageData = $this->_helper->getPackageData($order);
 
-        $hopData = $order->getHopData();
+        $hopData = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
         if (!$hopData) {
-            $this->_helper->log('No Hop Data', true);
+            $this->_helper->log(__('No Hop Data'), true);
             return false;
         }
-        $hopData = json_decode($hopData);
-        $pickupPointId = isset($hopData->hopPointId) ? $hopData->hopPointId : 0;
 
         $billingAddress = $order->getBillingAddress();
 
@@ -428,7 +448,7 @@ class Webservice
         $params['storage_code'] = $storageCode;
         $params['days_offset'] = $daysOffset;
         $params['validate_client_id'] = $validateClientId;
-        $params['pickup_point_id'] = $pickupPointId;
+        $params['pickup_point_id'] = $hopData->getPickupPointId() ?: 0;
 
         $paramClient = [];
         $paramClient['name'] = $order->getCustomerFirstname() . ' ' . $order->getCustomerLastname();
@@ -446,7 +466,7 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        if ($sizeCategory){
+        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])){
             $paramPackage['size_category'] = $sizeCategory;
         }
         $paramPackage['width'] = $packageData['width'];
@@ -489,6 +509,9 @@ class Webservice
                             }
                         }
                     }
+                }
+                if (!empty($responseObject->error)){
+                    $error .= $responseObject->error . ". ";
                 }
             } else if (is_string($responseObject)){
                 $error .= $responseObject . ".";

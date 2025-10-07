@@ -51,7 +51,7 @@ class LoadPoints
 
     public function execute()
     {
-        $this->logger->info('Starting the load points cron job.');
+        $this->logger->info(__('Starting the load points cron job.'));
         try {
                 $points = $this->PointFactory->create()->getCollection();
                 foreach ($points as $key => $point) {
@@ -60,9 +60,9 @@ class LoadPoints
                     $point->setPointData(json_encode($apiData));
                     $point->save();
                 }
-            $this->logger->info('Load points cron job completed successfully.');
+            $this->logger->info(__('Load points cron job completed successfully.'));
         } catch (\Exception $e) {
-            $this->logger->error('Error during the load points cron job: ' . $e->getMessage());
+            $this->logger->error(__('Error during the load points cron job: ') . $e->getMessage());
         }
     }
 }

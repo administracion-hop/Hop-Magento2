@@ -35,7 +35,8 @@ use Hop\Envios\Model\ResourceModel\Point;
 use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Hop\Envios\Model\HopEnviosRepository;
+use Hop\Envios\Model\SelectedPickupPointRepository;
 
 /**
  * Class Hop
@@ -128,10 +129,15 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     private $orderRepository;
 
     /**
-     * @var HopEnviosResource
+     * @var HopEnviosRepository
      */
 
-    protected $hopEnviosResource;
+    protected $hopEnviosRepository;
+
+    /**
+     * @var SelectedPickupPointRepository
+     */
+    protected $selectedPickupPointRepository;
 
 
 
@@ -157,8 +163,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopHelper $hopHelper
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
-     * @param HopEnviosResource $hopEnviosResource
+     * @param HopEnviosRepository $hopEnviosRepository
      * @param State $appState
+     * @param SelectedPickupPointRepository $selectedPickupPointRepository
      * @param array $data
      */
     public function __construct(
@@ -187,7 +194,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         Point $pointResource,
         State $appState,
         OrderRepositoryInterface $orderRepository,
-        HopEnviosResource $hopEnviosResource,
+        HopEnviosRepository $hopEnviosRepository,
+        SelectedPickupPointRepository $selectedPickupPointRepository,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -203,7 +211,8 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->trackStatusFactory = $trackStatusFactory;
         $this->appState = $appState;
         $this->orderRepository = $orderRepository;
-        $this->hopEnviosResource = $hopEnviosResource;
+        $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -299,7 +308,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $result = $this->_rateResultFactory->create();
         $method = $this->_rateMethodFactory->create();
 
-
         $method->setCarrier($this->_code);
         $method->setCarrierTitle($this->getConfigData('title'));
         $method->setMethod($this->_code);
@@ -309,14 +317,15 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $totalPrice = 0;
 
-        $zipCode = (int)$request->getDestPostcode();
+        $destZipCode = (int)$request->getDestPostcode();
         $quote = $this->_checkoutSession->getQuote();
 
-        if (!$zipCode) {
+        if (!$destZipCode) {
             return $result;
         }
 
         $hopData = $this->_checkoutSession->getHopData();
+        $showMethod = $this->getConfigData('showmethod');
 
         $hopAltoTotal = 0;
         $hopLargoTotal = [];
@@ -337,9 +346,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
             $qty = $_item->getQty();
 
-            $hopAltoTotal += $this->getMeasure($_product, 'hop_alto', $qty);
-            $hopLargoTotal[] = $this->getMeasure($_product, 'hop_largo', $qty);
-            $hopAnchoTotal[] = $this->getMeasure($_product, 'hop_ancho', $qty);
+            $hopAltoTotal += $this->getMeasure($_product, 'alto', $qty);
+            $hopLargoTotal[] = $this->getMeasure($_product, 'largo', $qty);
+            $hopAnchoTotal[] = $this->getMeasure($_product, 'ancho', $qty);
 
             $totalPrice += $_product->getFinalPrice() * $qty;
         }
@@ -353,9 +362,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $error->setCarrier($this->_code);
             $error->setCarrierTitle($this->getConfigData('title'));
             $error->setErrorMessage(__('Su pedido supera el peso máximo permitido por Hop. Por favor divida su orden en más pedidos o consulte al administrador de la tienda.'));
-            $quote = $this->_checkoutSession->getQuote();
-            $quote->setHopData(null);
-            $quote->save();
+            $this->cleanQuoteData();
             return $error;
         }
 
@@ -363,8 +370,19 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setPrice(0);
             $method->setCost(0);
         } else {
+            $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
+            if (empty($pointFromZipCode->data)) {
+                $this->cleanQuoteData();
+                if (!$showMethod){
+                    return false;
+                }
+                $error = $this->_rateErrorFactory->create();
+                $error->setCarrier($this->_code);
+                $error->setCarrierTitle($this->getConfigData('title'));
+                $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
+                return $error;
+            }
             $originZipCode = $this->_helper->getOriginZipcode();
-            $destZipCode = $zipCode;
             $hopPointId = !empty($hopData['hopPointId']) ? $hopData['hopPointId'] : '';
             $sellerCode = $helper->getSellerCode();
             $costoEnvio = $webservice->estimatePrice(
@@ -399,13 +417,14 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $helper->log($dataForLog, false, true);
 
             if (!$costoEnvio) {
+                $this->cleanQuoteData();
+                if (!$showMethod){
+                    return false;
+                }
                 $error = $this->_rateErrorFactory->create();
                 $error->setCarrier($this->_code);
                 $error->setCarrierTitle($this->getConfigData('title'));
                 $error->setErrorMessage(__('No existen cotizaciones para la dirección ingresada'));
-                $quote = $this->_checkoutSession->getQuote();
-                $quote->setHopData(null);
-                $quote->save();
                 return $error;
             }
 
@@ -440,16 +459,32 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setCost($adjustedShippingCost);
         }
 
-        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress'])) {
-            $method->setMethodTitle(
-                'Retirá tu pedido en: ' .
+        $zipCodeFromHopData = !empty($hopData['hopPointPostcode']) ? $hopData['hopPointPostcode'] : null;
+        if ($destZipCode != $zipCodeFromHopData){
+            $this->cleanQuoteData();
+            $hopData = null;
+        }
+
+        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress']) && !empty($hopData['hopPointId'])) {
+            $shippingDescription = 'Retirá tu pedido en: ' .
                     $hopData['hopPointReferenceName']
                     . " ({$hopData['hopPointAddress']}) " .
-                    ' - Horario: ' . $hopData['hopPointSchedules']
-            );
+                    ' - Horario: ' . $hopData['hopPointSchedules'];
+            $method->setMethodTitle($shippingDescription);
             $quote = $this->_checkoutSession->getQuote();
-            $quote->setHopData(json_encode($hopData));
-            $quote->save();
+            if (!$quote->getId()){
+                $this->_quoteRepository->save($quote);
+            }
+            $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quote->getId());
+            if (!$selectedPickupPoint) {
+                $selectedPickupPoint = $this->selectedPickupPointRepository->create();
+                $selectedPickupPoint->setQuoteId($quote->getId());
+            }
+            $pickupPointId = $hopData['hopPointId'];
+            $selectedPickupPoint->setPickupPointId($pickupPointId);
+            $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
+            $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
+            $this->selectedPickupPointRepository->save($selectedPickupPoint);
         }
 
 
@@ -468,67 +503,49 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     public function _doShipmentRequest(DataObject $request)
     {
         $this->_prepareShipmentRequest($request);
-
-
         $shipment = $request->getData('order_shipment');
 
-
-        if ($shipment && $shipment->getOrderId()) {
-            $orderId = $shipment->getOrderId();
-            $data = $this->hopEnviosResource->getDataByOrderId($orderId);
-
-
-            if (!empty($data)) {
-
-                if (isset($data[0]['info_hop']) && is_string($data[0]['info_hop']) && !empty($data[0]['info_hop'])) {
-                    $infoHop = json_decode($data[0]['info_hop'], true);
-
-                    if ($infoHop !== null && is_array($infoHop)) {
-
-                        $this->_helper->log('tracking nro: ' . $infoHop['tracking_nro'] . ' label url: ' . $infoHop['label_url']);
-
-
-                        if (!empty($infoHop['tracking_nro']) && !empty($infoHop['label_url'])) {
-                            $trackingNumber = $infoHop['tracking_nro'];
-                            $labelUrl = $infoHop['label_url'];
-
-
-                            try {
-                                $result = new \Magento\Framework\DataObject();
-                                $result->setTrackingNumber($trackingNumber);
-                                $result->setShippingLabelContent($labelUrl);
-
-
-                                return $result;
-                            } catch (\Exception $e) {
-                                $this->_helper->log('Error: ' . $e->getMessage(), true);
-                                throw new \Magento\Framework\Exception\LocalizedException(
-                                    __('Error: ' . $e->getMessage())
-                                );
-                            }
-                        } else {
-                            $this->_helper->log('Error: Los valores tracking_nro o label_url están vacíos o no existen.', true);
-                        }
-                    } else {
-                        $this->_helper->log('Error: JSON inválido en info_hop.', true);
-                        throw new \Magento\Framework\Exception\LocalizedException(
-                            __('Error: Respuesta Invalida, Formato invalido')
-                        );
-                    }
-                } else {
-                    $this->_helper->log('Error: El campo info_hop está vacío, no es un string válido, o no existe.', true);
-                    throw new \Magento\Framework\Exception\LocalizedException(
-                        __('Error: Respuesta Invalidad, No existen los datos.')
-                    );
-                }
-            } else {
-                $this->_helper->log('Error: No se encontraron datos para el pedido con ID ' . $orderId, true);
-            }
-        } else {
-            $this->_helper->log('Error: No se encontró un envío válido en la solicitud.', true);
+        if (!$shipment || !$shipment->getOrderId()) {
+            $this->_helper->log(__('Error: No se encontró un envío válido en la solicitud.'), true);
+            return null;
         }
 
+        $orderId = $shipment->getOrderId();
+        $hopEnvio = $this->hopEnviosRepository->getByOrderId($orderId);
 
+        if (empty($hopEnvio->getInfoHop()) || !is_string($hopEnvio->getInfoHop())) {
+            $this->_helper->log(__('Error: El campo info_hop está vacío, no es un string válido, o no existe.'), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Respuesta Invalidad, No existen los datos.')
+            );
+        }
+
+        $infoHop = json_decode($hopEnvio->getInfoHop(), true);
+        if ($infoHop === null || !is_array($infoHop)) {
+            $this->_helper->log(__('Error: JSON inválido en info_hop.'), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Respuesta Invalida, Formato invalido')
+            );
+        }
+
+        if (empty($infoHop['tracking_nro']) || empty($infoHop['label_url'])) {
+            $this->_helper->log(__('Error: Los valores tracking_nro o label_url están vacíos o no existen.'), true);
+            return null;
+        }
+
+        $trackingNumber = $infoHop['tracking_nro'];
+        $labelUrl = $infoHop['label_url'];
+        try {
+            $result = new \Magento\Framework\DataObject();
+            $result->setTrackingNumber($trackingNumber);
+            $result->setShippingLabelContent($labelUrl);
+            return $result;
+        } catch (\Exception $e) {
+            $this->_helper->log('Error: ' . $e->getMessage(), true);
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: ' . $e->getMessage())
+            );
+        }
         return null;
     }
 
@@ -569,12 +586,24 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param int $qty
      * @return int
      */
-    protected function getMeasure($product, $measure_code, $qty)
+    protected function getMeasure($product, $measureCode, $qty)
     {
+        $attributeCode = $this->_helper->getMeasureCode($measureCode);
         return (int) $product->getResource()->getAttributeRawValue(
             $product->getId(),
-            $measure_code,
+            $attributeCode,
             $product->getStoreId()
         ) * $qty;
+    }
+
+    /**
+     * Clean quote data
+     */
+    protected function cleanQuoteData(){
+        $quote = $this->_checkoutSession->getQuote();
+        if (!$quote->getId()){
+            $this->_quoteRepository->save($quote);
+        }
+        $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
     }
 }

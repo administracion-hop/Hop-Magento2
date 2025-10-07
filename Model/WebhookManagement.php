@@ -64,8 +64,11 @@ class WebhookManagement implements WebhookManagementInterface
         $response = $this->responseFactory->create();
         $data = $this->request->getBodyParams();
 
-
         try {
+            $allowNotifications = $this->helperData->getAllowNotifications();
+            if (!$allowNotifications) {
+                throw new \Exception('Webhook notifications are disabled in Magento configuration');
+            }
 
             if (empty($data)) {
                 throw new \Exception('Webhook data cannot be empty');
@@ -83,14 +86,10 @@ class WebhookManagement implements WebhookManagementInterface
 
             $this->processData($data);
 
-            // Establecer respuesta exitosa
             $response->setSuccess(true);
             $response->setMessage('Webhook notification processed successfully');
         } catch (\Exception $e) {
-            // Registro del error
             $this->logger->error('Error processing webhook: ' . $e->getMessage());
-
-            // Establecer respuesta de error
             $response->setSuccess(false);
             $response->setMessage($e->getMessage());
         }

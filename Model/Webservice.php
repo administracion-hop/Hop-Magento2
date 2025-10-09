@@ -394,8 +394,15 @@ class Webservice
         $url .= "?origin_zipcode=$originZipCode";
         $url .= "&destiny_zipcode=$destinyZipCode";
         $url .= "&shipping_type=$shippingType";
-        $url .= "&package[value]=$value&weight=$weight&seller_code=$sellerCode&package[width]=$width&package[length]=$length&package[height]=$height";
+        $url .= "&package[value]=$value";
+        $url .= "&weight=$weight";
+        $url .= "&seller_code=$sellerCode";
         $sizeCategory = $this->_helper->getSizeCategory();
+        if ($width > 0 && $length > 0 && $height > 0){
+            $url .= "&package[width]=$width";
+            $url .= "&package[length]=$length";
+            $url .= "&package[height]=$height";
+        }
         if ($sizeCategory){
             $url .= "&package[size_category]=$sizeCategory";
         }

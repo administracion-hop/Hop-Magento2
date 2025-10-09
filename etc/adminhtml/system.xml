@@ -244,6 +244,24 @@
                             </div>
                         ]]></comment>
                 </field>
+                <field id="measure_attribute_alto" translate="label" type="select" sortOrder="141" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Atributo para Alto</label>
+                    <comment>Selecciona el atributo de producto que se utilizará para los cálculos de envío</comment>
+                    <source_model>Hop\Envios\Model\Config\Source\ProductAttributes</source_model>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="measure_attribute_largo" translate="label" type="select" sortOrder="142" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Atributo para Largo</label>
+                    <comment>Selecciona el atributo de producto que se utilizará para los cálculos de envío</comment>
+                    <source_model>Hop\Envios\Model\Config\Source\ProductAttributes</source_model>
+                    <validate>required-entry</validate>
+                </field>
+                <field id="measure_attribute_ancho" translate="label" type="select" sortOrder="143" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Atributo para Ancho</label>
+                    <comment>Selecciona el atributo de producto que se utilizará para los cálculos de envío</comment>
+                    <source_model>Hop\Envios\Model\Config\Source\ProductAttributes</source_model>
+                    <validate>required-entry</validate>
+                </field>
                 <field id="validate_client_id" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Validar cliente</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>

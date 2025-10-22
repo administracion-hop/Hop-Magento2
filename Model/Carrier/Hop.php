@@ -365,23 +365,22 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $this->cleanQuoteData();
             return $error;
         }
-
+        $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
+        if (empty($pointFromZipCode->data)) {
+            $this->cleanQuoteData();
+            if (!$showMethod){
+                return false;
+            }
+            $error = $this->_rateErrorFactory->create();
+            $error->setCarrier($this->_code);
+            $error->setCarrierTitle($this->getConfigData('title'));
+            $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
+            return $error;
+        }
         if ($request->getFreeShipping() || ($this->getConfigData('hop_free_shipping') && $totalPrice >= $this->getConfigData('hop_free_shipping'))) {
             $method->setPrice(0);
             $method->setCost(0);
         } else {
-            $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
-            if (empty($pointFromZipCode->data)) {
-                $this->cleanQuoteData();
-                if (!$showMethod){
-                    return false;
-                }
-                $error = $this->_rateErrorFactory->create();
-                $error->setCarrier($this->_code);
-                $error->setCarrierTitle($this->getConfigData('title'));
-                $error->setErrorMessage(__('No existen puntos de retiro para la dirección ingresada'));
-                return $error;
-            }
             $originZipCode = $this->_helper->getOriginZipcode();
             $hopPointId = !empty($hopData['hopPointId']) ? $hopData['hopPointId'] : '';
             $sellerCode = $helper->getSellerCode();

@@ -14,7 +14,9 @@ define([
                 if (result && quote.shippingMethod()) {
                     if (quote.shippingMethod().carrier_code == "hop") {
                         if (!window.checkoutConfig.quoteData.hop_data) {
-                            alert("Seleccione una sucursal Hop para continuar");
+                            this.errorValidationMessage(
+                                $t("Seleccione una sucursal Hop para continuar")
+                            );
                             return false;
                         }
                         return true;

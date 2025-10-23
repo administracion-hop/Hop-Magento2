@@ -15,6 +15,7 @@ use Magento\Store\Model\StoreManagerInterface;
 use Magento\Directory\Model\Region;
 use Magento\Shipping\Helper\Data as ShippingData;
 use Hop\Envios\Logger\LoggerInterface;
+use Magento\Framework\Module\Manager as ModuleManager;
 
 /**
  * Class Data
@@ -72,6 +73,12 @@ class Data extends AbstractHelper
     protected $_shippingData;
 
     /**
+     * @var ModuleManager
+     */
+    protected $moduleManager;
+
+
+    /**
      * Data constructor.
      * @param ScopeConfigInterface $scopeConfig
      * @param StoreManagerInterface $storeManagerInterface
@@ -90,7 +97,8 @@ class Data extends AbstractHelper
         LoggerInterface $logger,
         Config $fieldsetConfig,
         CartRepositoryInterface $cartRepository,
-        ShippingData $shippingHelper
+        ShippingData $shippingHelper,
+        ModuleManager $moduleManager
     ) {
         $this->_scopeConfig             = $scopeConfig;
         $this->_storeManagerInterface   = $storeManagerInterface;
@@ -100,6 +108,7 @@ class Data extends AbstractHelper
         $this->logger                   = $logger;
         $this->quoteRepository          = $cartRepository;
         $this->_shippingData            = $shippingHelper;
+        $this->moduleManager            = $moduleManager;
     }
 
     /**
@@ -402,6 +411,23 @@ class Data extends AbstractHelper
      */
     public function isAmastyOscEnabled()
     {
+        $amastyModules = [
+            'Amasty_Checkout',
+            'Amasty_CheckoutCore',
+        ];
+
+        $amastyPresentAndEnabled = false;
+        foreach ($amastyModules as $moduleName) {
+            if ($this->moduleManager->isEnabled($moduleName)) {
+                $amastyPresentAndEnabled = true;
+                break;
+            }
+        }
+
+        if (!$amastyPresentAndEnabled) {
+            return false;
+        }
+
         return (bool)$this->_scopeConfig->getValue(
             'amasty_checkout/general/enabled',
             ScopeInterface::SCOPE_STORE

@@ -1,3 +1,6 @@
+var amasty_mixin_enabled = !window.amasty_checkout_disabled,
+    config;
+
 var config = {
     config: {
         mixins: {
@@ -5,7 +8,10 @@ var config = {
                 'Hop_Envios/js/view/shipping': true
             },
             'Amasty_CheckoutCore/js/model/one-step-layout': {
-                'Hop_Envios/js/model/one-step-layout-mixin': true
+                'Hop_Envios/js/model/one-step-layout-mixin': amasty_mixin_enabled
+            },
+            'Amasty_CheckoutCore/js/model/shipping-rate-service-override': {
+                'Hop_Envios/js/model/amasty-shipping-rate-service-mixin': amasty_mixin_enabled
             }
         }
     },

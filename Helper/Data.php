@@ -396,5 +396,13 @@ class Data extends AbstractHelper
             \Magento\Store\Model\ScopeInterface::SCOPE_STORE
         );
     }
+
+    /**
+     * @return string
+     */
+    public function isAmastyOscEnabled()
+    {
+        return (bool)$this->_scopeConfig->getValue('amasty_checkout/general/enabled', ScopeInterface::SCOPE_STORE);
+    }
 }
 

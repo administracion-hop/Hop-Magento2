@@ -321,6 +321,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $quote = $this->_checkoutSession->getQuote();
 
         if (!$destZipCode) {
+            if($helper->isAmastyOscEnabled()) { //config amasty show method even no zip code
+                $result->append($method);
+            }
             return $result;
         }
 

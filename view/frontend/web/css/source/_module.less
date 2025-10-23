@@ -163,9 +163,10 @@
         width: 24%;
         margin-right: 10px;
     }
-    .hop-modal-checkout {
+    #html-body.checkout-index-index .hop-modal-checkout {
         .modal-inner-wrap {
             width: 850px;
+            max-width: 100%;
             .modal-content {
                 height: 400px;
             }
@@ -192,13 +193,19 @@
 }
 
 .media-width(@extremum, @break) when (@extremum = 'min') and (@break = @screen__l){
-    .hop-modal-checkout {
+    #html-body.checkout-index-index .hop-modal-checkout {
         .modal-inner-wrap {
             width: 850px;
         }
     }
 }
 .media-width(@extremum, @break) when (@extremum = 'max') and (@break = @screen__m) {
+        #html-body.checkout-index-index .hop-modal-checkout {
+        .modal-inner-wrap {
+            max-width: 100%;
+            width: auto;
+        }
+    }
     #selector-maps-hop{
         width: 100%;
         margin-right: 10px;

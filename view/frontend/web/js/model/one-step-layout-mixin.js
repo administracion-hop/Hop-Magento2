@@ -8,7 +8,6 @@ define([], function () {
       var requestComponent = originalGetCheckoutBlock.call(this, blockName);
 
       if (blockName === 'shipping_method' && requestComponent()) {
-        // Forzar a nuestro template
         requestComponent().template = 'Hop_Envios/onepage/shipping/methods';
       }
 

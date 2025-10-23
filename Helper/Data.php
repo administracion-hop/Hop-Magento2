@@ -402,7 +402,10 @@ class Data extends AbstractHelper
      */
     public function isAmastyOscEnabled()
     {
-        return (bool)$this->_scopeConfig->getValue('amasty_checkout/general/enabled', ScopeInterface::SCOPE_STORE);
+        return (bool)$this->_scopeConfig->getValue(
+            'amasty_checkout/general/enabled',
+            ScopeInterface::SCOPE_STORE
+        );
     }
 }
 

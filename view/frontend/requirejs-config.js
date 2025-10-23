@@ -15,10 +15,17 @@ var config = {
             }
         }
     },
-    map: {
+    'map': { '*': {} },
+/*     map: {
         '*': {
             'Amasty_CheckoutCore/onepage/shipping/methods':
                 'Hop_Envios/onepage/shipping/methods'
         }
-    }
+    } */
 };
+
+if (amasty_mixin_enabled) {
+    config.map['*'] = {
+        'Amasty_CheckoutCore/onepage/shipping/methods': 'Hop_Envios/onepage/shipping/methods'
+    };
+}

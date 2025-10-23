@@ -350,7 +350,6 @@ define(
                         contentType: 'application/json',
                         success: function (response) {
                             rateRegistry.set(quote.shippingAddress().getCacheKey(), null);
-debugger;
                             processors.default = defaultProcessor;
                             processors['customer-address'] = customerAddressProcessor;
 

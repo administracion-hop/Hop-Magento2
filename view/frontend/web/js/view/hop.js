@@ -350,7 +350,6 @@ define(
                         contentType: 'application/json',
                         success: function (response) {
                             rateRegistry.set(quote.shippingAddress().getCacheKey(), null);
-
                             processors.default = defaultProcessor;
                             processors['customer-address'] = customerAddressProcessor;
 
@@ -361,7 +360,7 @@ define(
                             } else {
                                 processors.default.getRates(quote.shippingAddress());
                             }
-                            if (!window.amasty_checkout_disabled){
+                            if (!window.hop.amasty_checkout_disabled){
                                 require([
                                     'Amasty_CheckoutCore/js/model/shipping-rate-service-override'
                                 ], function (amastyRateService) {

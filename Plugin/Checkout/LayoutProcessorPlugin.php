@@ -4,14 +4,19 @@ namespace Hop\Envios\Plugin\Checkout;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\ScopeInterface;
+use Hop\Envios\Helper\Data;
 
 class LayoutProcessorPlugin
 {
     protected $scopeConfig;
+    protected $helper;
 
-    public function __construct(ScopeConfigInterface $scopeConfig)
-    {
+    public function __construct(
+        ScopeConfigInterface $scopeConfig,
+        Data $helper
+    ) {
         $this->scopeConfig = $scopeConfig;
+        $this->helper = $helper;
     }
 
     /**
@@ -23,15 +28,9 @@ class LayoutProcessorPlugin
         \Magento\Checkout\Block\Checkout\LayoutProcessor $subject,
         array $jsLayout
     ) {
-        $showVat = $this->scopeConfig->getValue(
-            'customer/address/taxvat_show',
-            ScopeInterface::SCOPE_STORE
-        );
-
-        $frontendVisibility = $this->scopeConfig->isSetFlag(
-            'customer/create_account/vat_frontend_visibility',
-            ScopeInterface::SCOPE_STORE
-        );
+        $showVat = $this->helper->IsVAtShowToFrontend();
+        $frontendVisibility = $this->helper->IsVAtShowToFrontend();
+        $useHopVat = $this->helper->useCustomerTaxvat();
 
         $shouldShow = false;
         $isRequired = false;
@@ -67,7 +66,7 @@ class LayoutProcessorPlugin
                 'validate-number' => true,
                 'validate-digits' => true
             ];
-        } else {
+        } elseif ($useHopVat && $shouldShow)  {
             $shippingFields['vat_id'] = [
                 'component' => 'Magento_Ui/js/form/element/abstract',
                 'config' => [
@@ -109,7 +108,7 @@ class LayoutProcessorPlugin
                             'validate-number' => true,
                             'validate-digits' => true
                         ];
-                    } else {
+                    } elseif ($useHopVat && $shouldShow)  {
                         $formFields['vat_id'] = [
                             'component' => 'Magento_Ui/js/form/element/abstract',
                             'config' => [

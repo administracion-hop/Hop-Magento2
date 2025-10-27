@@ -433,5 +433,20 @@ class Data extends AbstractHelper
             ScopeInterface::SCOPE_STORE
         );
     }
+
+    /**
+     * @return string
+     */
+    public function idVatShow()
+    {
+        return (bool)$this->_scopeConfig->getValue('customer/address/taxvat_show', ScopeInterface::SCOPE_STORE);
+    }
+    /**
+     * @return bool
+     */
+    public function IsVAtShowToFrontend()
+    {
+        return (bool)$this->_scopeConfig->getValue('customer/create_account/vat_frontend_visibility', ScopeInterface::SCOPE_STORE);
+    }
 }
 

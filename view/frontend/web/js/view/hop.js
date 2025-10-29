@@ -350,7 +350,6 @@ define(
                         contentType: 'application/json',
                         success: function (response) {
                             rateRegistry.set(quote.shippingAddress().getCacheKey(), null);
-
                             processors.default = defaultProcessor;
                             processors['customer-address'] = customerAddressProcessor;
 
@@ -360,6 +359,16 @@ define(
                                 processors[type].getRates(quote.shippingAddress());
                             } else {
                                 processors.default.getRates(quote.shippingAddress());
+                            }
+                            if (!window.hop.amasty_checkout_disabled){
+                                require([
+                                    'Amasty_CheckoutCore/js/model/shipping-rate-service-override'
+                                ], function (amastyRateService) {
+                                    if (amastyRateService && typeof amastyRateService.forceUpdateRates === 'function') {
+                                        console.log('Hop: Llamando a forceUpdateRates del mixin');
+                                        amastyRateService.forceUpdateRates();
+                                    }
+                                });
                             }
 
                             if ($('#hopsucursal-sucursal').length > 0) {

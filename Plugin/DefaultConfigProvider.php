@@ -8,8 +8,8 @@ use Hop\Envios\Helper\Data;
  * Class DefaultConfigProvider
  *
  * @version 1.0.0
- * @author Improntus <http://www.improntus.com> - Ecommerce done right
- * @copyright Copyright (c) 2021 Improntus
+ * @author Hop Envíos <https://hopenvios.com.ar>
+ * @copyright Copyright (c) 2025 Hop Envíos
  * @package Hop\Envios\Plugin
  */
 class DefaultConfigProvider

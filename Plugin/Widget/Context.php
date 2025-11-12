@@ -12,8 +12,8 @@ use Hop\Envios\Model\SelectedPickupPointRepository;
  * Class Context
  *
  * @version 1.0.0
- * @author Improntus <http://www.improntus.com> - Ecommerce done right
- * @copyright Copyright (c) 2021 Improntus
+ * @author Hop Envíos <https://hopenvios.com.ar>
+ * @copyright Copyright (c) 2025 Hop Envíos
  * @package Hop\Envios\Plugin\Widget
  */
 class Context
@@ -88,14 +88,17 @@ class Context
                 if ($hopEnvios) {
                     $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
-                    $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
+                    if (!empty($infoHop->label_url) && substr_compare($infoHop->label_url, '.zpl', -4) === 0){
+                        $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
+                    } else {
+                        $baseUrl = $this->backendUrl->getUrl('hop/label/download',['order_id' => $orderId]);
+                    }
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
                 } else {
                     $baseUrl = '';
                 }
 
                 if (!empty($baseUrl)) {
-                    // $baseUrl = $this->backendUrl->getUrl('hop/label/descargar',['order_id' => $orderId]);
 
                     $buttonList->add(
                         'descargar_etiqueta_hop',

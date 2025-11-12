@@ -10,8 +10,8 @@ use Hop\Envios\Model\Webservice;
  * Class Points
  *
  * @version 1.0.0
- * @author Improntus <http://www.improntus.com> - Ecommerce done right
- * @copyright Copyright (c) 2021 Improntus
+ * @author Hop Envíos <https://hopenvios.com.ar>
+ * @copyright Copyright (c) 2025 Hop Envíos
  * @package Hop\Envios\Model
  */
 class Points implements PointsInterface
@@ -52,7 +52,7 @@ class Points implements PointsInterface
      * @return string Greeting message with users response.
      * @api
      * @param string $zipCode
-     * @author : Improntus
+     * @author : Hop Envíos
      */
     public function get($zipCode)
     {
@@ -64,7 +64,7 @@ class Points implements PointsInterface
 
     /**
      * Returns shipping estimation
-     * @author : Improntus
+     * @author : Hop Envíos
      *
      * @api
      * @return string

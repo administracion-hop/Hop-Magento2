@@ -12,14 +12,16 @@ namespace Hop\Envios\Model\Config\Source;
  */
 class TypeLabelOption implements \Magento\Framework\Data\OptionSourceInterface
 {
+    const TYPE_LABEL_JPEG = 'JPEG';
+    const TYPE_LABEL_ZPL2 = 'ZPL2';
     /**
      * @return array|array[]
      */
     public function toOptionArray()
     {
         return [
-            ['value' => 'JPEG', 'label' => __('JPEG Default')],
-            ['value' => 'ZPL2', 'label' => __('ZPL2 format')]
+            ['value' => self::TYPE_LABEL_JPEG, 'label' => __('JPEG Default')],
+            ['value' => self::TYPE_LABEL_ZPL2, 'label' => __('ZPL2 format')]
         ];
     }
 }

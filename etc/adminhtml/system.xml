@@ -216,6 +216,11 @@
                     <source_model>Hop\Envios\Model\Config\Source\TypeLabelOption</source_model>
                     <comment>Formato de descarga para etiquetas de despacho</comment>
                 </field>
+                <field id="label_size" translate="label" type="select" sortOrder="125" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Tamaño de Etiqueta</label>
+                    <source_model>Hop\Envios\Model\Config\Source\LabelSizeOption</source_model>
+                    <comment>Tamaño de impresión de la etiqueta</comment>
+                </field>
                 <field id="days_offset" translate="label" type="text" sortOrder="130" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Dias de preparacion</label>
                     <comment>Número de dias para preparar el envío, establezca 0 si no es necesario</comment>

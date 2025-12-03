@@ -52,6 +52,7 @@
                 <measure_attribute_alto>hop_alto</measure_attribute_alto>
                 <measure_attribute_largo>hop_largo</measure_attribute_largo>
                 <measure_attribute_ancho>hop_ancho</measure_attribute_ancho>
+                <label_size>S</label_size>
             </hop>
         </shipping>
     </default>

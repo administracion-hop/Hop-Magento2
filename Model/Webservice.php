@@ -431,6 +431,7 @@ class Webservice
         $sellerCode = $this->_helper->getSellerCode();
         $shippingType = $this->_helper->getShippingType();
         $labelType = $this->_helper->getLabelType();
+        $labelSize = $this->_helper->getLabelSize();
         $daysOffset = $this->_helper->getDaysOffset();
         $validateClientId = $this->_helper->getValidateClientId();
         $sizeCategory = $this->_helper->getSizeCategory();
@@ -451,6 +452,9 @@ class Webservice
         $params['reference_2'] = '';
         $params['reference_3'] = '';
         $params['label_type'] = $labelType;
+        if ($labelType != \Hop\Envios\Model\Config\Source\TypeLabelOption::TYPE_LABEL_ZPL2 && $labelSize){
+            $params['label_size'] = $labelSize;
+        }
         $params['seller_code'] = $sellerCode;
         $params['storage_code'] = $storageCode;
         $params['days_offset'] = $daysOffset;

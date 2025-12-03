@@ -280,6 +280,15 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @return string
+     */
+    public function getLabelSize()
+    {
+        $labelSize = $this->_scopeConfig->getValue('shipping/hop/label_size', ScopeInterface::SCOPE_STORE);
+        return $labelSize ? $labelSize : \Hop\Envios\Model\Config\Source\LabelSizeOption::SIZE_SMALL;
+    }
+
+    /**
      * @return int
      */
     public function getDaysOffset()

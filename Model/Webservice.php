@@ -121,8 +121,7 @@ class Webservice
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel,
         SelectedPickupPointRepository $selectedPickupPointRepository
-    )
-    {
+    ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
         $this->pointFactory = $pointFactory;
@@ -176,26 +175,25 @@ class Webservice
                 ],
             ];
 
-            if ($postFields){
+            if ($postFields) {
                 $curlData[CURLOPT_POSTFIELDS] = $postFields;
             }
             curl_setopt_array($curl, $curlData);
 
             $response = curl_exec($curl);
 
-            if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401){
+            if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401) {
                 $this->login(true);
                 $retry = true;
             } else {
                 $retry = false;
             }
-        } while($retry);
+        } while ($retry);
 
-        if(curl_error($curl))
-        {
-            $error = 'Se produjo un error: '. curl_error($curl);
-            $this->_helper->log($error ,true);
-            $this->messageManager->addError($error);
+        if (curl_error($curl)) {
+            $error = 'Se produjo un error: ' . curl_error($curl);
+            $this->_helper->log($error, true);
+            $this->messageManager->addErrorMessage($error);
             $response = false;
         }
 
@@ -213,7 +211,7 @@ class Webservice
             if ($lastToken && $lastToken->getId()) {
                 $createdAt = strtotime($lastToken->getCreatedAt());
                 $expiresIn = $lastToken->getExpiresIn();
-                if (time() < ($createdAt + $expiresIn)){
+                if (time() < ($createdAt + $expiresIn)) {
                     $this->_tokenType = $lastToken->getTokenType();
                     $this->_accessToken = $lastToken->getAccessToken();
                     return true;
@@ -225,34 +223,34 @@ class Webservice
 
         $curl = curl_init();
 
-        curl_setopt_array($curl,
-        [
-            CURLOPT_URL => "https://".$entorno."api.hopenvios.com.ar/api/v1/login?client_id={$this->_clientId}&client_secret={$this->_clientSecret}&email={$this->_email}&password={$this->_password}",
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_CUSTOMREQUEST => "POST",
-        ]);
+        curl_setopt_array(
+            $curl,
+            [
+                CURLOPT_URL => "https://" . $entorno . "api.hopenvios.com.ar/api/v1/login?client_id={$this->_clientId}&client_secret={$this->_clientSecret}&email={$this->_email}&password={$this->_password}",
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => "",
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_CUSTOMREQUEST => "POST",
+            ]
+        );
 
         $response = curl_exec($curl);
 
-        if(curl_error($curl))
-        {
-            $error = 'Se produjo un error al solicitar cotización: '. curl_error($curl);
-            $this->_helper->log($error ,true);
+        if (curl_error($curl)) {
+            $error = 'Se produjo un error al solicitar cotización: ' . curl_error($curl);
+            $this->_helper->log($error, true);
 
             return false;
         }
 
-        $response = json_decode($response);
-        if (isset($response->errors)) {
-            $error = __('Error al iniciar sesión: ');
-            if (is_array($response->errors)) {
-                foreach ($response->errors as $err) {
-                    $error .= $err->detail . ' ';
-                }
-            } else {
-                $error .= $response->errors;
+        $response = json_decode($response, true);
+        if (!empty($response['errors'])) {
+            $error = __('Error al iniciar sesión en Hop: ');
+            try {
+                $error .= $this->get_login_error_messagges($response['errors']);
+            } catch (\Exception $e) {
+                $error .= __('No se pudo procesar el mensaje de error: ') . $e->getMessage();
+
             }
             $this->_helper->log($error, true);
             return false;
@@ -266,10 +264,61 @@ class Webservice
                 $this->_accessToken,
                 isset($response->expires_in) ? $response->expires_in / 1000 : 0
             );
-        } catch (LocalizedException  $e){
+        } catch (LocalizedException  $e) {
             $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
         }
         return true;
+    }
+
+    /**
+     * @param mixed $errors
+     * @return string
+     */
+    protected function get_login_error_messagges($errors)
+    {
+        $error_list = array();
+        if (is_array($errors)) {
+            foreach ($errors as $err) {
+                if (!empty($err['detail']) && is_string($err['detail'])) {
+                    $error_list[] = $err['detail'];
+                    continue;
+                }
+                if (!empty($err['details']) && is_array($err['details'])) {
+                    foreach ($err['details'] as $detail) {
+                        if (empty($detail)) {
+                            continue;
+                        }
+                        if (is_string($detail)) {
+                            $error_list[] = $detail;
+                            continue;
+                        }
+                        if (!is_array($detail)) {
+                            continue;
+                        }
+                        foreach ($detail as $messages) {
+                            if (empty($messages)) {
+                                continue;
+                            }
+                            if (is_string($messages)) {
+                                $error_list[] = $messages;
+                                continue;
+                            }
+                            if (!is_array($messages)) {
+                                continue;
+                            }
+                            foreach ($messages as $message) {
+                                if (is_string($message)) {
+                                    $error_list[] = $message;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } elseif (is_string($errors)) {
+            $error_list[] = $errors;
+        }
+        return implode(" - ", $error_list);
     }
 
     /**
@@ -341,7 +390,7 @@ class Webservice
      */
     public function getPickupPoints($zipCode, $force_from_api = false)
     {
-        if (!$force_from_api){
+        if (!$force_from_api) {
             $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
             if ($collection->getSize()) {
                 $pointes = $collection->getFirstItem();
@@ -351,8 +400,8 @@ class Webservice
         }
 
         $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";
-        if($zipCode){
-            $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=".$zipCode;
+        if ($zipCode) {
+            $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=" . $zipCode;
         }
 
         $response = $this->curl("GET", $curlRequest);
@@ -362,7 +411,7 @@ class Webservice
                 $point = $this->pointFactory->create();
                 $point->setZipCode($zipCode);
                 $point->setPointData(json_encode(json_decode($response)));
-                if (!$force_from_api){
+                if (!$force_from_api) {
                     $this->pointResource->save($point);
                 }
             } catch (\Exception $e) {
@@ -382,7 +431,7 @@ class Webservice
      * @param $hopPointId
      * @return false
      */
-    public function estimatePrice($originZipCode,$destinyZipCode,$sellerCode,$hopPointId,$shippingType = 'E',$package = [])
+    public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
         $width = $package['width'];
         $length = $package['length'];
@@ -398,26 +447,26 @@ class Webservice
         $url .= "&weight=$weight";
         $url .= "&seller_code=$sellerCode";
         $sizeCategory = $this->_helper->getSizeCategory();
-        if ($width > 0 && $length > 0 && $height > 0){
+        if ($width > 0 && $length > 0 && $height > 0) {
             $url .= "&package[width]=$width";
             $url .= "&package[length]=$length";
             $url .= "&package[height]=$height";
         }
-        if ($sizeCategory){
+        if ($sizeCategory) {
             $url .= "&package[size_category]=$sizeCategory";
         }
-        if ($hopPointId){
+        if ($hopPointId) {
             $url .= "&pickup_point_id=$hopPointId";
         }
 
         $response = $this->curl("GET", $url);
         $responseObject = json_decode($response);
 
-        if(isset($responseObject->data->amount)){
+        if (isset($responseObject->data->amount)) {
             return $responseObject->data->amount;
-        }elseif(isset($responseObject->errors)){
+        } elseif (isset($responseObject['errors'])) {
             return false;
-        }else{
+        } else {
             return false;
         }
     }
@@ -448,11 +497,11 @@ class Webservice
 
         $params = [];
         $params['shipping_type'] = $shippingType;
-        $params['reference_id'] = $sellerCode.'-'.$order->getIncrementId();
+        $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();
         $params['reference_2'] = '';
         $params['reference_3'] = '';
         $params['label_type'] = $labelType;
-        if ($labelType != \Hop\Envios\Model\Config\Source\TypeLabelOption::TYPE_LABEL_ZPL2 && $labelSize){
+        if ($labelType != \Hop\Envios\Model\Config\Source\TypeLabelOption::TYPE_LABEL_ZPL2 && $labelSize) {
             $params['label_size'] = $labelSize;
         }
         $params['seller_code'] = $sellerCode;
@@ -466,10 +515,9 @@ class Webservice
         $paramClient['email'] = $order->getCustomerEmail();
         $paramClient['id_type'] = 'D.N.I';
 
-        if($this->_helper->useCustomerTaxvat()){
+        if ($this->_helper->useCustomerTaxvat()) {
             $paramClient['id_number'] = $billingAddress->getVatId();
-        }
-        else{
+        } else {
             $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute());
         }
 
@@ -477,7 +525,7 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])){
+        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])) {
             $paramPackage['size_category'] = $sizeCategory;
         }
         $paramPackage['width'] = $packageData['width'];
@@ -503,33 +551,33 @@ class Webservice
         $responseJson = $this->curl('POST', $url, $postFields);
         $responseObject = json_decode($responseJson);
 
-        $this->_helper->log('Request POST: '.$url);
+        $this->_helper->log('Request POST: ' . $url);
         $this->_helper->log($responseObject, false, true);
 
-        if(isset($responseObject->tracking_nro)){
+        if (isset($responseObject->tracking_nro)) {
             return $responseJson;
-        }else{
+        } else {
             $error = __('Hubo un error al enviar su pedido a Hop: ');
-            if (gettype($responseObject) == 'object'){
+            if (gettype($responseObject) == 'object') {
                 $keys = get_object_vars($responseObject);
-                foreach($keys as $key){
-                    if (is_array($key)){
-                        foreach($key as $message){
-                            if (is_string($message)){
-                                $error .= $message . ". ";
+                foreach ($keys as $key) {
+                    if (is_array($key)) {
+                        foreach ($key as $message) {
+                            if (is_string($message)) {
+                                $error_list[] = $message . ". ";
                             }
                         }
                     }
                 }
-                if (!empty($responseObject->error)){
-                    $error .= $responseObject->error . ". ";
+                if (!empty($responseObject->error)) {
+                    $error_list[] = $responseObject->error . ". ";
                 }
-            } else if (is_string($responseObject)){
-                $error .= $responseObject . ".";
+            } else if (is_string($responseObject)) {
+                $error_list[] = $responseObject . ".";
             }
             $this->_helper->log('Error:', true);
             $this->_helper->log($error, true);
-            $this->messageManager->addError($error);
+            $this->messageManager->addErrorMessage($error);
             return array(
                 'error' => $error
             );

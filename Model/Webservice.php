@@ -255,14 +255,14 @@ class Webservice
             $this->_helper->log($error, true);
             return false;
         }
-        $this->_tokenType = isset($response->token_type) ? $response->token_type : null;
-        $this->_accessToken = isset($response->access_token) ? $response->access_token : null;
+        $this->_tokenType = isset($response['token_type']) ? $response['token_type'] : null;
+        $this->_accessToken = isset($response['access_token']) ? $response['access_token'] : null;
 
         try {
             $this->saveNewToken(
                 $this->_tokenType,
                 $this->_accessToken,
-                isset($response->expires_in) ? $response->expires_in / 1000 : 0
+                isset($response['expires_in']) ? $response['expires_in'] / 1000 : 0
             );
         } catch (LocalizedException  $e) {
             $this->_helper->log('Error saving token: ' . $e->getMessage(), true);

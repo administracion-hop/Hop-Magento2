@@ -412,7 +412,7 @@ class Webservice
 
         $response = $this->curl("GET", $curlRequest);
         $decodedResponse = json_decode($response, true);
-        if ($decodedResponse) {
+        if ($decodedResponse && $zipCode) {
             try {
                 if (empty($point)){
                     $point = $this->pointFactory->create();

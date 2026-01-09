@@ -3,7 +3,6 @@
 namespace Hop\Envios\Cron;
 
 use Hop\Envios\Logger\LoggerInterface;
-use Hop\Envios\Model\ResourceModel\Point as PointResource;
 use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
 use Hop\Envios\Helper\Data as HelperData;
 use Hop\Envios\Model\Webservice;
@@ -21,11 +20,6 @@ class LoadPoints
     protected $pointCollectionFactory;
 
     /**
-     * @var PointResource
-     */
-    protected $pointResource;
-
-    /**
      * @var HelperData
      */
     protected $helper;
@@ -38,13 +32,11 @@ class LoadPoints
     public function __construct(
         LoggerInterface $logger,
         PointCollectionFactory $pointCollectionFactory,
-        PointResource $pointResource,
         HelperData $helper,
         Webservice $webservice
     ) {
         $this->logger = $logger;
         $this->pointCollectionFactory = $pointCollectionFactory;
-        $this->pointResource = $pointResource;
         $this->helper = $helper;
         $this->webservice = $webservice;
     }
@@ -58,9 +50,7 @@ class LoadPoints
                 $zipCode = null;
                 try {
                     $zipCode = $point->getZipCode();
-                    $apiData = $this->webservice->getPickupPoints($zipCode, true);
-                    $point->setPointData(json_encode($apiData));
-                    $this->pointResource->save($point);
+                    $this->webservice->getPickupPoints($zipCode, true);
                 } catch (\Exception $e) {
                     $this->logger->error(__('Failed to process point with zip code %1: %2', $zipCode ?? 'unknown', $e->getMessage()));
                 }

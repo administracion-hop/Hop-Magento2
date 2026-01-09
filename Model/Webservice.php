@@ -386,16 +386,22 @@ class Webservice
 
     /**
      * @param integer $zipCode
+     * @param bool $forceFromApi
      * @return bool|mixed
      */
-    public function getPickupPoints($zipCode, $force_from_api = false)
+    public function getPickupPoints($zipCode, $forceFromApi = false)
     {
-        if (!$force_from_api) {
+        if (!$forceFromApi) {
             $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
             if ($collection->getSize()) {
-                $pointes = $collection->getFirstItem();
-                $pointData = $pointes->getPointData();
-                return json_decode($pointData);
+                $point = $collection->getFirstItem();
+                $pointData = $point->getPointData();
+                $response = json_decode($pointData);
+                if (!empty($response->data)){
+                    return $response;
+                }
+            } else {
+                $point = null;
             }
         }
 
@@ -405,21 +411,20 @@ class Webservice
         }
 
         $response = $this->curl("GET", $curlRequest);
-
-        if (json_decode($response)) {
+        $decodedResponse = json_decode($response, true);
+        if ($decodedResponse) {
             try {
-                $point = $this->pointFactory->create();
-                $point->setZipCode($zipCode);
-                $point->setPointData(json_encode(json_decode($response)));
-                if (!$force_from_api) {
-                    $this->pointResource->save($point);
+                if (empty($point)){
+                    $point = $this->pointFactory->create();
                 }
+                $point->setZipCode($zipCode);
+                $point->setPointData($response);
+                $this->pointResource->save($point);
             } catch (\Exception $e) {
                 $this->_helper->log($e->getMessage(), true);
             }
         }
-
-        return json_decode($response);
+        return $decodedResponse;
     }
 
     /**

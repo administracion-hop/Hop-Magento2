@@ -469,8 +469,6 @@ class Webservice
 
         if (isset($responseObject->data->amount)) {
             return $responseObject->data->amount;
-        } elseif (isset($responseObject['errors'])) {
-            return false;
         } else {
             return false;
         }

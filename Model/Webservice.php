@@ -385,6 +385,27 @@ class Webservice
     }
 
     /**
+     * Check if the seller is active
+     * @return bool
+     */
+    public function isSellerActive()
+    {
+        $curlRequest = "api.hopenvios.com.ar/api/v1/sellers/" . $this->_helper->getSellerCode();
+        $response = $this->curl("GET", $curlRequest);
+        if ($response === false) {
+            $this->_helper->log(__('Failed to check seller status: API request failed'), true);
+            return false;
+        }
+        $decodedResponse = json_decode($response, true);
+        if (empty($decodedResponse['data']['status']) || $decodedResponse['data']['status'] != 'active') {
+            $error = __('Hop seller is not active. Please check your Hop account settings.');
+            $this->_helper->log($error, true);
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * @param integer $zipCode
      * @param bool $forceFromApi
      * @return bool|mixed

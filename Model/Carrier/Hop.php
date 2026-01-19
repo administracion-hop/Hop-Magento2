@@ -303,6 +303,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             return false;
         }
 
+        $webservice = $this->_webservice;
+        if (!$webservice->isSellerActive()) {
+            return false;
+        }
+
         $helper = $this->_helper;
 
         $result = $this->_rateResultFactory->create();
@@ -312,8 +317,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $method->setCarrierTitle($this->getConfigData('title'));
         $method->setMethod($this->_code);
         $method->setMethodTitle($this->getConfigData('description'));
-
-        $webservice = $this->_webservice;
 
         $totalPrice = 0;
 

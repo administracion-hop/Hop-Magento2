@@ -470,11 +470,15 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $hopData = null;
         }
 
-        if (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress']) && !empty($hopData['hopPointId'])) {
-            $shippingDescription = 'Retirá tu pedido en: ' .
-                    $hopData['hopPointReferenceName']
-                    . " ({$hopData['hopPointAddress']}) " .
-                    ' - Horario: ' . $hopData['hopPointSchedules'];
+        if (!empty($hopData['hopPointDescription']) || (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress']) && !empty($hopData['hopPointId']))) {
+            if (!empty($hopData['hopPointDescription'])) {
+                $shippingDescription = $hopData['hopPointDescription'];
+            } else {
+                $shippingDescription = 'Retirá tu pedido en: ' .
+                        $hopData['hopPointReferenceName']
+                        . " ({$hopData['hopPointAddress']}) " .
+                        ' - Horario: ' . $hopData['hopPointSchedules'];
+            }
             $method->setMethodTitle($shippingDescription);
             $quote = $this->_checkoutSession->getQuote();
             if (!$quote->getId()){
@@ -489,6 +493,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $selectedPickupPoint->setPickupPointId($pickupPointId);
             $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
             $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
+            $selectedPickupPoint->setOriginalZipCode($hopData['hopPointPostcode'] ?? '');
             $this->selectedPickupPointRepository->save($selectedPickupPoint);
         }
 

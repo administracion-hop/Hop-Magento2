@@ -203,7 +203,7 @@ define(
                 if (shippingAddress) {
                     zipcode = shippingAddress.postcode;
                 }
-                $.ajax('/rest/V1/improntus/hop_points/'+zipcode,
+                $.ajax('/rest/V1/hop-envios/points/'+zipcode,
                     {
                         method: 'GET',
                         context: this,
@@ -341,7 +341,7 @@ define(
                 var processors = [];
                 $('#points-maps-hop').addClass('loading-hop');
 
-                $.ajax('/rest/V1/improntus/hop_estimate',
+                $.ajax('/rest/V1/hop-envios/estimate',
                     {
                         method: 'GET',
                         context: this,

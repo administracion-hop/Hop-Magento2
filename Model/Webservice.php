@@ -153,6 +153,8 @@ class Webservice
      * @return string|false The API response body on success, or false on failure
      *
      * @throws Exception Potential exceptions from cURL operations
+     *
+     * @todo: Refactor to use Magento's built-in HTTP client for better integration and error handling.
      */
     protected function curl($verb, $path, $postFields = false)
     {
@@ -197,12 +199,16 @@ class Webservice
             $response = false;
         }
 
+        curl_close($curl);
+
         return $response;
     }
 
     /**
      * @param bool $forceNewToken
      * @return bool
+     *
+     * @todo Refactor to use Magento's built-in HTTP client for better integration and error handling.
      */
     public function login($forceNewToken = false)
     {
@@ -408,10 +414,12 @@ class Webservice
     /**
      * @param integer $zipCode
      * @param bool $forceFromApi
-     * @return bool|mixed
+     * @return \stdClass|null
      */
     public function getPickupPoints($zipCode, $forceFromApi = false)
     {
+        $point = null;
+
         if (!$forceFromApi) {
             $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
             if ($collection->getSize()) {
@@ -421,8 +429,6 @@ class Webservice
                 if (!empty($response->data)){
                     return $response;
                 }
-            } else {
-                $point = null;
             }
         }
 
@@ -432,10 +438,10 @@ class Webservice
         }
 
         $response = $this->curl("GET", $curlRequest);
-        $decodedResponse = json_decode($response, true);
+        $decodedResponse = json_decode($response);
         if ($decodedResponse && $zipCode) {
             try {
-                if (empty($point)){
+                if ($point === null) {
                     $point = $this->pointFactory->create();
                 }
                 $point->setZipCode($zipCode);
@@ -459,11 +465,11 @@ class Webservice
      */
     public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
-        $width = $package['width'];
-        $length = $package['length'];
-        $height = $package['height'];
-        $weight = $package['weight'];
-        $value = $package['value'];
+        $width = $package['width'] ?? 0;
+        $length = $package['length'] ?? 0;
+        $height = $package['height'] ?? 0;
+        $weight = $package['weight'] ?? 0;
+        $value = $package['value'] ?? 0;
 
         $url = "api.hopenvios.com.ar/api/v1/pricing/estimate";
         $url .= "?origin_zipcode=$originZipCode";
@@ -582,7 +588,8 @@ class Webservice
             return $responseJson;
         } else {
             $error = __('Hubo un error al enviar su pedido a Hop: ');
-            if (gettype($responseObject) == 'object') {
+            $error_list = [];
+            if ($responseObject instanceof \stdClass) {
                 $keys = get_object_vars($responseObject);
                 foreach ($keys as $key) {
                     if (is_array($key)) {

@@ -98,6 +98,7 @@ class ShippingMethod extends AbstractHelper
                 $selectedPickupPoint->setQuoteId($order->getQuoteId());
                 $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
                 $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
+                $selectedPickupPoint->setOriginalZipCode($hopData['hopPointPostcode'] ?? '');
             }
             $selectedPickupPoint->setPickupPointId($pickupPointId);
             $this->selectedPickupPointRepository->save($selectedPickupPoint);

@@ -63,6 +63,23 @@ class Points implements PointsInterface
     }
 
     /**
+     * Allowed parameters for hop data
+     */
+    private const ALLOWED_HOP_PARAMS = [
+        'hopPointPostcode',      // Required - zipcode validation
+        'hopPointId',            // Required - pickup point ID
+        'hopPointReferenceName', // Shipping description
+        'hopPointAddress',       // Shipping description
+        'hopPointSchedules',     // Shipping description
+        'hopPointName',          // Validation
+        'hopPointDescription',   // Optional - alternative description
+        'hopPointSeller',
+        'hopPointProvidercode',
+        'hopPointDistributorId',
+        'hopPointAgencycode',
+    ];
+
+    /**
      * Returns shipping estimation
      * @author : Hop Envíos
      *
@@ -71,11 +88,18 @@ class Points implements PointsInterface
      */
     public function estimate()
     {
-        if($this->_request->getParam('hopPointPostcode'))
-        {
-            $this->_checkoutSession->setHopData(
-                $this->_request->getParams()
-            );
+        if (!$this->_request->getParam('hopPointPostcode')) {
+            return json_encode(['success' => false, 'message' => 'Missing hopPointPostcode parameter']);
         }
+
+        $allParams = $this->_request->getParams();
+        $filteredParams = array_intersect_key(
+            $allParams,
+            array_flip(self::ALLOWED_HOP_PARAMS)
+        );
+
+        $this->_checkoutSession->setHopData($filteredParams);
+
+        return json_encode(['success' => true, 'message' => 'Hop data saved successfully']);
     }
 }

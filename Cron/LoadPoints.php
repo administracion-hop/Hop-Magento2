@@ -3,8 +3,7 @@
 namespace Hop\Envios\Cron;
 
 use Hop\Envios\Logger\LoggerInterface;
-use Hop\Envios\Model\PointFactory;
-use Hop\Envios\Model\ResourceModel\Point as PointResource;
+use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFactory;
 use Hop\Envios\Helper\Data as HelperData;
 use Hop\Envios\Model\Webservice;
 
@@ -16,14 +15,9 @@ class LoadPoints
     protected $logger;
 
     /**
-     * @var PointFactory
+     * @var PointCollectionFactory
      */
-    protected $PointFactory;
-
-    /**
-     * @var PointResource
-     */
-    protected $PointResource;
+    protected $pointCollectionFactory;
 
     /**
      * @var HelperData
@@ -37,14 +31,12 @@ class LoadPoints
 
     public function __construct(
         LoggerInterface $logger,
-        PointFactory $PointFactory,
-        PointResource $PointResource,
+        PointCollectionFactory $pointCollectionFactory,
         HelperData $helper,
         Webservice $webservice
     ) {
         $this->logger = $logger;
-        $this->PointFactory = $PointFactory;
-        $this->PointResource = $PointResource;
+        $this->pointCollectionFactory = $pointCollectionFactory;
         $this->helper = $helper;
         $this->webservice = $webservice;
     }
@@ -53,13 +45,16 @@ class LoadPoints
     {
         $this->logger->info(__('Starting the load points cron job.'));
         try {
-                $points = $this->PointFactory->create()->getCollection();
-                foreach ($points as $key => $point) {
+            $pointCollection = $this->pointCollectionFactory->create();
+            foreach ($pointCollection as $point) {
+                $zipCode = null;
+                try {
                     $zipCode = $point->getZipCode();
-                    $apiData = $this->webservice->getPickupPoints($zipCode, true);
-                    $point->setPointData(json_encode($apiData));
-                    $point->save();
+                    $this->webservice->getPickupPoints($zipCode, true);
+                } catch (\Exception $e) {
+                    $this->logger->error(__('Failed to process point with zip code %1: %2', $zipCode ?? 'unknown', $e->getMessage()));
                 }
+            }
             $this->logger->info(__('Load points cron job completed successfully.'));
         } catch (\Exception $e) {
             $this->logger->error(__('Error during the load points cron job: ') . $e->getMessage());

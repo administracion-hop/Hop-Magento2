@@ -38,6 +38,8 @@ class LabelGeneratorPlugin
      * @param View $shipment
      * @param HopHelper $hopHelper
      * @param Webservice $webservice
+     *
+     * @todo Refactor to use Magento's built-in HTTP client for better integration and error handling.
      */
     public function __construct(
         Filesystem $filesystem,
@@ -68,7 +70,7 @@ class LabelGeneratorPlugin
             $order = $shipment->getOrder();
             $shippingMethod = $order->getShippingMethod();
 
-            if ($shippingMethod == 'hop_hop') {
+            if ($shippingMethod === 'hop_hop') {
                 $url = $imageString;
 
                 if (!empty($url)) {
@@ -81,6 +83,11 @@ class LabelGeneratorPlugin
                     $filePath = $mediapath . $filename;
 
                     $lastToken = $this->_webservice->getLastToken();
+                    if (!$lastToken || !$lastToken->getId()) {
+                        throw new \Magento\Framework\Exception\LocalizedException(
+                            __('No se pudo obtener el token de autenticación para descargar la etiqueta.')
+                        );
+                    }
                     $_accessToken = $lastToken->getAccessToken();
 
                     try {
@@ -139,6 +146,14 @@ class LabelGeneratorPlugin
         return $proceed($imageString);
     }
 
+    /**
+     * Convert image URLs to PDFs before combining labels.
+     * @param \Magento\Shipping\Model\Shipping\LabelGenerator $subject
+     * @param array $labelsContent
+     * @return array
+     *
+     * @todo Refactor to use Magento's built-in HTTP client for better integration and error handling.
+     */
     public function beforeCombineLabelsPdf(
         \Magento\Shipping\Model\Shipping\LabelGenerator $subject,
         array $labelsContent = []

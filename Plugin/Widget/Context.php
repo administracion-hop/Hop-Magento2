@@ -80,7 +80,7 @@ class Context
         {
             $orderId    = $subject->getRequest()->getParam('order_id');
             $order      = $this->order->load($orderId);
-            if ($order->getShippingMethod() == 'hop_hop')
+            if ($order->getShippingMethod() === 'hop_hop')
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
                 $tracking_nro = '';

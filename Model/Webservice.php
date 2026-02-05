@@ -497,6 +497,14 @@ class Webservice
         if (isset($responseObject->data->amount)) {
             return $responseObject->data->amount;
         } else {
+            if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
+                $this->_helper->log('Url used: ' . $url, true);
+                foreach ($responseObject->errors as $error) {
+                    if (!empty($error->detail) && is_string($error->detail)) {
+                        $this->_helper->log('Error estimating price: ' . $error->detail, true);
+                    }
+                }
+            }
             return false;
         }
     }

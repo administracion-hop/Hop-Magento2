@@ -80,22 +80,23 @@ class Context
         {
             $orderId    = $subject->getRequest()->getParam('order_id');
             $order      = $this->order->load($orderId);
-            if ($order->getShippingMethod() == 'hop_hop')
+            if ($order->getShippingMethod() === 'hop_hop')
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
                 $tracking_nro = '';
-
+                $baseUrl = '';
                 if ($hopEnvios) {
                     $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
-                    if (!empty($infoHop->label_url) && substr_compare($infoHop->label_url, '.zpl', -4) === 0){
-                        $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
-                    } else {
-                        $baseUrl = $this->backendUrl->getUrl('hop/label/download',['order_id' => $orderId]);
+                    if (!empty($infoHop->label_url)) {
+                        if (substr_compare($infoHop->label_url, '.zpl', -4) === 0){
+                            $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
+                        } else {
+                            $baseUrl = $this->backendUrl->getUrl('hop/label/download',['order_id' => $orderId]);
+                        }
                     }
+
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
-                } else {
-                    $baseUrl = '';
                 }
 
                 if (!empty($baseUrl)) {

@@ -88,8 +88,8 @@ class Info extends \Magento\Sales\Block\Order\Info
             $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
         }
 
-        if ($order->getShippingMethod() == 'hop_hop' && !empty($tracking_nro)) {
-            $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
+        if ($order->getShippingMethod() === 'hop_hop' && !empty($tracking_nro)) {
+            $baseUrl = 'https://hopenvios.com.ar/segui-tu-envio?c=' . urlencode($tracking_nro);
             return $baseUrl;
         }
 

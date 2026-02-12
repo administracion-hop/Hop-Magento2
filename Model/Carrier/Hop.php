@@ -517,7 +517,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         if (!$shipment || !$shipment->getOrderId()) {
             $this->_helper->log(__('Error: No se encontró un envío válido en la solicitud.'), true);
-            return null;
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: No se encontró un envío válido en la solicitud.')
+            );
         }
 
         $orderId = $shipment->getOrderId();
@@ -540,7 +542,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         if (empty($infoHop['tracking_nro']) || empty($infoHop['label_url'])) {
             $this->_helper->log(__('Error: Los valores tracking_nro o label_url están vacíos o no existen.'), true);
-            return null;
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
+            );
         }
 
         $trackingNumber = $infoHop['tracking_nro'];
@@ -556,7 +560,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 __('Error: ' . $e->getMessage())
             );
         }
-        return null;
     }
 
 

@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
-    <route url="/V1/improntus/hop_points/:zipCode" method="GET">
+    <route url="/V1/hop-envios/points/:zipCode" method="GET">
         <service class="Hop\Envios\Api\PointsInterface" method="get"/>
         <resources>
             <resource ref="anonymous" />
         </resources>
     </route>
-    <route url="/V1/improntus/hop_estimate" method="GET">
+    <route url="/V1/hop-envios/estimate" method="GET">
         <service class="Hop\Envios\Api\PointsInterface" method="estimate"/>
         <resources>
             <resource ref="anonymous" />

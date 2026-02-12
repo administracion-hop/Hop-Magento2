@@ -198,6 +198,13 @@ class Download implements ActionInterface, HttpGetActionInterface
         }
 
         $infoHop = $hopEnvios->getInfoHop();
+        if (empty($infoHop)) {
+            $this->logger->warning(
+                'No Hop info found for order',
+                ['order_id' => $orderId]
+            );
+            return '';
+        }
         $infoHopData = json_decode($infoHop, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {

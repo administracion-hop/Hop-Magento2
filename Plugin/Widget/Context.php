@@ -84,7 +84,7 @@ class Context
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
                 $tracking_nro = '';
-
+                $baseUrl = '';
                 if ($hopEnvios) {
                     $infoHop = $hopEnvios->getInfoHop();
                     $infoHop = json_decode($infoHop ?? '');
@@ -94,8 +94,6 @@ class Context
                         $baseUrl = $this->backendUrl->getUrl('hop/label/download',['order_id' => $orderId]);
                     }
                     $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
-                } else {
-                    $baseUrl = '';
                 }
 
                 if (!empty($baseUrl)) {

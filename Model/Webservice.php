@@ -614,6 +614,7 @@ class Webservice
             } else if (is_string($responseObject)) {
                 $error_list[] = $responseObject . ".";
             }
+            $error .= implode(" ", $error_list);
             $this->_helper->log('Error:', true);
             $this->_helper->log($error, true);
             $this->messageManager->addErrorMessage($error);

@@ -595,6 +595,20 @@ class Webservice
         if (isset($responseObject->tracking_nro)) {
             return $responseJson;
         } else {
+            // If the error is "reference_id already in use", try to find the existing shipment
+            if (!empty($responseObject->error) &&
+                strpos($responseObject->error, 'El elemento reference id ya est') !== false
+            ) {
+                $found = $this->findShipmentByReferenceId(
+                    $params['reference_id'],
+                    $order->getCustomerEmail(),
+                    $order->getShippingAmount()
+                );
+                if ($found !== false) {
+                    return $found;
+                }
+            }
+
             $error = __('Hubo un error al enviar su pedido a Hop: ');
             $error_list = [];
             if ($responseObject instanceof \stdClass) {
@@ -622,5 +636,55 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * Search for an existing shipment by reference ID and validate it belongs to the same order.
+     *
+     * @param string $referenceId
+     * @param string $customerEmail
+     * @param float $shippingAmount
+     * @return string|false JSON string of the shipment on match, false otherwise
+     */
+    protected function findShipmentByReferenceId($referenceId, $customerEmail, $shippingAmount)
+    {
+        $this->_helper->log('Reference ID already in use, searching for existing shipment: ' . $referenceId);
+
+        $searchUrl = "api.hopenvios.com.ar/api/v1/search_shipments?reference=" . urlencode($referenceId);
+        $searchResponseJson = $this->curl('GET', $searchUrl);
+
+        if ($searchResponseJson === false) {
+            return false;
+        }
+
+        $searchResponse = json_decode($searchResponseJson, true);
+        if (empty($searchResponse['data']) || !is_array($searchResponse['data'])) {
+            return false;
+        }
+
+        $expectedPrice = number_format((float)$shippingAmount, 2, '.', '');
+
+        foreach ($searchResponse['data'] as $shipment) {
+            $foundPrice = isset($shipment['estimated_price'])
+                ? number_format((float)$shipment['estimated_price'], 2, '.', '')
+                : null;
+
+            if (isset($shipment['client_email']) &&
+                $shipment['client_email'] === $customerEmail &&
+                $foundPrice !== null &&
+                $foundPrice === $expectedPrice
+            ) {
+                $this->_helper->log('Found matching existing shipment for reference: ' . $referenceId);
+                return json_encode($shipment);
+            }
+        }
+
+        $this->_helper->log(
+            'No matching shipment found for reference ' . $referenceId . '. ' .
+            'Expected email: ' . $customerEmail . ', expected price: ' . $expectedPrice,
+            true
+        );
+
+        return false;
     }
 }

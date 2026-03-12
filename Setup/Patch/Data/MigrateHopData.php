@@ -7,8 +7,8 @@ use Magento\Framework\Setup\Patch\DataPatchInterface;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\App\ResourceConnection;
 use Hop\Envios\Logger\LoggerInterface;
-use Hop\Envios\Model\SelectedPickupPoint;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\OrderPickupPoint;
+use Hop\Envios\Model\OrderPickupPointRepository;
 
 class MigrateHopData implements DataPatchInterface
 {
@@ -28,26 +28,26 @@ class MigrateHopData implements DataPatchInterface
     private $logger;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var OrderPickupPointRepository
      */
-    private $selectedPickupPointRepository;
+    private $orderPickupPointRepository;
 
     /**
      * @param ModuleDataSetupInterface $moduleDataSetup
      * @param ResourceConnection $resourceConnection
      * @param LoggerInterface $logger
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      */
     public function __construct(
         ModuleDataSetupInterface $moduleDataSetup,
         ResourceConnection $resourceConnection,
         LoggerInterface $logger,
-        SelectedPickupPointRepository $selectedPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository
     ) {
         $this->moduleDataSetup = $moduleDataSetup;
         $this->resourceConnection = $resourceConnection;
         $this->logger = $logger;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
     }
 
     /**
@@ -62,7 +62,7 @@ class MigrateHopData implements DataPatchInterface
             $tableName = $this->resourceConnection->getTableName('sales_order');
 
             $select = $connection->select()
-                ->from($tableName, ['entity_id', 'quote_id', 'hop_data', 'shipping_description'])
+                ->from($tableName, ['entity_id', 'hop_data', 'shipping_description'])
                 ->where('hop_data IS NOT NULL')
                 ->where('hop_data != ""');
 
@@ -76,27 +76,24 @@ class MigrateHopData implements DataPatchInterface
                         $hopPointId = isset($hopEnviosData['hopPointId']) ? $hopEnviosData['hopPointId'] : null;
 
                         if ($hopPointId !== null) {
-                            /** @var SelectedPickupPoint  */
-                            $selectedPickupPoint = $this->selectedPickupPointRepository->create();
-                            $selectedPickupPoint->setOrderId($order['entity_id']);
-                            $selectedPickupPoint->setQuoteId($order['quote_id']);
-                            $selectedPickupPoint->setOriginalShippingDescription($order['shipping_description']);
-                            $selectedPickupPoint->setOriginalPickupPointId($hopPointId);
-                            $selectedPickupPoint->setPickupPointId($hopPointId);
-                            $this->selectedPickupPointRepository->save($selectedPickupPoint);
+                            /** @var OrderPickupPoint */
+                            $orderPickupPoint = $this->orderPickupPointRepository->create();
+                            $orderPickupPoint->setOrderId((int)$order['entity_id']);
+                            $orderPickupPoint->setOriginalShippingDescription($order['shipping_description']);
+                            $orderPickupPoint->setOriginalPickupPointId($hopPointId);
+                            $orderPickupPoint->setPickupPointId($hopPointId);
+                            $this->orderPickupPointRepository->save($orderPickupPoint);
                         } else {
                             $this->logger->warning(sprintf(
-                                'Hop_Envios - Order ID: %s, Quote ID: %s - No se encontró hopPointId en el JSON',
-                                $order['entity_id'],
-                                $order['quote_id']
+                                'Hop_Envios - Order ID: %s - No se encontró hopPointId en el JSON',
+                                $order['entity_id']
                             ));
                         }
                     } else {
                         $this->logger->error(sprintf(
-                            'Hop_Envios - Order ID: %s, Quote ID: %s - JSON inválido: %s',
+                            'Hop_Envios - Order ID: %s - JSON inválido: %s',
                             $order['entity_id'],
-                            $order['quote_id'],
-                            $order['hop_envios']
+                            $order['hop_data']
                         ));
                     }
                 } catch (\Exception $e) {

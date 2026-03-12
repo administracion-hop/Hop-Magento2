@@ -6,4 +6,7 @@
     <event name="sales_order_place_after">
         <observer name="hop_envios_clear_hop_data" instance="Hop\Envios\Observer\ClearHopDataAfterOrderPlace" />
     </event>
+    <event name="sales_model_service_quote_submit_success">
+        <observer name="hop_envios_quote_submit_success" instance="Hop\Envios\Observer\QuoteSubmitSuccessObserver" />
+    </event>
 </config>

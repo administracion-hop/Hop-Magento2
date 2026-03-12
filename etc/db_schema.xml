@@ -50,6 +50,37 @@
         </index>
     </table>
 
+    <table name="hop_envios_order_pickup_point" resource="default" engine="innodb" comment="Hop Envios Order Pickup Points">
+        <column xsi:type="int" name="id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
+        <column xsi:type="int" name="order_id" padding="10" unsigned="true" nullable="false" comment="Order ID"/>
+        <column xsi:type="varchar" name="original_pickup_point_id" nullable="false" length="255" comment="Original Pickup Point ID"/>
+        <column xsi:type="varchar" name="pickup_point_id" nullable="false" length="255" comment="Pickup Point ID"/>
+        <column xsi:type="varchar" name="original_shipping_description" nullable="true" length="255" comment="Original Shipping Description"/>
+        <column xsi:type="varchar" name="original_zip_code" nullable="true" length="10" comment="Original ZIP Code"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP" comment="Updated At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id"/>
+        </constraint>
+
+        <constraint xsi:type="unique" referenceId="HOP_ENVIOS_ORDER_PICKUP_POINT_ORDER_ID">
+            <column name="order_id"/>
+        </constraint>
+
+        <constraint xsi:type="foreign" referenceId="HOP_ENVIOS_ORDER_PICKUP_POINT_ORDER_ID_SALES_ORDER_ENTITY_ID"
+                    table="hop_envios_order_pickup_point" column="order_id"
+                    referenceTable="sales_order" referenceColumn="entity_id" onDelete="CASCADE"/>
+
+        <index referenceId="HOP_ENVIOS_ORDER_PICKUP_POINT_PICKUP_POINT_ID" indexType="btree">
+            <column name="pickup_point_id"/>
+        </index>
+
+        <index referenceId="HOP_ENVIOS_ORDER_PICKUP_POINT_ORIGINAL_PICKUP_POINT_ID" indexType="btree">
+            <column name="original_pickup_point_id"/>
+        </index>
+    </table>
+
     <table name="hop_envios_selected_pickup_point" resource="default" engine="innodb" comment="Hop Envios Selected Pickup Points">
         <column xsi:type="int" name="id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
         <column xsi:type="int" name="quote_id" padding="10" unsigned="true" nullable="false" comment="Quote ID"/>

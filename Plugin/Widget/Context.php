@@ -6,7 +6,7 @@ use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Framework\UrlInterface;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\OrderPickupPointRepository;
 
 /**
  * Class Context
@@ -39,9 +39,9 @@ class Context
     protected $hopEnviosRepository;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var OrderPickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $orderPickupPointRepository;
 
     /**
      * Context constructor.
@@ -49,21 +49,21 @@ class Context
      * @param DataHop $helperHop
      * @param UrlInterface $urlInterface,
      * @param HopEnviosRepository $hopEnviosRepository
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      */
     public function __construct(
         Order $order,
         DataHop $helperHop,
         UrlInterface $urlInterface,
         HopEnviosRepository $hopEnviosRepository,
-        SelectedPickupPointRepository $selectedPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository
     )
     {
         $this->order = $order;
         $this->helperHop = $helperHop;
         $this->backendUrl = $urlInterface;
         $this->hopEnviosRepository = $hopEnviosRepository;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
     }
 
     /**
@@ -131,7 +131,7 @@ class Context
                             'class'     => 'primary hop-shipment-button'
                         ]
                     );
-                    $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
+                    $selectedPickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$orderId);
                     if ($selectedPickupPoint && $selectedPickupPoint->getPickupPointId()) {
                         $actionUrl = $this->backendUrl->getUrl('hop/order/send', [
                             'order_id' => $orderId,

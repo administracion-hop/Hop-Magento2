@@ -12,7 +12,7 @@ use Hop\Envios\Model\TokenFactory;
 use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\OrderPickupPointRepository;
 
 /**
  * Class Webservice
@@ -95,9 +95,9 @@ class Webservice
     protected $tokenResourceModel;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var OrderPickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $orderPickupPointRepository;
 
     /**
      * Webservice constructor.
@@ -109,7 +109,7 @@ class Webservice
      * @param TokenCollectionFactory $tokenCollectionFactory
      * @param TokenFactory $tokenFactory
      * @param TokenResourceModel $tokenResourceModel
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      */
     public function __construct(
         HelperHop $helperHop,
@@ -120,7 +120,7 @@ class Webservice
         TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel,
-        SelectedPickupPointRepository $selectedPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository
     ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
@@ -130,7 +130,7 @@ class Webservice
         $this->tokenCollectionFactory = $tokenCollectionFactory;
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -525,7 +525,7 @@ class Webservice
         $storageCode = $this->_helper->getStorageCode();
         $packageData = $this->_helper->getPackageData($order);
 
-        $hopData = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
+        $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$hopData) {
             $this->_helper->log(__('No Hop Data'), true);
             return false;

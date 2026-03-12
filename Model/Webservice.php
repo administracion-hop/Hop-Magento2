@@ -12,7 +12,7 @@ use Hop\Envios\Model\TokenFactory;
 use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\OrderPickupPointRepository;
 
 /**
  * Class Webservice
@@ -95,9 +95,9 @@ class Webservice
     protected $tokenResourceModel;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var OrderPickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $orderPickupPointRepository;
 
     /**
      * Webservice constructor.
@@ -109,7 +109,7 @@ class Webservice
      * @param TokenCollectionFactory $tokenCollectionFactory
      * @param TokenFactory $tokenFactory
      * @param TokenResourceModel $tokenResourceModel
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      */
     public function __construct(
         HelperHop $helperHop,
@@ -120,7 +120,7 @@ class Webservice
         TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel,
-        SelectedPickupPointRepository $selectedPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository
     ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
@@ -130,7 +130,7 @@ class Webservice
         $this->tokenCollectionFactory = $tokenCollectionFactory;
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
 
         $this->_clientId = $helperHop->getClientId();
         $this->_clientSecret = $helperHop->getClientSecret();
@@ -525,7 +525,7 @@ class Webservice
         $storageCode = $this->_helper->getStorageCode();
         $packageData = $this->_helper->getPackageData($order);
 
-        $hopData = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
+        $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$hopData) {
             $this->_helper->log(__('No Hop Data'), true);
             return false;
@@ -595,6 +595,20 @@ class Webservice
         if (isset($responseObject->tracking_nro)) {
             return $responseJson;
         } else {
+            // If the error is "reference_id already in use", try to find the existing shipment
+            if (!empty($responseObject->error) &&
+                strpos($responseObject->error, 'El elemento reference id ya est') !== false
+            ) {
+                $found = $this->findShipmentByReferenceId(
+                    $params['reference_id'],
+                    $order->getCustomerEmail(),
+                    $order->getShippingAmount()
+                );
+                if ($found !== false) {
+                    return $found;
+                }
+            }
+
             $error = __('Hubo un error al enviar su pedido a Hop: ');
             $error_list = [];
             if ($responseObject instanceof \stdClass) {
@@ -622,5 +636,55 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * Search for an existing shipment by reference ID and validate it belongs to the same order.
+     *
+     * @param string $referenceId
+     * @param string $customerEmail
+     * @param float $shippingAmount
+     * @return string|false JSON string of the shipment on match, false otherwise
+     */
+    protected function findShipmentByReferenceId($referenceId, $customerEmail, $shippingAmount)
+    {
+        $this->_helper->log('Reference ID already in use, searching for existing shipment: ' . $referenceId);
+
+        $searchUrl = "api.hopenvios.com.ar/api/v1/search_shipments?reference=" . urlencode($referenceId);
+        $searchResponseJson = $this->curl('GET', $searchUrl);
+
+        if ($searchResponseJson === false) {
+            return false;
+        }
+
+        $searchResponse = json_decode($searchResponseJson, true);
+        if (empty($searchResponse['data']) || !is_array($searchResponse['data'])) {
+            return false;
+        }
+
+        $expectedPrice = number_format((float)$shippingAmount, 2, '.', '');
+
+        foreach ($searchResponse['data'] as $shipment) {
+            $foundPrice = isset($shipment['estimated_price'])
+                ? number_format((float)$shipment['estimated_price'], 2, '.', '')
+                : null;
+
+            if (isset($shipment['client_email']) &&
+                $shipment['client_email'] === $customerEmail &&
+                $foundPrice !== null &&
+                $foundPrice === $expectedPrice
+            ) {
+                $this->_helper->log('Found matching existing shipment for reference: ' . $referenceId);
+                return json_encode($shipment);
+            }
+        }
+
+        $this->_helper->log(
+            'No matching shipment found for reference ' . $referenceId . '. ' .
+            'Expected email: ' . $customerEmail . ', expected price: ' . $expectedPrice,
+            true
+        );
+
+        return false;
     }
 }

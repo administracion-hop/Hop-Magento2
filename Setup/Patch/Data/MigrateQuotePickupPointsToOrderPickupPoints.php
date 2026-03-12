@@ -84,6 +84,10 @@ class MigrateQuotePickupPointsToOrderPickupPoints implements DataPatchInterface
 
                 foreach ($rows as $row) {
                     try {
+                        $existing = $this->orderPickupPointRepository->getByOrderId((int)$row['order_id']);
+                        if ($existing && $existing->getId()) {
+                            continue;
+                        }
                         $orderPickupPoint = $this->orderPickupPointRepository->create();
                         $orderPickupPoint->setOrderId((int)$row['order_id']);
                         $orderPickupPoint->setOriginalPickupPointId($row['original_pickup_point_id']);

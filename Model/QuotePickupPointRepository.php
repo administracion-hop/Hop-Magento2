@@ -5,7 +5,8 @@ namespace Hop\Envios\Model;
 use Hop\Envios\Model\ResourceModel\QuotePickupPoint\CollectionFactory;
 use Hop\Envios\Model\QuotePickupPointFactory;
 use Hop\Envios\Model\ResourceModel\QuotePickupPoint as QuotePickupPointResource;
-use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Exception\CouldNotSaveException;
+use Magento\Framework\Exception\CouldNotDeleteException;
 use Magento\Framework\Phrase;
 
 class QuotePickupPointRepository
@@ -69,14 +70,14 @@ class QuotePickupPointRepository
      *
      * @param QuotePickupPoint $quotePickupPoint
      * @return void
-     * @throws \Exception
+     * @throws CouldNotSaveException
      */
     public function save(QuotePickupPoint $quotePickupPoint)
     {
         try {
             $this->resourceModel->save($quotePickupPoint);
-        } catch (\Exception $exception) {
-            throw new \Exception(__('Could not save the quote pickup point: %1', $exception->getMessage()));
+        } catch (\Exception $e) {
+            throw new CouldNotSaveException(new Phrase('Could not save the quote pickup point: %1', [$e->getMessage()]), $e);
         }
     }
 
@@ -85,7 +86,7 @@ class QuotePickupPointRepository
      *
      * @param QuotePickupPoint $quotePickupPoint
      * @return bool
-     * @throws \Exception
+     * @throws CouldNotDeleteException
      */
     public function delete(QuotePickupPoint $quotePickupPoint)
     {
@@ -93,9 +94,7 @@ class QuotePickupPointRepository
             $this->resourceModel->delete($quotePickupPoint);
             return true;
         } catch (\Exception $e) {
-            throw new \Magento\Framework\Exception\CouldNotDeleteException(
-                new Phrase(__('Could not delete quote pickup point: %1', [$e->getMessage()]))
-            );
+            throw new CouldNotDeleteException(new Phrase('Could not delete the quote pickup point: %1', [$e->getMessage()]), $e);
         }
     }
 
@@ -104,7 +103,7 @@ class QuotePickupPointRepository
      *
      * @param int $quoteId
      * @return bool
-     * @throws \Magento\Framework\Exception\CouldNotDeleteException
+     * @throws CouldNotDeleteException
      */
     public function deleteByQuoteId(int $quoteId)
     {
@@ -117,10 +116,10 @@ class QuotePickupPointRepository
             }
 
             return $this->delete($model);
+        } catch (CouldNotDeleteException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            throw new \Magento\Framework\Exception\CouldNotDeleteException(
-                new Phrase(__('Could not delete quote pickup point: %1', [$e->getMessage()]))
-            );
+            throw new CouldNotDeleteException(new Phrase('Could not delete the quote pickup point: %1', [$e->getMessage()]), $e);
         }
     }
 }

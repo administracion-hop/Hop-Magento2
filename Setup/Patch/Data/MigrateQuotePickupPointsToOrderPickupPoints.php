@@ -62,45 +62,52 @@ class MigrateQuotePickupPointsToOrderPickupPoints implements DataPatchInterface
             $quoteTable = $this->resourceConnection->getTableName('hop_envios_selected_pickup_point');
             $orderTable = $this->resourceConnection->getTableName('sales_order');
 
-            // JOIN hop_envios_selected_pickup_point con sales_order para obtener el order_id a partir del quote_id
-            $select = $connection->select()
-                ->from(['qpp' => $quoteTable], [
-                    'original_pickup_point_id',
-                    'pickup_point_id',
-                    'original_shipping_description',
-                    'original_zip_code',
-                ])
-                ->join(
-                    ['so' => $orderTable],
-                    'qpp.quote_id = so.quote_id',
-                    ['order_id' => 'so.entity_id']
-                );
+            $batchSize = 1000;
+            $offset = 0;
 
-            $rows = $connection->fetchAll($select);
+            do {
+                $select = $connection->select()
+                    ->from(['qpp' => $quoteTable], [
+                        'original_pickup_point_id',
+                        'pickup_point_id',
+                        'original_shipping_description',
+                        'original_zip_code',
+                    ])
+                    ->join(
+                        ['so' => $orderTable],
+                        'qpp.quote_id = so.quote_id',
+                        ['order_id' => 'so.entity_id']
+                    )
+                    ->limit($batchSize, $offset);
 
-            foreach ($rows as $row) {
-                try {
-                    $orderPickupPoint = $this->orderPickupPointRepository->create();
-                    $orderPickupPoint->setOrderId((int)$row['order_id']);
-                    $orderPickupPoint->setOriginalPickupPointId($row['original_pickup_point_id']);
-                    $orderPickupPoint->setPickupPointId($row['pickup_point_id']);
-                    $orderPickupPoint->setOriginalShippingDescription($row['original_shipping_description']);
-                    $orderPickupPoint->setOriginalZipCode($row['original_zip_code']);
-                    $this->orderPickupPointRepository->save($orderPickupPoint);
-                } catch (\Exception $e) {
-                    $this->logger->error(sprintf(
-                        'Hop_Envios - Error migrando pickup point para Order ID: %s - %s',
-                        $row['order_id'],
-                        $e->getMessage()
-                    ));
+                $rows = $connection->fetchAll($select);
+
+                foreach ($rows as $row) {
+                    try {
+                        $orderPickupPoint = $this->orderPickupPointRepository->create();
+                        $orderPickupPoint->setOrderId((int)$row['order_id']);
+                        $orderPickupPoint->setOriginalPickupPointId($row['original_pickup_point_id']);
+                        $orderPickupPoint->setPickupPointId($row['pickup_point_id']);
+                        $orderPickupPoint->setOriginalShippingDescription($row['original_shipping_description']);
+                        $orderPickupPoint->setOriginalZipCode($row['original_zip_code']);
+                        $this->orderPickupPointRepository->save($orderPickupPoint);
+                    } catch (\Exception $e) {
+                        $this->logger->error(sprintf(
+                            'Hop_Envios - Error migrando pickup point para Order ID: %s - %s',
+                            $row['order_id'],
+                            $e->getMessage()
+                        ));
+                    }
                 }
-            }
+
+                $offset += $batchSize;
+            } while (count($rows) === $batchSize);
         } catch (\Exception $e) {
             $this->logger->error('Hop_Envios MigrateQuotePickupPointsToOrderPickupPoints Error: ' . $e->getMessage());
             throw $e;
+        } finally {
+            $this->moduleDataSetup->getConnection()->endSetup();
         }
-
-        $this->moduleDataSetup->getConnection()->endSetup();
     }
 
     /**

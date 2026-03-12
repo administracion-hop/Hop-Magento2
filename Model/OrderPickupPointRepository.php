@@ -5,6 +5,7 @@ namespace Hop\Envios\Model;
 use Hop\Envios\Model\ResourceModel\OrderPickupPoint\CollectionFactory;
 use Hop\Envios\Model\OrderPickupPointFactory;
 use Hop\Envios\Model\ResourceModel\OrderPickupPoint as OrderPickupPointResource;
+use Magento\Framework\Exception\CouldNotSaveException;
 use Magento\Framework\Exception\CouldNotDeleteException;
 use Magento\Framework\Phrase;
 
@@ -69,14 +70,14 @@ class OrderPickupPointRepository
      *
      * @param OrderPickupPoint $orderPickupPoint
      * @return void
-     * @throws \Exception
+     * @throws CouldNotSaveException
      */
     public function save(OrderPickupPoint $orderPickupPoint)
     {
         try {
             $this->resourceModel->save($orderPickupPoint);
-        } catch (\Exception $exception) {
-            throw new \Exception(__('Could not save the order pickup point: %1', $exception->getMessage()));
+        } catch (\Exception $e) {
+            throw new CouldNotSaveException(new Phrase('Could not save the order pickup point: %1', [$e->getMessage()]), $e);
         }
     }
 
@@ -93,9 +94,7 @@ class OrderPickupPointRepository
             $this->resourceModel->delete($orderPickupPoint);
             return true;
         } catch (\Exception $e) {
-            throw new CouldNotDeleteException(
-                new Phrase(__('Could not delete order pickup point: %1', [$e->getMessage()]))
-            );
+            throw new CouldNotDeleteException(new Phrase('Could not delete the order pickup point: %1', [$e->getMessage()]), $e);
         }
     }
 }

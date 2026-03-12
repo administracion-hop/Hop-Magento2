@@ -67,7 +67,9 @@ class QuoteSubmitSuccessObserver implements ObserverInterface
                 return;
             }
 
-            $orderPickupPoint = $this->orderPickupPointRepository->create();
+            $orderPickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId())
+                ?? $this->orderPickupPointRepository->create();
+
             $orderPickupPoint->setOrderId((int)$order->getId());
             $orderPickupPoint->setOriginalPickupPointId($quotePickupPoint->getData('original_pickup_point_id'));
             $orderPickupPoint->setPickupPointId($quotePickupPoint->getData('pickup_point_id'));

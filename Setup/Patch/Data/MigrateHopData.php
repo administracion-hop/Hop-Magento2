@@ -107,9 +107,9 @@ class MigrateHopData implements DataPatchInterface
         } catch (\Exception $e) {
             $this->logger->error('Hop_Envios Patch Error: ' . $e->getMessage());
             throw $e;
+        } finally {
+            $this->moduleDataSetup->getConnection()->endSetup();
         }
-
-        $this->moduleDataSetup->getConnection()->endSetup();
     }
 
     /**

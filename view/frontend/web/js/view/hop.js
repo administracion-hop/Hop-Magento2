@@ -200,10 +200,12 @@ define(
                 map = GoogleMaps.init();
                 var shippingAddress = quote.shippingAddress();
                 var zipcode = '';
+                var countryCode = '';
                 if (shippingAddress) {
                     zipcode = shippingAddress.postcode;
+                    countryCode = shippingAddress.countryId;
                 }
-                $.ajax('/rest/V1/hop-envios/points/'+zipcode,
+                $.ajax('/rest/V1/hop-envios/points/'+zipcode+'/'+countryCode,
                     {
                         method: 'GET',
                         context: this,

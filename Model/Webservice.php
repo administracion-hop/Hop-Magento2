@@ -416,21 +416,20 @@ class Webservice
 
     /**
      * @param integer $zipCode
+     * @param string|null $countryCode
      * @param bool $forceFromApi
      * @return \stdClass|null
      */
-    public function getPickupPoints($zipCode, $forceFromApi = false)
+    public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
     {
         $point = null;
 
-        $countryCode = $this->_helper->getStoreCountry();
+        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry() ?: 'AR');
 
         if (!$forceFromApi) {
             $collection = $this->pointCollectionFactory->create()
-                ->addFieldToFilter('zip_code', $zipCode);
-            if ($countryCode) {
-                $collection->addFieldToFilter('country_code', $countryCode);
-            }
+                ->addFieldToFilter('zip_code', $zipCode)
+                ->addFieldToFilter('country_code', $countryCode);
             if ($collection->getSize()) {
                 $point = $collection->getFirstItem();
                 $pointData = $point->getPointData();
@@ -446,9 +445,7 @@ class Webservice
             $queryParams['allow_deliveries'] = 1;
             $queryParams['zip_code'] = $zipCode;
         }
-        if ($countryCode) {
-            $queryParams['country'] = $countryCode;
-        }
+        $queryParams['country'] = $countryCode;
 
         $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pickup_points", $queryParams);
         $decodedResponse = json_decode($response);
@@ -458,9 +455,7 @@ class Webservice
                     $point = $this->pointFactory->create();
                 }
                 $point->setZipCode($zipCode);
-                if ($countryCode) {
-                    $point->setCountryCode($countryCode);
-                }
+                $point->setCountryCode($countryCode);
                 $point->setPointData($response);
                 $this->pointResource->save($point);
             } catch (\Exception $e) {

@@ -203,9 +203,9 @@ define(
                 var countryCode = '';
                 if (shippingAddress) {
                     zipcode = shippingAddress.postcode;
-                    countryCode = shippingAddress.countryId;
+                    countryCode = shippingAddress.countryId || '';
                 }
-                $.ajax('/rest/V1/hop-envios/points/'+zipcode+'/'+countryCode,
+                $.ajax('/rest/V2/hop-envios/points/'+zipcode+'/'+countryCode,
                     {
                         method: 'GET',
                         context: this,

@@ -544,8 +544,9 @@ class Webservice
         }
 
         $billingAddress = $order->getBillingAddress();
-
+        $shippingAddress = $order->getShippingAddress();
         $params = [];
+        $params['country'] = $shippingAddress->getCountryId() ?: ($this->_helper->getStoreCountry() ?: 'AR');
         $params['shipping_type'] = $shippingType;
         $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();
         $params['reference_2'] = '';
@@ -575,12 +576,17 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])) {
+
+        foreach(['length', 'height', 'width'] as $sizeField) {
+            if (isset($packageData[$sizeField]) && $packageData[$sizeField] > 0) {
+                $paramPackage[$sizeField] = $packageData[$sizeField];
+            }
+        }
+
+        if ($sizeCategory && (empty($paramPackage['width']) || empty($paramPackage['length']) || empty($paramPackage['height']))) {
             $paramPackage['size_category'] = $sizeCategory;
         }
-        $paramPackage['width'] = $packageData['width'];
-        $paramPackage['length'] = $packageData['length'];
-        $paramPackage['height'] = $packageData['height'];
+
         $paramPackage['value'] = $packageData['value'];
         $paramPackage['weight'] = $packageData['weight'];
         $params['package'] = $paramPackage;

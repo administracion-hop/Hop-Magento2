@@ -432,9 +432,11 @@ class Webservice
             }
         }
 
-        $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";
+        $apiVersion = $this->_helper->getPickupPointsApiVersion();
+        $sellerCode = $this->_helper->getSellerCode();
+        $curlRequest = "api.hopenvios.com.ar/api/{$apiVersion}/pickup_points?seller_code=" . $sellerCode;
         if ($zipCode) {
-            $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=" . $zipCode;
+            $curlRequest .= "&allow_deliveries=1&zip_code=" . $zipCode;
         }
 
         $response = $this->curl("GET", $curlRequest);

@@ -43,7 +43,7 @@
             "jquery",
             "underscore"
         ], function(jQuery, _) {
-            jQuery.ajax('/rest/V1/hop-envios/points/' + <?php echo $block->getZipcode() ?>, {
+            jQuery.ajax('<?php echo $block->escapeUrl($block->getPointsUrl()) ?>', {
                 method: 'GET',
                 context: this,
                 success: function(response) {

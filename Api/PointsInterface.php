@@ -15,9 +15,10 @@ interface PointsInterface
      * Return hop points.
      *
      * @param string $zipCode
+     * @param string $countryCode
      * @return string
      */
-    public function get($zipCode);
+    public function get($zipCode, $countryCode);
 
     /**
      * @return string

@@ -446,8 +446,10 @@ class Webservice
             $queryParams['zip_code'] = $zipCode;
         }
         $queryParams['country'] = $countryCode;
+        $queryParams['seller_code'] = $this->_helper->getSellerCode();
 
-        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pickup_points", $queryParams);
+        $apiVersion = $this->_helper->getPickupPointsApiVersion();
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/{$apiVersion}/pickup_points", $queryParams);
         $decodedResponse = json_decode($response);
         if ($decodedResponse && $zipCode) {
             try {

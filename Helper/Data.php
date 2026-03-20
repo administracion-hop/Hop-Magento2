@@ -438,6 +438,17 @@ class Data extends AbstractHelper
     /**
      * @return string
      */
+    public function getStoreCountry()
+    {
+        return $this->_scopeConfig->getValue(
+            'general/country/default',
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /**
+     * @return string
+     */
     public function isAmastyOscEnabled()
     {
         $amastyModules = [

@@ -156,13 +156,16 @@ class Webservice
      *
      * @todo: Refactor to use Magento's built-in HTTP client for better integration and error handling.
      */
-    protected function curl($verb, $path, $postFields = false)
+    protected function curl($verb, $path, $queryParams = [], $postFields = false)
     {
         $retry = false;
         do {
             $curl = curl_init();
             $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
             $url = "https://" . $entorno . $path;
+            if ($queryParams) {
+                $url .= '?' . http_build_query($queryParams);
+            }
             $this->_helper->log('API URL: ' . $url);
             $curlData = [
                 CURLOPT_URL => $url,
@@ -413,15 +416,20 @@ class Webservice
 
     /**
      * @param integer $zipCode
+     * @param string|null $countryCode
      * @param bool $forceFromApi
      * @return \stdClass|null
      */
-    public function getPickupPoints($zipCode, $forceFromApi = false)
+    public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
     {
         $point = null;
 
+        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry() ?: 'AR');
+
         if (!$forceFromApi) {
-            $collection = $this->pointCollectionFactory->create()->addFieldToFilter('zip_code', $zipCode);
+            $collection = $this->pointCollectionFactory->create()
+                ->addFieldToFilter('zip_code', $zipCode)
+                ->addFieldToFilter('country_code', $countryCode);
             if ($collection->getSize()) {
                 $point = $collection->getFirstItem();
                 $pointData = $point->getPointData();
@@ -432,12 +440,14 @@ class Webservice
             }
         }
 
-        $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points";
+        $queryParams = [];
         if ($zipCode) {
-            $curlRequest = "api.hopenvios.com.ar/api/v1/pickup_points?allow_deliveries=1&zip_code=" . $zipCode;
+            $queryParams['allow_deliveries'] = 1;
+            $queryParams['zip_code'] = $zipCode;
         }
+        $queryParams['country'] = $countryCode;
 
-        $response = $this->curl("GET", $curlRequest);
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pickup_points", $queryParams);
         $decodedResponse = json_decode($response);
         if ($decodedResponse && $zipCode) {
             try {
@@ -445,6 +455,7 @@ class Webservice
                     $point = $this->pointFactory->create();
                 }
                 $point->setZipCode($zipCode);
+                $point->setCountryCode($countryCode);
                 $point->setPointData($response);
                 $this->pointResource->save($point);
             } catch (\Exception $e) {
@@ -471,34 +482,35 @@ class Webservice
         $weight = $package['weight'] ?? 0;
         $value = $package['value'] ?? 0;
 
-        $url = "api.hopenvios.com.ar/api/v1/pricing/estimate";
-        $url .= "?origin_zipcode=$originZipCode";
-        $url .= "&destiny_zipcode=$destinyZipCode";
-        $url .= "&shipping_type=$shippingType";
-        $url .= "&package[value]=$value";
-        $url .= "&weight=$weight";
-        $url .= "&seller_code=$sellerCode";
         $sizeCategory = $this->_helper->getSizeCategory();
+        $queryParams = [
+            'origin_zipcode'  => $originZipCode,
+            'destiny_zipcode' => $destinyZipCode,
+            'shipping_type'   => $shippingType,
+            'weight'          => $weight,
+            'seller_code'     => $sellerCode,
+            'package'         => ['value' => $value],
+        ];
         if ($width > 0 && $length > 0 && $height > 0) {
-            $url .= "&package[width]=$width";
-            $url .= "&package[length]=$length";
-            $url .= "&package[height]=$height";
+            $queryParams['package']['width']  = $width;
+            $queryParams['package']['length'] = $length;
+            $queryParams['package']['height'] = $height;
         }
         if ($sizeCategory) {
-            $url .= "&package[size_category]=$sizeCategory";
+            $queryParams['package']['size_category'] = $sizeCategory;
         }
         if ($hopPointId) {
-            $url .= "&pickup_point_id=$hopPointId";
+            $queryParams['pickup_point_id'] = $hopPointId;
         }
 
-        $response = $this->curl("GET", $url);
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pricing/estimate", $queryParams);
         $responseObject = json_decode($response);
 
         if (isset($responseObject->data->amount)) {
             return $responseObject->data->amount;
         } else {
             if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
-                $this->_helper->log('Url used: ' . $url, true);
+                $this->_helper->log('Url used: ' . http_build_query($queryParams), true);
                 foreach ($responseObject->errors as $error) {
                     if (!empty($error->detail) && is_string($error->detail)) {
                         $this->_helper->log('Error estimating price: ' . $error->detail, true);
@@ -532,8 +544,15 @@ class Webservice
         }
 
         $billingAddress = $order->getBillingAddress();
-
+        $shippingAddress = $order->getShippingAddress();
+        
         $params = [];
+
+        if ($shippingAddress && $shippingAddress->getCountryId()){
+            $params['country'] = $shippingAddress->getCountryId();
+        } else {
+            $params['country'] = $this->_helper->getStoreCountry() ?: 'AR';
+        }
         $params['shipping_type'] = $shippingType;
         $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();
         $params['reference_2'] = '';
@@ -563,12 +582,17 @@ class Webservice
         $params['client'] = $paramClient;
 
         $paramPackage = [];
-        if ($sizeCategory && ($packageData['width'] || $packageData['length'] || $packageData['height'])) {
+
+        foreach(['length', 'height', 'width'] as $sizeField) {
+            if (isset($packageData[$sizeField]) && $packageData[$sizeField] > 0) {
+                $paramPackage[$sizeField] = $packageData[$sizeField];
+            }
+        }
+
+        if ($sizeCategory && (empty($paramPackage['width']) || empty($paramPackage['length']) || empty($paramPackage['height']))) {
             $paramPackage['size_category'] = $sizeCategory;
         }
-        $paramPackage['width'] = $packageData['width'];
-        $paramPackage['length'] = $packageData['length'];
-        $paramPackage['height'] = $packageData['height'];
+
         $paramPackage['value'] = $packageData['value'];
         $paramPackage['weight'] = $packageData['weight'];
         $params['package'] = $paramPackage;
@@ -586,7 +610,7 @@ class Webservice
 
         $url = "api.hopenvios.com.ar/api/v1/shipping";
 
-        $responseJson = $this->curl('POST', $url, $postFields);
+        $responseJson = $this->curl('POST', $url, [], $postFields);
         $responseObject = json_decode($responseJson);
 
         $this->_helper->log('Request POST: ' . $url);
@@ -650,8 +674,7 @@ class Webservice
     {
         $this->_helper->log('Reference ID already in use, searching for existing shipment: ' . $referenceId);
 
-        $searchUrl = "api.hopenvios.com.ar/api/v1/search_shipments?reference=" . urlencode($referenceId);
-        $searchResponseJson = $this->curl('GET', $searchUrl);
+        $searchResponseJson = $this->curl('GET', "api.hopenvios.com.ar/api/v1/search_shipments", ['reference' => $referenceId]);
 
         if ($searchResponseJson === false) {
             return false;

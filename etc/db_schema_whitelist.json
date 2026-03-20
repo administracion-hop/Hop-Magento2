@@ -1,0 +1,76 @@
+{
+    "quote": {
+        "column": {
+            "hop_data": true
+        }
+    },
+    "sales_order": {
+        "column": {
+            "hop_data": true
+        }
+    },
+    "hop_tokens": {
+        "column": {
+            "id": true,
+            "token_type": true,
+            "access_token": true,
+            "expires_in": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hop_envios": {
+        "column": {
+            "entity_id": true,
+            "order_id": true,
+            "increment_id": true,
+            "info_hop": true,
+            "status_shipment": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hop_pickup_points": {
+        "column": {
+            "entity_id": true,
+            "api_id": true,
+            "zip_code": true,
+            "country_code": true,
+            "point_data": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE": true
+        },
+        "index": {
+            "HOP_PICKUP_POINTS_API_ID": true,
+            "HOP_PICKUP_POINTS_CREATED_AT": true
+        }
+    },
+    "hop_envios_selected_pickup_point": {
+        "column": {
+            "id": true,
+            "quote_id": true,
+            "original_pickup_point_id": true,
+            "pickup_point_id": true,
+            "original_shipping_description": true,
+            "original_zip_code": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_ENVIOS_SELECTED_PICKUP_POINT_QUOTE_ID": true,
+            "HOP_ENVIOS_SELECTED_PICKUP_POINT_QUOTE_ID_QUOTE_ENTITY_ID": true
+        },
+        "index": {
+            "HOP_ENVIOS_SELECTED_PICKUP_POINT_PICKUP_POINT_ID": true,
+            "HOP_ENVIOS_SELECTED_PICKUP_POINT_ORIGINAL_PICKUP_POINT_ID": true
+        }
+    }
+}

@@ -54,10 +54,10 @@ class Points implements PointsInterface
      * @param string $zipCode
      * @author : Hop Envíos
      */
-    public function get($zipCode)
+    public function get($zipCode, $countryCode)
     {
         if($zipCode !== null && $zipCode !== ''){
-            return json_encode($this->_webservice->getPickupPoints($zipCode));
+            return json_encode($this->_webservice->getPickupPoints($zipCode, $countryCode));
         }
         return json_encode([]);
     }

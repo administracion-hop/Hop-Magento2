@@ -38,6 +38,34 @@ define(
         'use strict';
         var map;
         var activeInfoWindow;
+        var lastHopRequest;
+
+        function fetchAndSetHopData(currentPostcode) {
+            if (lastHopRequest) {
+                lastHopRequest.abort();
+            }
+            lastHopRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
+                method: 'GET',
+                success: function (response) {
+                    lastHopRequest = null;
+                    try {
+                        var selectedPoint = JSON.parse(response);
+                        if (selectedPoint && selectedPoint.hopPointId
+                            && selectedPoint.hopPointPostcode === currentPostcode) {
+                            window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
+                        }
+                    } catch (e) {
+                        console.error('Hop: Error parsing selected-point response', e);
+                    }
+                },
+                error: function (xhr, status) {
+                    lastHopRequest = null;
+                    if (status !== 'abort') {
+                        console.error('Hop: Error fetching selected-point', xhr, status);
+                    }
+                }
+            });
+        }
 
         function generarContenidoLista(value, listado) {
             var html_horarios = '';
@@ -157,8 +185,12 @@ define(
                     if (!newAddress) return;
 
                     if (window.checkoutConfig.quoteData.hop_data) {
-                        let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
-                        if (hopData.hopPointPostcode != newAddress.postcode) {
+                        try {
+                            let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
+                            if (hopData.hopPointPostcode != newAddress.postcode) {
+                                window.checkoutConfig.quoteData.hop_data = null;
+                            }
+                        } catch (e) {
                             window.checkoutConfig.quoteData.hop_data = null;
                         }
                     }
@@ -166,17 +198,7 @@ define(
                     if (!window.checkoutConfig.quoteData.hop_data
                         && quote.shippingMethod()
                         && quote.shippingMethod().carrier_code === 'hop') {
-                        let currentPostcode = newAddress.postcode;
-                        $.ajax('/rest/V1/hop-envios/selected-point', {
-                            method: 'GET',
-                            success: function (response) {
-                                let selectedPoint = JSON.parse(response);
-                                if (selectedPoint && selectedPoint.hopPointId
-                                    && selectedPoint.hopPointPostcode == currentPostcode) {
-                                    window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
-                                }
-                            }
-                        });
+                        fetchAndSetHopData(newAddress.postcode);
                     }
                 });
 
@@ -197,17 +219,7 @@ define(
                         if (!rate.available) {
                             window.checkoutConfig.quoteData.hop_data = null;
                         } else if (!window.checkoutConfig.quoteData.hop_data) {
-                            let currentPostcode = shippingAddress ? shippingAddress.postcode : null;
-                            $.ajax('/rest/V1/hop-envios/selected-point', {
-                                method: 'GET',
-                                success: function (response) {
-                                    let selectedPoint = JSON.parse(response);
-                                    if (selectedPoint && selectedPoint.hopPointId
-                                        && selectedPoint.hopPointPostcode == currentPostcode) {
-                                        window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
-                                    }
-                                }
-                            });
+                            fetchAndSetHopData(shippingAddress ? shippingAddress.postcode : null);
                         }
                         this_component.disponible(rate.available);
                         break;

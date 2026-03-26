@@ -1,13 +1,19 @@
 <?xml version="1.0"?>
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
     <route url="/V2/hop-envios/points/:zipCode/:countryCode" method="GET">
-        <service class="Hop\Envios\Api\PointsInterface" method="get"/>
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="get"/>
         <resources>
             <resource ref="anonymous" />
         </resources>
     </route>
     <route url="/V1/hop-envios/estimate" method="GET">
-        <service class="Hop\Envios\Api\PointsInterface" method="estimate"/>
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="estimate"/>
+        <resources>
+            <resource ref="anonymous" />
+        </resources>
+    </route>
+    <route url="/V1/hop-envios/selected-point" method="GET">
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="getSelectedPoint"/>
         <resources>
             <resource ref="anonymous" />
         </resources>

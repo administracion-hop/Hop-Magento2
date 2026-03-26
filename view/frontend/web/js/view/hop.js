@@ -38,6 +38,34 @@ define(
         'use strict';
         var map;
         var activeInfoWindow;
+        var lastHopRequest;
+
+        function fetchAndSetHopData(currentPostcode) {
+            if (lastHopRequest) {
+                lastHopRequest.abort();
+            }
+            lastHopRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
+                method: 'GET',
+                success: function (response) {
+                    lastHopRequest = null;
+                    try {
+                        var selectedPoint = JSON.parse(response);
+                        if (selectedPoint && selectedPoint.hopPointId
+                            && selectedPoint.hopPointPostcode === currentPostcode) {
+                            window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
+                        }
+                    } catch (e) {
+                        console.error('Hop: Error parsing selected-point response', e);
+                    }
+                },
+                error: function (xhr, status) {
+                    lastHopRequest = null;
+                    if (status !== 'abort') {
+                        console.error('Hop: Error fetching selected-point', xhr, status);
+                    }
+                }
+            });
+        }
 
         function generarContenidoLista(value, listado) {
             var html_horarios = '';
@@ -152,6 +180,28 @@ define(
             nombre: ko.observable(''),
             initialize: function () {
                 const this_component = this;
+
+                quote.shippingAddress.subscribe(function (newAddress) {
+                    if (!newAddress) return;
+
+                    if (window.checkoutConfig.quoteData.hop_data) {
+                        try {
+                            let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
+                            if (hopData.hopPointPostcode != newAddress.postcode) {
+                                window.checkoutConfig.quoteData.hop_data = null;
+                            }
+                        } catch (e) {
+                            window.checkoutConfig.quoteData.hop_data = null;
+                        }
+                    }
+
+                    if (!window.checkoutConfig.quoteData.hop_data
+                        && quote.shippingMethod()
+                        && quote.shippingMethod().carrier_code === 'hop') {
+                        fetchAndSetHopData(newAddress.postcode);
+                    }
+                });
+
                 shippingService.getShippingRates().subscribe(function (rates) {
                     for (let rate of rates){
                         if (rate.carrier_code != 'hop'){
@@ -166,7 +216,11 @@ define(
                                 }
                             }
                         }
-                        if (!rate.available) window.checkoutConfig.quoteData.hop_data = null;
+                        if (!rate.available) {
+                            window.checkoutConfig.quoteData.hop_data = null;
+                        } else if (!window.checkoutConfig.quoteData.hop_data) {
+                            fetchAndSetHopData(shippingAddress ? shippingAddress.postcode : null);
+                        }
                         this_component.disponible(rate.available);
                         break;
                     }
@@ -181,7 +235,6 @@ define(
                 };
                 $("#hop-popup-modal").modal(options);
                 $(document).on('keyup', '#buscador-hop', function(event, data) {
-                    // debugger
                     var hopComponent = registry.get('hop_envios_map');
                     if (hopComponent) {
                         hopComponent.buscarElementos(data, event);

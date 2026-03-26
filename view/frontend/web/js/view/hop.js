@@ -152,6 +152,34 @@ define(
             nombre: ko.observable(''),
             initialize: function () {
                 const this_component = this;
+
+                quote.shippingAddress.subscribe(function (newAddress) {
+                    if (!newAddress) return;
+
+                    if (window.checkoutConfig.quoteData.hop_data) {
+                        let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
+                        if (hopData.hopPointPostcode != newAddress.postcode) {
+                            window.checkoutConfig.quoteData.hop_data = null;
+                        }
+                    }
+
+                    if (!window.checkoutConfig.quoteData.hop_data
+                        && quote.shippingMethod()
+                        && quote.shippingMethod().carrier_code === 'hop') {
+                        let currentPostcode = newAddress.postcode;
+                        $.ajax('/rest/V1/hop-envios/selected-point', {
+                            method: 'GET',
+                            success: function (response) {
+                                let selectedPoint = JSON.parse(response);
+                                if (selectedPoint && selectedPoint.hopPointId
+                                    && selectedPoint.hopPointPostcode == currentPostcode) {
+                                    window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
+                                }
+                            }
+                        });
+                    }
+                });
+
                 shippingService.getShippingRates().subscribe(function (rates) {
                     for (let rate of rates){
                         if (rate.carrier_code != 'hop'){
@@ -166,7 +194,21 @@ define(
                                 }
                             }
                         }
-                        if (!rate.available) window.checkoutConfig.quoteData.hop_data = null;
+                        if (!rate.available) {
+                            window.checkoutConfig.quoteData.hop_data = null;
+                        } else if (!window.checkoutConfig.quoteData.hop_data) {
+                            let currentPostcode = shippingAddress ? shippingAddress.postcode : null;
+                            $.ajax('/rest/V1/hop-envios/selected-point', {
+                                method: 'GET',
+                                success: function (response) {
+                                    let selectedPoint = JSON.parse(response);
+                                    if (selectedPoint && selectedPoint.hopPointId
+                                        && selectedPoint.hopPointPostcode == currentPostcode) {
+                                        window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
+                                    }
+                                }
+                            });
+                        }
                         this_component.disponible(rate.available);
                         break;
                     }
@@ -181,7 +223,6 @@ define(
                 };
                 $("#hop-popup-modal").modal(options);
                 $(document).on('keyup', '#buscador-hop', function(event, data) {
-                    // debugger
                     var hopComponent = registry.get('hop_envios_map');
                     if (hopComponent) {
                         hopComponent.buscarElementos(data, event);

@@ -237,6 +237,14 @@ class Data extends AbstractHelper
     /**
      * @return string
      */
+    public function getPickupPointsApiVersion()
+    {
+        return $this->_scopeConfig->getValue('shipping/hop/pickup_points_api_version', ScopeInterface::SCOPE_STORE) ?: 'v1';
+    }
+
+    /**
+     * @return string
+     */
     public function getOriginZipcode()
     {
         return $this->_scopeConfig->getValue('shipping/hop/origin_zipcode', ScopeInterface::SCOPE_STORE);

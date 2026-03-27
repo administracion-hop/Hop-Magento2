@@ -36,7 +36,7 @@ use Hop\Envios\Model\PointFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Model\HopEnviosRepository;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\QuotePickupPointRepository;
 
 /**
  * Class Hop
@@ -135,9 +135,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected $hopEnviosRepository;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var QuotePickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $quotePickupPointRepository;
 
 
 
@@ -165,7 +165,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param CartRepositoryInterface $quoteRepository
      * @param HopEnviosRepository $hopEnviosRepository
      * @param State $appState
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param array $data
      */
     public function __construct(
@@ -195,7 +195,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         State $appState,
         OrderRepositoryInterface $orderRepository,
         HopEnviosRepository $hopEnviosRepository,
-        SelectedPickupPointRepository $selectedPickupPointRepository,
+        QuotePickupPointRepository $quotePickupPointRepository,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -212,7 +212,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->appState = $appState;
         $this->orderRepository = $orderRepository;
         $this->hopEnviosRepository = $hopEnviosRepository;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->quotePickupPointRepository = $quotePickupPointRepository;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -484,9 +484,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             if (!$quote->getId()){
                 $this->_quoteRepository->save($quote);
             }
-            $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quote->getId());
+            $selectedPickupPoint = $this->quotePickupPointRepository->getByQuoteId($quote->getId());
             if (!$selectedPickupPoint) {
-                $selectedPickupPoint = $this->selectedPickupPointRepository->create();
+                $selectedPickupPoint = $this->quotePickupPointRepository->create();
                 $selectedPickupPoint->setQuoteId($quote->getId());
             }
             $pickupPointId = $hopData['hopPointId'];
@@ -494,7 +494,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
             $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
             $selectedPickupPoint->setOriginalZipCode($hopData['hopPointPostcode'] ?? '');
-            $this->selectedPickupPointRepository->save($selectedPickupPoint);
+            $this->quotePickupPointRepository->save($selectedPickupPoint);
         }
 
 
@@ -617,6 +617,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         if (!$quote->getId()){
             $this->_quoteRepository->save($quote);
         }
-        $this->selectedPickupPointRepository->deleteByQuoteId($quote->getId());
+        $this->quotePickupPointRepository->deleteByQuoteId($quote->getId());
     }
 }

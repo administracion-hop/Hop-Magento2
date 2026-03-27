@@ -200,12 +200,15 @@ define(
                 map = GoogleMaps.init();
                 var shippingAddress = quote.shippingAddress();
                 var zipcode = '';
-                var countryCode = '';
+                var countryCode = 'AR';
                 if (shippingAddress) {
                     zipcode = shippingAddress.postcode;
-                    countryCode = shippingAddress.countryId || '';
+                    countryCode = shippingAddress.countryId || 'AR';
                 }
-                $.ajax('/rest/V2/hop-envios/points/'+zipcode+'/'+countryCode,
+                if (!zipcode) {
+                    return;
+                }
+                $.ajax('/rest/V2/hop-envios/points/' + encodeURIComponent(zipcode) + '/' + encodeURIComponent(countryCode),
                     {
                         method: 'GET',
                         context: this,

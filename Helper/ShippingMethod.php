@@ -7,7 +7,8 @@ use Magento\Sales\Model\Order;
 use Magento\Sales\Model\ResourceModel\Order as OrderResourceModel;
 use Magento\Framework\App\Helper\Context;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\QuotePickupPointRepository;
+use Hop\Envios\Model\OrderPickupPointRepository;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\Webservice;
 
@@ -25,9 +26,14 @@ class ShippingMethod extends AbstractHelper
     protected $_orderResourceModel;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var QuotePickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $quotePickupPointRepository;
+
+    /**
+     * @var OrderPickupPointRepository
+     */
+    protected $orderPickupPointRepository;
 
     /**
      * @var HopEnviosRepository
@@ -44,7 +50,8 @@ class ShippingMethod extends AbstractHelper
      * @param Context $context
      * @param CollectionFactory $orderCollectionFactory
      * @param OrderResourceModel $orderResourceModel
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param QuotePickupPointRepository $quotePickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param HopEnviosRepository $hopEnviosRepository
      * @param Webservice $webservice
      */
@@ -52,14 +59,16 @@ class ShippingMethod extends AbstractHelper
         Context $context,
         CollectionFactory $orderCollectionFactory,
         OrderResourceModel $orderResourceModel,
-        SelectedPickupPointRepository $selectedPickupPointRepository,
+        QuotePickupPointRepository $quotePickupPointRepository,
+        OrderPickupPointRepository $orderPickupPointRepository,
         HopEnviosRepository $hopEnviosRepository,
         Webservice $webservice
     ) {
         parent::__construct($context);
         $this->_orderCollectionFactory = $orderCollectionFactory;
         $this->_orderResourceModel = $orderResourceModel;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->quotePickupPointRepository = $quotePickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->webservice = $webservice;
     }
@@ -92,16 +101,16 @@ class ShippingMethod extends AbstractHelper
                 ' - Horario: ' . $hopData['hopPointSchedules'];
             $order->setShippingDescription($shippingDescription);
             $this->_orderResourceModel->save($order);
-            $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
-            if (!$selectedPickupPoint) {
-                $selectedPickupPoint = $this->selectedPickupPointRepository->create();
-                $selectedPickupPoint->setQuoteId($order->getQuoteId());
-                $selectedPickupPoint->setOriginalPickupPointId($pickupPointId);
-                $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
-                $selectedPickupPoint->setOriginalZipCode($hopData['hopPointPostcode'] ?? '');
+            $orderPickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
+            if (!$orderPickupPoint) {
+                $orderPickupPoint = $this->orderPickupPointRepository->create();
+                $orderPickupPoint->setOrderId((int)$order->getId());
+                $orderPickupPoint->setOriginalPickupPointId($pickupPointId);
+                $orderPickupPoint->setOriginalShippingDescription($shippingDescription);
+                $orderPickupPoint->setOriginalZipCode($hopData['hopPointPostcode'] ?? '');
             }
-            $selectedPickupPoint->setPickupPointId($pickupPointId);
-            $this->selectedPickupPointRepository->save($selectedPickupPoint);
+            $orderPickupPoint->setPickupPointId($pickupPointId);
+            $this->orderPickupPointRepository->save($orderPickupPoint);
         }
     }
 

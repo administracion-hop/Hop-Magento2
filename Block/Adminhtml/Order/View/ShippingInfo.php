@@ -5,7 +5,7 @@ use Magento\Backend\Block\Template;
 use Magento\Backend\Block\Template\Context;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Framework\App\RequestInterface;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\OrderPickupPointRepository;
 
 class ShippingInfo extends Template
 {
@@ -25,27 +25,27 @@ class ShippingInfo extends Template
     protected $order;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var OrderPickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $orderPickupPointRepository;
 
     /**
      * @param Context $context
      * @param OrderRepositoryInterface $orderRepository
      * @param RequestInterface $request
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param array $data
      */
     public function __construct(
         Context $context,
         OrderRepositoryInterface $orderRepository,
         RequestInterface $request,
-        SelectedPickupPointRepository $selectedPickupPointRepository,
+        OrderPickupPointRepository $orderPickupPointRepository,
         array $data = []
     ) {
         $this->orderRepository = $orderRepository;
         $this->request = $request;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->orderPickupPointRepository = $orderPickupPointRepository;
         parent::__construct($context, $data);
     }
 
@@ -78,7 +78,7 @@ class ShippingInfo extends Template
         if (!$order) {
             return [];
         }
-        $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($order->getQuoteId());
+        $selectedPickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$selectedPickupPoint) {
             return [];
         }

@@ -3,7 +3,7 @@
 namespace Hop\Envios\Plugin;
 
 use Hop\Envios\Helper\Data;
-use Hop\Envios\Model\SelectedPickupPointRepository;
+use Hop\Envios\Model\QuotePickupPointRepository;
 use Magento\Checkout\Model\Session as CheckoutSession;
 
 /**
@@ -27,24 +27,24 @@ class DefaultConfigProvider
     protected $checkoutSession;
 
     /**
-     * @var SelectedPickupPointRepository
+     * @var QuotePickupPointRepository
      */
-    protected $selectedPickupPointRepository;
+    protected $quotePickupPointRepository;
 
     /**
      * DefaultConfigProvider constructor.
      * @param Data $helper
      * @param CheckoutSession $checkoutSession
-     * @param SelectedPickupPointRepository $selectedPickupPointRepository
+     * @param QuotePickupPointRepository $quotePickupPointRepository
      */
     public function __construct(
         Data $helper,
         CheckoutSession $checkoutSession,
-        SelectedPickupPointRepository $selectedPickupPointRepository
+        QuotePickupPointRepository $quotePickupPointRepository
     ) {
         $this->_helper = $helper;
         $this->checkoutSession = $checkoutSession;
-        $this->selectedPickupPointRepository = $selectedPickupPointRepository;
+        $this->quotePickupPointRepository = $quotePickupPointRepository;
     }
 
     /**
@@ -86,7 +86,7 @@ class DefaultConfigProvider
      */
     private function getHopDataFromSelectedPickupPoint(int $quoteId): ?array
     {
-        $selectedPickupPoint = $this->selectedPickupPointRepository->getByQuoteId($quoteId);
+        $selectedPickupPoint = $this->quotePickupPointRepository->getByQuoteId($quoteId);
         if (!$selectedPickupPoint || !$selectedPickupPoint->getId()) {
             return null;
         }

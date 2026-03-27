@@ -78,6 +78,7 @@ class MigrateQuotePickupPointsToOrderPickupPoints implements DataPatchInterface
                         'qpp.quote_id = so.quote_id',
                         ['order_id' => 'so.entity_id']
                     )
+                    ->order('so.entity_id ASC')
                     ->limit($batchSize, $offset);
 
                 $rows = $connection->fetchAll($select);

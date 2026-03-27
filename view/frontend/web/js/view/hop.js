@@ -41,13 +41,16 @@ define(
         var lastHopRequest;
 
         function fetchAndSetHopData(currentPostcode) {
+            if (!currentPostcode) {
+                return;
+            }
             if (lastHopRequest) {
                 lastHopRequest.abort();
             }
-            lastHopRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
+            var thisRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
                 method: 'GET',
                 success: function (response) {
-                    lastHopRequest = null;
+                    if (lastHopRequest === thisRequest) lastHopRequest = null;
                     try {
                         var selectedPoint = JSON.parse(response);
                         if (selectedPoint && selectedPoint.hopPointId
@@ -59,12 +62,13 @@ define(
                     }
                 },
                 error: function (xhr, status) {
-                    lastHopRequest = null;
+                    if (lastHopRequest === thisRequest) lastHopRequest = null;
                     if (status !== 'abort') {
                         console.error('Hop: Error fetching selected-point', xhr, status);
                     }
                 }
             });
+            lastHopRequest = thisRequest;
         }
 
         function generarContenidoLista(value, listado) {

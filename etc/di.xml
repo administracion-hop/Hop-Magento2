@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
-    <preference for="Hop\Envios\Api\PointsInterface" type="Hop\Envios\Model\Points" />
+    <preference for="Hop\Envios\Api\PickupPointManagementInterface" type="Hop\Envios\Model\PickupPointManagement" />
     <type name="Magento\Backend\Block\Widget\Context">
         <plugin name="hop_envios_widget_context" type="Hop\Envios\Plugin\Widget\Context" sortOrder="100"/>
     </type>

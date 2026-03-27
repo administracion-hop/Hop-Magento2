@@ -73,7 +73,7 @@ class HopSelectorView extends Template
     {
         $order = $this->getOrderById($this->getData('order_id'));
         $shippingAddress = $order->getShippingAddress();
-        return $shippingAddress->getCountryId() ?: 'AR';
+        return $shippingAddress->getCountryId() ?: ($this->helper->getStoreCountry() ?: 'AR');
     }
 
     /**
@@ -81,7 +81,7 @@ class HopSelectorView extends Template
      */
     public function getPointsUrl()
     {
-        return '/rest/V2/hop-envios/points/' . urlencode($this->getZipcode()) . '/' . urlencode($this->getCountryCode());
+        return '/rest/V2/hop-envios/points/' . rawurlencode($this->getZipcode()) . '/' . rawurlencode($this->getCountryCode());
     }
 
     /**

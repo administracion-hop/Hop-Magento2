@@ -549,8 +549,14 @@ class Webservice
 
         $billingAddress = $order->getBillingAddress();
         $shippingAddress = $order->getShippingAddress();
+        
         $params = [];
-        $params['country'] = $shippingAddress->getCountryId() ?: ($this->_helper->getStoreCountry() ?: 'AR');
+
+        if ($shippingAddress && $shippingAddress->getCountryId()){
+            $params['country'] = $shippingAddress->getCountryId();
+        } else {
+            $params['country'] = $this->_helper->getStoreCountry() ?: 'AR';
+        }
         $params['shipping_type'] = $shippingType;
         $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();
         $params['reference_2'] = '';

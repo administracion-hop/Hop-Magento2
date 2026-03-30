@@ -62,13 +62,14 @@ class PickupPointManagement implements PickupPointManagementInterface
      *
      * @api
      * @param string $zipCode
-     * @param string $countryCode
+     * @param string|null $countryCode
      * @return string
      */
-    public function get($zipCode, $countryCode)
+    public function get($zipCode, $countryCode = null)
     {
-        if($zipCode !== null && $zipCode !== ''){
-            return json_encode($this->webservice->getPickupPoints($zipCode, $countryCode));
+        if ($zipCode !== null && $zipCode !== '') {
+            $normalizedCountryCode = ($countryCode !== null && $countryCode !== '') ? $countryCode : null;
+            return json_encode($this->webservice->getPickupPoints($zipCode, $normalizedCountryCode));
         }
         return json_encode([]);
     }

@@ -73,6 +73,9 @@ class HopSelectorView extends Template
     {
         $order = $this->getOrderById($this->getData('order_id'));
         $shippingAddress = $order->getShippingAddress();
+        if (!$shippingAddress) {
+            return $this->helper->getStoreCountry() ?: 'AR';
+        }
         return $shippingAddress->getCountryId() ?: ($this->helper->getStoreCountry() ?: 'AR');
     }
 

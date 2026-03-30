@@ -239,7 +239,19 @@ class Data extends AbstractHelper
      */
     public function getPickupPointsApiVersion()
     {
-        return $this->_scopeConfig->getValue('shipping/hop/pickup_points_api_version', ScopeInterface::SCOPE_STORE) ?: 'v1';
+        $apiVersion = $this->_scopeConfig->getValue(
+            'shipping/hop/pickup_points_api_version',
+            ScopeInterface::SCOPE_STORE
+        );
+
+        $apiVersion = is_string($apiVersion) ? trim($apiVersion) : '';
+        $allowedVersions = ['v1', 'v3'];
+
+        if (in_array($apiVersion, $allowedVersions, true)) {
+            return $apiVersion;
+        }
+
+        return 'v1';
     }
 
     /**

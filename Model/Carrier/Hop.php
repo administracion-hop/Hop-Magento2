@@ -617,6 +617,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         if (!$quote->getId()){
             $this->_quoteRepository->save($quote);
         }
-        $this->quotePickupPointRepository->deleteByQuoteId($quote->getId());
+        $this->quotePickupPointRepository->deleteByQuoteId((int)$quote->getId());
     }
 }

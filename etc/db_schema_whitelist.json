@@ -45,11 +45,33 @@
         },
         "constraint": {
             "PRIMARY": true,
+            "HOP_PICKUP_POINTS_ZIP_CODE": true,
             "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE": true
         },
         "index": {
             "HOP_PICKUP_POINTS_API_ID": true,
             "HOP_PICKUP_POINTS_CREATED_AT": true
+        }
+    },
+    "hop_envios_order_pickup_point": {
+        "column": {
+            "id": true,
+            "order_id": true,
+            "original_pickup_point_id": true,
+            "pickup_point_id": true,
+            "original_shipping_description": true,
+            "original_zip_code": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_ENVIOS_ORDER_PICKUP_POINT_ORDER_ID": true,
+            "HOP_ENVIOS_ORDER_PICKUP_POINT_ORDER_ID_SALES_ORDER_ENTITY_ID": true
+        },
+        "index": {
+            "HOP_ENVIOS_ORDER_PICKUP_POINT_PICKUP_POINT_ID": true,
+            "HOP_ENVIOS_ORDER_PICKUP_POINT_ORIGINAL_PICKUP_POINT_ID": true
         }
     },
     "hop_envios_selected_pickup_point": {

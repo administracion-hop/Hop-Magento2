@@ -15,9 +15,10 @@ interface PickupPointManagementInterface
      * Return hop points.
      *
      * @param string $zipCode
+     * @param string|null $countryCode
      * @return string
      */
-    public function get($zipCode);
+    public function get($zipCode, $countryCode = null);
 
     /**
      * Saves the selected pickup point data in session and triggers rate recalculation.

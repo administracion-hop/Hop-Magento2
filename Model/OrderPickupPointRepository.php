@@ -51,8 +51,9 @@ class OrderPickupPointRepository
     {
         $collection = $this->collectionFactory->create();
         $collection->addFieldToFilter('order_id', $orderId);
-
-        return $collection->getFirstItem()->getId() ? $collection->getFirstItem() : null;
+        $collection->setPageSize(1);
+        $item = $collection->getFirstItem();
+        return $item->getId() ? $item : null;
     }
 
     /**

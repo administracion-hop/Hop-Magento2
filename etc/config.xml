@@ -53,6 +53,7 @@
                 <measure_attribute_largo>hop_largo</measure_attribute_largo>
                 <measure_attribute_ancho>hop_ancho</measure_attribute_ancho>
                 <label_size>S</label_size>
+                <pickup_points_api_version>v1</pickup_points_api_version>
             </hop>
         </shipping>
     </default>

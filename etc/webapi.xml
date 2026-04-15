@@ -6,6 +6,12 @@
             <resource ref="anonymous" />
         </resources>
     </route>
+    <route url="/V2/hop-envios/points/:zipCode/:countryCode" method="GET">
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="get"/>
+        <resources>
+            <resource ref="anonymous" />
+        </resources>
+    </route>
     <route url="/V1/hop-envios/estimate" method="GET">
         <service class="Hop\Envios\Api\PickupPointManagementInterface" method="estimate"/>
         <resources>

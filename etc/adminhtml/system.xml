@@ -191,6 +191,11 @@
                     <label>Modo Productivo</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
+                <field id="pickup_points_api_version" translate="label" type="select" sortOrder="75" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Versión de API para Puntos Hop</label>
+                    <source_model>Hop\Envios\Model\Config\Source\ApiVersionOption</source_model>
+                    <comment>Versión del endpoint a utilizar al consultar los Puntos Hop disponibles.</comment>
+                </field>
                 <field id="origin_zipcode" translate="label" type="text" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Código postal de origen</label>
                     <validate>required-entry</validate>

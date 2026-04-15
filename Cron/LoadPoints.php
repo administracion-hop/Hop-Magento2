@@ -50,7 +50,8 @@ class LoadPoints
                 $zipCode = null;
                 try {
                     $zipCode = $point->getZipCode();
-                    $this->webservice->getPickupPoints($zipCode, true);
+                    $countryCode = $point->getCountryCode();
+                    $this->webservice->getPickupPoints($zipCode, $countryCode, true);
                 } catch (\Exception $e) {
                     $this->logger->error(__('Failed to process point with zip code %1: %2', $zipCode ?? 'unknown', $e->getMessage()));
                 }

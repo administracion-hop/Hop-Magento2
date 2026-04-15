@@ -33,14 +33,16 @@
         <column xsi:type="int" name="entity_id" padding="11" unsigned="false" nullable="false" identity="true" comment="Entity ID"/>
         <column xsi:type="int" name="api_id" padding="11" unsigned="false" nullable="false" comment="API ID"/>
         <column xsi:type="varchar" name="zip_code" length="10" nullable="false" comment="ZIP Code"/>
+        <column xsi:type="varchar" name="country_code" length="2" nullable="false" default="AR" comment="Country Code"/>
         <column xsi:type="mediumtext" name="point_data" nullable="false" comment="Point Data"/>
         <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
         <column xsi:type="timestamp" name="updated_at" nullable="false" default="CURRENT_TIMESTAMP" on_update="true" comment="Updated At"/>
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="entity_id"/>
         </constraint>
-        <constraint xsi:type="unique" referenceId="HOP_PICKUP_POINTS_ZIP_CODE">
+        <constraint xsi:type="unique" referenceId="HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE">
             <column name="zip_code"/>
+            <column name="country_code"/>
         </constraint>
         <index referenceId="HOP_PICKUP_POINTS_API_ID" indexType="btree">
             <column name="api_id"/>

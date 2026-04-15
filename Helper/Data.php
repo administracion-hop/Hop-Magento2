@@ -237,6 +237,26 @@ class Data extends AbstractHelper
     /**
      * @return string
      */
+    public function getPickupPointsApiVersion()
+    {
+        $apiVersion = $this->_scopeConfig->getValue(
+            'shipping/hop/pickup_points_api_version',
+            ScopeInterface::SCOPE_STORE
+        );
+
+        $apiVersion = is_string($apiVersion) ? trim($apiVersion) : '';
+        $allowedVersions = ['v1', 'v3'];
+
+        if (in_array($apiVersion, $allowedVersions, true)) {
+            return $apiVersion;
+        }
+
+        return 'v1';
+    }
+
+    /**
+     * @return string
+     */
     public function getOriginZipcode()
     {
         return $this->_scopeConfig->getValue('shipping/hop/origin_zipcode', ScopeInterface::SCOPE_STORE);
@@ -431,6 +451,17 @@ class Data extends AbstractHelper
     {
         return $this->_scopeConfig->getValue(
             'trans_email/ident_sales/email',
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /**
+     * @return string
+     */
+    public function getStoreCountry()
+    {
+        return $this->_scopeConfig->getValue(
+            'general/country/default',
             \Magento\Store\Model\ScopeInterface::SCOPE_STORE
         );
     }

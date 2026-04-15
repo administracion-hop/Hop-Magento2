@@ -371,7 +371,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $this->cleanQuoteData();
             return $error;
         }
-        $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode);
+        $pointFromZipCode = $this->_webservice->getPickupPoints($destZipCode, $request->getDestCountryId());
         if (empty($pointFromZipCode->data)) {
             $this->cleanQuoteData();
             if (!$showMethod){

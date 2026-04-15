@@ -59,17 +59,45 @@ class HopSelectorView extends Template
     /**
      * @return string
      */
-    public function getZipcode()
+    public function getZipcode(): string
     {
         $order = $this->getOrderById($this->getData('order_id'));
         $shippingAddress = $order->getShippingAddress();
-        return $shippingAddress->getPostcode();
+        if (!$shippingAddress) {
+            return '';
+        }
+        return $shippingAddress->getPostcode() ?? '';
     }
 
     /**
      * @return string
      */
-    public function getWarning()
+    public function getCountryCode(): string
+    {
+        $order = $this->getOrderById($this->getData('order_id'));
+        $shippingAddress = $order->getShippingAddress();
+        if (!$shippingAddress) {
+            return $this->helper->getStoreCountry() ?: 'AR';
+        }
+        return $shippingAddress->getCountryId() ?: ($this->helper->getStoreCountry() ?: 'AR');
+    }
+
+    /**
+     * @return string
+     */
+    public function getPointsUrl(): string
+    {
+        $zipcode = $this->getZipcode();
+        if ($zipcode === '') {
+            return '';
+        }
+        return '/rest/V2/hop-envios/points/' . rawurlencode($zipcode) . '/' . rawurlencode($this->getCountryCode());
+    }
+
+    /**
+     * @return Phrase
+     */
+    public function getWarning(): Phrase
     {
         $order = $this->getOrderById($this->getData('order_id'));
         $statuses = $this->helper->getStatusOrderAllowed();
@@ -85,7 +113,7 @@ class HopSelectorView extends Template
     /**
      * @return string
      */
-    public function getFormAction()
+    public function getFormAction(): string
     {
         return $this->backendUrl->getUrl('hop/order/save');
     }
@@ -97,7 +125,7 @@ class HopSelectorView extends Template
      * @return \Magento\Sales\Api\Data\OrderInterface
      * @throws NoSuchEntityException
      */
-    public function getOrderById($orderId)
+    public function getOrderById(int $orderId): OrderInterface
     {
         if ($this->order->getEntityId()) {
             return $this->order;

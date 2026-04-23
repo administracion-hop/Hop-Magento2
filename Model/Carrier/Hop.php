@@ -600,6 +600,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param \Magento\Catalog\Model\Product $product
      * @param string $measure_code
      * @param int $qty
+     * @param int|null $storeId
      * @return int
      */
     protected function getMeasure($product, $measureCode, $qty, $storeId = null)

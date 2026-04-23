@@ -100,6 +100,16 @@ class Webservice
     protected $orderPickupPointRepository;
 
     /**
+     * @var int|null
+     */
+    protected $storeId = null;
+
+    /**
+     * @var bool
+     */
+    protected $initialized = false;
+
+    /**
      * Webservice constructor.
      * @param HelperHop $helperHop
      * @param PointCollectionFactory $pointCollectionFactory
@@ -131,13 +141,42 @@ class Webservice
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
+    }
 
-        $this->_clientId = $helperHop->getClientId();
-        $this->_clientSecret = $helperHop->getClientSecret();
-        $this->_email = $helperHop->getEmail();
-        $this->_password = $helperHop->getPassword();
+    /**
+     * Set the store context for all subsequent API calls.
+     * Resets initialization so credentials are re-read for the new store.
+     *
+     * @param int|null $storeId
+     * @return void
+     */
+    public function setStoreId($storeId): void
+    {
+        if ($this->storeId !== $storeId) {
+            $this->storeId = $storeId;
+            $this->initialized = false;
+            $this->_accessToken = null;
+            $this->_tokenType = null;
+        }
+    }
 
+    /**
+     * Lazy-initialize credentials and token for the current store.
+     * Safe to call multiple times; only runs once per store switch.
+     *
+     * @return void
+     */
+    protected function ensureInitialized(): void
+    {
+        if ($this->initialized) {
+            return;
+        }
+        $this->_clientId     = $this->_helper->getClientId($this->storeId);
+        $this->_clientSecret = $this->_helper->getClientSecret($this->storeId);
+        $this->_email        = $this->_helper->getEmail($this->storeId);
+        $this->_password     = $this->_helper->getPassword($this->storeId);
         $this->login();
+        $this->initialized = true;
     }
 
     /**
@@ -148,6 +187,7 @@ class Webservice
      *
      * @param string $verb The HTTP method to use (e.g., 'GET', 'POST', 'PUT', 'DELETE')
      * @param string $path The API endpoint path (without the full URL)
+     * @param array $queryParams Optional associative array of query parameters to append to the URL
      * @param mixed $postFields Optional data to be sent with the request (typically for POST/PUT)
      *
      * @return string|false The API response body on success, or false on failure
@@ -158,10 +198,11 @@ class Webservice
      */
     protected function curl($verb, $path, $queryParams = [], $postFields = false)
     {
+        $this->ensureInitialized();
         $retry = false;
         do {
             $curl = curl_init();
-            $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+            $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
             $url = "https://" . $entorno . $path;
             if ($queryParams) {
                 $url .= '?' . http_build_query($queryParams);
@@ -228,7 +269,7 @@ class Webservice
             }
         }
 
-        $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+        $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
 
         $curl = curl_init();
 
@@ -399,7 +440,8 @@ class Webservice
      */
     public function isSellerActive()
     {
-        $curlRequest = "api.hopenvios.com.ar/api/v1/sellers/" . $this->_helper->getSellerCode();
+        $this->ensureInitialized();
+        $curlRequest = "api.hopenvios.com.ar/api/v1/sellers/" . $this->_helper->getSellerCode($this->storeId);
         $response = $this->curl("GET", $curlRequest);
         if ($response === false) {
             $this->_helper->log(__('Failed to check seller status: API request failed'), true);
@@ -423,8 +465,8 @@ class Webservice
     public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
     {
         $point = null;
+        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry($this->storeId) ?: 'AR');
 
-        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry() ?: 'AR');
 
         if (!$forceFromApi) {
             $collection = $this->pointCollectionFactory->create()
@@ -440,8 +482,8 @@ class Webservice
             }
         }
 
-        $apiVersion = $this->_helper->getPickupPointsApiVersion();
-        $sellerCode = $this->_helper->getSellerCode();
+        $apiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
+        $sellerCode = $this->_helper->getSellerCode($this->storeId);
 
         $queryParams = [];
         if ($zipCode) {
@@ -480,13 +522,14 @@ class Webservice
      */
     public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
+        $this->ensureInitialized();
         $width = $package['width'] ?? 0;
         $length = $package['length'] ?? 0;
         $height = $package['height'] ?? 0;
         $weight = $package['weight'] ?? 0;
         $value = $package['value'] ?? 0;
 
-        $sizeCategory = $this->_helper->getSizeCategory();
+        $sizeCategory = $this->_helper->getSizeCategory($this->storeId);
         $queryParams = [
             'origin_zipcode'  => $originZipCode,
             'destiny_zipcode' => $destinyZipCode,
@@ -514,7 +557,7 @@ class Webservice
             return $responseObject->data->amount;
         } else {
             if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
-                $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+                $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
                 $this->_helper->log('Url used: https://' . $entorno . 'api.hopenvios.com.ar/api/v1/pricing/estimate?' . http_build_query($queryParams), true);
                 foreach ($responseObject->errors as $error) {
                     if (!empty($error->detail) && is_string($error->detail)) {
@@ -532,15 +575,16 @@ class Webservice
      */
     public function createShipping($order)
     {
-        $sellerCode = $this->_helper->getSellerCode();
-        $shippingType = $this->_helper->getShippingType();
-        $labelType = $this->_helper->getLabelType();
-        $labelSize = $this->_helper->getLabelSize();
-        $daysOffset = $this->_helper->getDaysOffset();
-        $validateClientId = $this->_helper->getValidateClientId();
-        $sizeCategory = $this->_helper->getSizeCategory();
-        $storageCode = $this->_helper->getStorageCode();
-        $packageData = $this->_helper->getPackageData($order);
+        $this->ensureInitialized();
+        $sellerCode = $this->_helper->getSellerCode($this->storeId);
+        $shippingType = $this->_helper->getShippingType($this->storeId);
+        $labelType = $this->_helper->getLabelType($this->storeId);
+        $labelSize = $this->_helper->getLabelSize($this->storeId);
+        $daysOffset = $this->_helper->getDaysOffset($this->storeId);
+        $validateClientId = $this->_helper->getValidateClientId($this->storeId);
+        $sizeCategory = $this->_helper->getSizeCategory($this->storeId);
+        $storageCode = $this->_helper->getStorageCode($this->storeId);
+        $packageData = $this->_helper->getPackageData($order, $this->storeId);
 
         $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$hopData) {
@@ -577,10 +621,10 @@ class Webservice
         $paramClient['email'] = $order->getCustomerEmail();
         $paramClient['id_type'] = 'D.N.I';
 
-        if ($this->_helper->useCustomerTaxvat()) {
+        if ($this->_helper->useCustomerTaxvat($this->storeId)) {
             $paramClient['id_number'] = $billingAddress->getVatId();
         } else {
-            $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute());
+            $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute($this->storeId));
         }
 
         $paramClient['telephone'] = ($billingAddress->getTelephone()) ? $billingAddress->getTelephone() : '';
@@ -597,16 +641,18 @@ class Webservice
         if ($sizeCategory && (empty($paramPackage['width']) || empty($paramPackage['length']) || empty($paramPackage['height']))) {
             $paramPackage['size_category'] = $sizeCategory;
         }
-
+        $paramPackage['width'] = $packageData['width'];
+        $paramPackage['length'] = $packageData['length'];
+        $paramPackage['height'] = $packageData['height'];
         $paramPackage['value'] = $packageData['value'];
         $paramPackage['weight'] = $packageData['weight'];
         $params['package'] = $paramPackage;
 
         $paramSender = [];
-        $paramSender['name'] = $this->_helper->getStorename();
+        $paramSender['name'] = $this->_helper->getStorename($this->storeId);
         $paramSender['id_number'] = '';
         $paramSender['phone'] = '';
-        $paramSender['mail'] = $this->_helper->getStoreEmail();
+        $paramSender['mail'] = $this->_helper->getStoreEmail($this->storeId);
         $params['sender'] = $paramSender;
 
         $postFields = json_encode($params);

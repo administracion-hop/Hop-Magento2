@@ -82,19 +82,25 @@ class StatusManager extends AbstractHelper
     /**
      * @param string $state
      * @param string $hopStatus
+     * @param int|null $storeId
      * @return string
      */
-    public function getSelectedStatus($state, $hopStatus)
+    public function getSelectedStatus($state, $hopStatus, $storeId = null)
     {
-        return $this->_scopeConfig->getValue("carriers/hop/statuses/$state/$hopStatus", ScopeInterface::SCOPE_STORE);
+        return $this->_scopeConfig->getValue(
+            "carriers/hop/statuses/$state/$hopStatus",
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
     }
 
     public function processOrder($referenceId, $code, $comment)
     {
         $order = $this->getOrderByReferenceId($referenceId);
         if ($order) {
+            $storeId = $order->getStoreId();
             $state = $order->getState();
-            $newStatus = isset(EcomStatuses::STATUSES[$code]) ? $this->getSelectedStatus($state, $code) : $order->getStatus();
+            $newStatus = isset(EcomStatuses::STATUSES[$code]) ? $this->getSelectedStatus($state, $code, $storeId) : $order->getStatus();
             if (!$this->isStatusAllowed($order, $newStatus)) {
                 throw new \Magento\Framework\Exception\LocalizedException(
                     new \Magento\Framework\Phrase(__('Status not allowed'))

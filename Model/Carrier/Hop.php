@@ -303,6 +303,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             return false;
         }
 
+        $storeId = $request->getStoreId();
+        $this->_webservice->setStoreId($storeId);
+
         $webservice = $this->_webservice;
         if (!$webservice->isSellerActive()) {
             return false;
@@ -324,7 +327,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $quote = $this->_checkoutSession->getQuote();
 
         if (!$destZipCode) {
-            if($helper->isAmastyOscEnabled()) {
+            if($helper->isAmastyOscEnabled($storeId)) {
                 $result->append($method);
             }
             return $result;
@@ -352,9 +355,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
             $qty = $_item->getQty();
 
-            $hopAltoTotal += $this->getMeasure($_product, 'alto', $qty);
-            $hopLargoTotal[] = $this->getMeasure($_product, 'largo', $qty);
-            $hopAnchoTotal[] = $this->getMeasure($_product, 'ancho', $qty);
+            $hopAltoTotal += $this->getMeasure($_product, 'alto', $qty, $storeId);
+            $hopLargoTotal[] = $this->getMeasure($_product, 'largo', $qty, $storeId);
+            $hopAnchoTotal[] = $this->getMeasure($_product, 'ancho', $qty, $storeId);
 
             $totalPrice += $_product->getFinalPrice() * $qty;
         }
@@ -363,7 +366,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $hopLargoTotal = max($hopLargoTotal);
         $pesoTotal  = $request->getPackageWeight(); //Peso en unidad de kg
 
-        if ($pesoTotal > (int)$helper->getMaxWeight()) {
+        if ($pesoTotal > (int)$helper->getMaxWeight($storeId)) {
             $error = $this->_rateErrorFactory->create();
             $error->setCarrier($this->_code);
             $error->setCarrierTitle($this->getConfigData('title'));
@@ -387,9 +390,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $method->setPrice(0);
             $method->setCost(0);
         } else {
-            $originZipCode = $this->_helper->getOriginZipcode();
+            $originZipCode = $this->_helper->getOriginZipcode($storeId);
             $hopPointId = !empty($hopData['hopPointId']) ? $hopData['hopPointId'] : '';
-            $sellerCode = $helper->getSellerCode();
+            $sellerCode = $helper->getSellerCode($storeId);
             $costoEnvio = $webservice->estimatePrice(
                 $originZipCode,
                 $destZipCode,
@@ -599,9 +602,9 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param int $qty
      * @return int
      */
-    protected function getMeasure($product, $measureCode, $qty)
+    protected function getMeasure($product, $measureCode, $qty, $storeId = null)
     {
-        $attributeCode = $this->_helper->getMeasureCode($measureCode);
+        $attributeCode = $this->_helper->getMeasureCode($measureCode, $storeId);
         return (int) $product->getResource()->getAttributeRawValue(
             $product->getId(),
             $attributeCode,

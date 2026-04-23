@@ -112,94 +112,117 @@ class Data extends AbstractHelper
     }
 
     /**
-     * @return string
+     * @param string $path
+     * @param int|null $storeId
+     * @return mixed
      */
-    public function getClientId()
+    protected function getConfigValue(string $path, $storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/client_id', ScopeInterface::SCOPE_STORE);
+        return $this->_scopeConfig->getValue($path, ScopeInterface::SCOPE_STORE, $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getClientSecret()
+    public function getClientId($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/client_secret', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/client_id', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getApiKey()
+    public function getClientSecret($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/api_key', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/client_secret', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getEmail()
+    public function getApiKey($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/email', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/api_key', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getPassword()
+    public function getEmail($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/password', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/email', $storeId);
     }
 
     /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getPassword($storeId = null)
+    {
+        return $this->getConfigValue('shipping/hop/password', $storeId);
+    }
+
+    /**
+     * @param int|null $storeId
      * @return bool
      */
-    public function useCustomerTaxvat()
+    public function useCustomerTaxvat($storeId = null)
     {
-        return (bool)$this->_scopeConfig->getValue('shipping/hop/use_customer_taxvat', ScopeInterface::SCOPE_STORE);
+        return (bool)$this->getConfigValue('shipping/hop/use_customer_taxvat', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getCustomerDocumentAttribute()
+    public function getCustomerDocumentAttribute($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/customer_document_attribute', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/customer_document_attribute', $storeId);
     }
 
     /**
-     * @return string
-     */
-    public function isActive()
-    {
-        return (bool)$this->_scopeConfig->getValue('carriers/hop/active', ScopeInterface::SCOPE_STORE);
-    }
-
-    /**
+     * @param int|null $storeId
      * @return bool
      */
-    public function getAllowNotifications()
+    public function isActive($storeId = null)
     {
-        return (bool)$this->_scopeConfig->getValue('shipping/hop/allow_notifications', ScopeInterface::SCOPE_STORE);
+        return (bool)$this->getConfigValue('carriers/hop/active', $storeId);
     }
 
     /**
-     * @param $path
-     * @param $params
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function getAllowNotifications($storeId = null)
+    {
+        return (bool)$this->getConfigValue('shipping/hop/allow_notifications', $storeId);
+    }
+
+    /**
+     * @param string $path
+     * @param array $params
+     * @param int|null $storeId
      * @return string
      * @throws NoSuchEntityException
      */
-    public function getStoreUrl($path,$params)
+    public function getStoreUrl($path, $params, $storeId = null)
     {
-        return $this->_storeManagerInterface->getStore()->getUrl($path,$params);
+        /** @var \Magento\Store\Model\Store $store */
+        $store = $this->_storeManagerInterface->getStore($storeId);
+        return $store->getUrl($path, $params);
     }
 
     /**
+     * @param int|null $storeId
      * @return float
      */
-    public function getMaxWeight()
+    public function getMaxWeight($storeId = null)
     {
-        return (float)$this->_scopeConfig->getValue("carriers/hop/max_package_weight", ScopeInterface::SCOPE_STORE);
+        return (float)$this->getConfigValue('carriers/hop/max_package_weight', $storeId);
     }
 
     /**
@@ -227,22 +250,21 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @param int|null $storeId
      * @return bool
      */
-    public function getProductivo()
+    public function getProductivo($storeId = null)
     {
-        return (boolean) $this->_scopeConfig->getValue('shipping/hop/modo_productivo', ScopeInterface::SCOPE_STORE);
+        return (boolean) $this->getConfigValue('shipping/hop/modo_productivo', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getPickupPointsApiVersion()
+    public function getPickupPointsApiVersion($storeId = null)
     {
-        $apiVersion = $this->_scopeConfig->getValue(
-            'shipping/hop/pickup_points_api_version',
-            ScopeInterface::SCOPE_STORE
-        );
+        $apiVersion = $this->getConfigValue('shipping/hop/pickup_points_api_version', $storeId);
 
         $apiVersion = is_string($apiVersion) ? trim($apiVersion) : '';
         $allowedVersions = ['v1', 'v3'];
@@ -255,98 +277,109 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getOriginZipcode()
+    public function getOriginZipcode($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/origin_zipcode', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/origin_zipcode', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getSellerCode()
+    public function getSellerCode($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/seller_code', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/seller_code', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string[]
      */
-    public function getStatusOrderAllowed()
+    public function getStatusOrderAllowed($storeId = null)
     {
-        $statusOrderAllowed = $this->_scopeConfig->getValue('shipping/hop/status_allowed', ScopeInterface::SCOPE_STORE);
-        if (empty($statusOrderAllowed)){
-            return array();
+        $statusOrderAllowed = $this->getConfigValue('shipping/hop/status_allowed', $storeId);
+        if (empty($statusOrderAllowed)) {
+            return [];
         }
-        $statusOrderAllowed = explode(',', $statusOrderAllowed);
-        return $statusOrderAllowed;
+        return explode(',', $statusOrderAllowed);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getShippingType()
+    public function getShippingType($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/shipping_type', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/shipping_type', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getLabelType()
+    public function getLabelType($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/type_label', ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/type_label', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getLabelSize()
+    public function getLabelSize($storeId = null)
     {
-        $labelSize = $this->_scopeConfig->getValue('shipping/hop/label_size', ScopeInterface::SCOPE_STORE);
+        $labelSize = $this->getConfigValue('shipping/hop/label_size', $storeId);
         return $labelSize ? $labelSize : \Hop\Envios\Model\Config\Source\LabelSizeOption::SIZE_SMALL;
     }
 
     /**
+     * @param int|null $storeId
      * @return int
      */
-    public function getDaysOffset()
+    public function getDaysOffset($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/days_offset',ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/days_offset', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return int
      */
-    public function getSizeCategory()
+    public function getSizeCategory($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/size_category',ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/size_category', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getStorageCode()
+    public function getStorageCode($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/storage_code',ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/storage_code', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return bool
      */
-    public function getValidateClientId()
+    public function getValidateClientId($storeId = null)
     {
-        return $this->_scopeConfig->getValue('shipping/hop/validate_client_id',ScopeInterface::SCOPE_STORE);
+        return $this->getConfigValue('shipping/hop/validate_client_id', $storeId);
     }
 
     /**
+     * @param string $code
+     * @param int|null $storeId
      * @return string
      */
-    public function getMeasureCode($code)
+    public function getMeasureCode($code, $storeId = null)
     {
-        $attributeCode = $this->_scopeConfig->getValue('shipping/hop/measure_attribute_' . $code,ScopeInterface::SCOPE_STORE);
-        if (empty($attributeCode)){
+        $attributeCode = $this->getConfigValue('shipping/hop/measure_attribute_' . $code, $storeId);
+        if (empty($attributeCode)) {
             return "hop_" . $code;
         }
         return $attributeCode;
@@ -382,10 +415,12 @@ class Data extends AbstractHelper
 
     /**
      * @param $order
+     * @param int|null $storeId
      * @return array
      */
-    public function getPackageData($order)
+    public function getPackageData($order, $storeId = null)
     {
+        $storeId = $storeId ?? $order->getStoreId();
         $package = [];
         $hopAltoTotal = 0;
         $hopLargoTotal = [];
@@ -404,15 +439,15 @@ class Data extends AbstractHelper
                 $_item = $_item->getParentItem();
 
             $hopAlto = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('alto'), $_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('alto', $storeId), $_product->getStoreId()) * $_item->getQtyOrdered();
             $hopAltoTotal += $hopAlto;
 
             $hopLargo = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('largo'),$_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('largo', $storeId), $_product->getStoreId()) * $_item->getQtyOrdered();
             $hopLargoTotal[] = $hopLargo;
 
             $hopAncho = (int) $_product->getResource()
-                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('ancho'),$_product->getStoreId()) * $_item->getQtyOrdered();
+                    ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('ancho', $storeId), $_product->getStoreId()) * $_item->getQtyOrdered();
             $hopAnchoTotal[] = $hopAncho;
 
             $weightTotal += ($_product->getWeight() * 1000) * $_item->getQtyOrdered();
@@ -434,42 +469,36 @@ class Data extends AbstractHelper
     }
 
     /**
-     * @return mixed
-     */
-    public function getStorename()
-    {
-        return $this->_scopeConfig->getValue(
-            'trans_email/ident_sales/name',
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-        );
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getStoreEmail()
-    {
-        return $this->_scopeConfig->getValue(
-            'trans_email/ident_sales/email',
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-        );
-    }
-
-    /**
+     * @param int|null $storeId
      * @return string
      */
-    public function getStoreCountry()
+    public function getStorename($storeId = null)
     {
-        return $this->_scopeConfig->getValue(
-            'general/country/default',
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-        );
+        return $this->getConfigValue('trans_email/ident_sales/name', $storeId);
     }
 
     /**
+     * @param int|null $storeId
      * @return string
      */
-    public function isAmastyOscEnabled()
+    public function getStoreEmail($storeId = null)
+    {
+        return $this->getConfigValue('trans_email/ident_sales/email', $storeId);
+    }
+    /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getStoreCountry($storeId = null)
+    {
+        return $this->getConfigValue('general/country/default', $storeId);
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isAmastyOscEnabled($storeId = null)
     {
         $amastyModules = [
             'Amasty_Checkout',
@@ -488,25 +517,25 @@ class Data extends AbstractHelper
             return false;
         }
 
-        return (bool)$this->_scopeConfig->getValue(
-            'amasty_checkout/general/enabled',
-            ScopeInterface::SCOPE_STORE
-        );
+        return (bool)$this->getConfigValue('amasty_checkout/general/enabled', $storeId);
     }
 
     /**
-     * @return string
-     */
-    public function idVatShow()
-    {
-        return (bool)$this->_scopeConfig->getValue('customer/address/taxvat_show', ScopeInterface::SCOPE_STORE);
-    }
-    /**
+     * @param int|null $storeId
      * @return bool
      */
-    public function IsVAtShowToFrontend()
+    public function idVatShow($storeId = null)
     {
-        return (bool)$this->_scopeConfig->getValue('customer/create_account/vat_frontend_visibility', ScopeInterface::SCOPE_STORE);
+        return (bool)$this->getConfigValue('customer/address/taxvat_show', $storeId);
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function IsVAtShowToFrontend($storeId = null)
+    {
+        return (bool)$this->getConfigValue('customer/create_account/vat_frontend_visibility', $storeId);
     }
 }
 

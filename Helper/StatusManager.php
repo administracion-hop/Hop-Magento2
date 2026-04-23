@@ -100,7 +100,9 @@ class StatusManager extends AbstractHelper
         if ($order) {
             $storeId = $order->getStoreId();
             $state = $order->getState();
-            $newStatus = isset(EcomStatuses::STATUSES[$code]) ? $this->getSelectedStatus($state, $code, $storeId) : $order->getStatus();
+            $newStatus = isset(EcomStatuses::STATUSES[$code])
+                ? ($this->getSelectedStatus($state, $code, $storeId) ?? $order->getStatus())
+                : $order->getStatus();
             if (!$this->isStatusAllowed($order, $newStatus)) {
                 throw new \Magento\Framework\Exception\LocalizedException(
                     new \Magento\Framework\Phrase(__('Status not allowed'))

@@ -641,9 +641,7 @@ class Webservice
         if ($sizeCategory && (empty($paramPackage['width']) || empty($paramPackage['length']) || empty($paramPackage['height']))) {
             $paramPackage['size_category'] = $sizeCategory;
         }
-        $paramPackage['width'] = $packageData['width'];
-        $paramPackage['length'] = $packageData['length'];
-        $paramPackage['height'] = $packageData['height'];
+
         $paramPackage['value'] = $packageData['value'];
         $paramPackage['weight'] = $packageData['weight'];
         $params['package'] = $paramPackage;

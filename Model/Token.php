@@ -13,4 +13,14 @@ class Token extends AbstractModel
     {
         $this->_init(TokenResourceModel::class);
     }
+
+    public function getClientId()
+    {
+        return $this->getData('client_id');
+    }
+
+    public function setClientId($clientId)
+    {
+        return $this->setData('client_id', $clientId);
+    }
 }

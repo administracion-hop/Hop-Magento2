@@ -312,7 +312,8 @@ class Webservice
             $this->saveNewToken(
                 $this->_tokenType,
                 $this->_accessToken,
-                isset($response['expires_in']) ? $response['expires_in'] / 1000 : 0
+                isset($response['expires_in']) ? $response['expires_in'] / 1000 : 0,
+                $this->_clientId
             );
         } catch (LocalizedException  $e) {
             $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
@@ -385,6 +386,9 @@ class Webservice
         if ($tokenType !== null) {
             $collection->addFieldToFilter('token_type', $tokenType);
         }
+        if ($this->_clientId !== null) {
+            $collection->addFieldToFilter('client_id', $this->_clientId);
+        }
         $collection->setPageSize(1);
         return $collection->getFirstItem();
     }
@@ -398,7 +402,7 @@ class Webservice
      * @return \Hop\Envios\Model\Token
      * @throws LocalizedException
      */
-    public function saveNewToken($tokenType, $accessToken, $expiresIn)
+    public function saveNewToken($tokenType, $accessToken, $expiresIn, $clientId = null)
     {
         if (empty($tokenType)) {
             throw new LocalizedException(
@@ -422,6 +426,7 @@ class Webservice
         $token->setTokenType($tokenType);
         $token->setAccessToken($accessToken);
         $token->setExpiresIn($expiresIn);
+        $token->setClientId($clientId);
 
         try {
             $this->tokenResourceModel->save($token);

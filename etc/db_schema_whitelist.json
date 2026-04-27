@@ -15,7 +15,8 @@
             "token_type": true,
             "access_token": true,
             "expires_in": true,
-            "created_at": true
+            "created_at": true,
+            "client_id": true
         },
         "constraint": {
             "PRIMARY": true

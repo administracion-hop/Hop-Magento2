@@ -42,12 +42,14 @@
             "country_code": true,
             "point_data": true,
             "created_at": true,
-            "updated_at": true
+            "updated_at": true,
+            "client_id": true
         },
         "constraint": {
             "PRIMARY": true,
             "HOP_PICKUP_POINTS_ZIP_CODE": true,
-            "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE": true
+            "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE": true,
+            "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE_CLIENT_ID": true
         },
         "index": {
             "HOP_PICKUP_POINTS_API_ID": true,

@@ -476,7 +476,8 @@ class Webservice
         if (!$forceFromApi) {
             $collection = $this->pointCollectionFactory->create()
                 ->addFieldToFilter('zip_code', $zipCode)
-                ->addFieldToFilter('country_code', $countryCode);
+                ->addFieldToFilter('country_code', $countryCode)
+                ->addFieldToFilter('client_id', $this->_clientId);
             if ($collection->getSize()) {
                 $point = $collection->getFirstItem();
                 $pointData = $point->getPointData();
@@ -508,6 +509,7 @@ class Webservice
                 $point->setZipCode($zipCode);
                 $point->setCountryCode($countryCode);
                 $point->setPointData($response);
+                $point->setClientId($this->_clientId);
                 $this->pointResource->save($point);
             } catch (\Exception $e) {
                 $this->_helper->log($e->getMessage(), true);

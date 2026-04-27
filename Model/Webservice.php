@@ -426,12 +426,12 @@ class Webservice
 
         $countryCode = $countryCode ?: ($this->_helper->getStoreCountry() ?: 'AR');
 
-        if (!$forceFromApi) {
-            $collection = $this->pointCollectionFactory->create()
-                ->addFieldToFilter('zip_code', $zipCode)
-                ->addFieldToFilter('country_code', $countryCode);
-            if ($collection->getSize()) {
-                $point = $collection->getFirstItem();
+        $collection = $this->pointCollectionFactory->create()
+            ->addFieldToFilter('zip_code', $zipCode)
+            ->addFieldToFilter('country_code', $countryCode);
+        if ($collection->getSize()) {
+            $point = $collection->getFirstItem();
+            if (!$forceFromApi) {
                 $pointData = $point->getPointData();
                 $response = json_decode($pointData);
                 if (!empty($response->data)){

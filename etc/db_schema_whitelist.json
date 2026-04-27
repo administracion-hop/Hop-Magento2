@@ -47,8 +47,6 @@
         },
         "constraint": {
             "PRIMARY": true,
-            "HOP_PICKUP_POINTS_ZIP_CODE": true,
-            "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE": true,
             "HOP_PICKUP_POINTS_ZIP_CODE_COUNTRY_CODE_CLIENT_ID": true
         },
         "index": {

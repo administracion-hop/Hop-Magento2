@@ -469,6 +469,7 @@ class Webservice
      */
     public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
     {
+        $this->ensureInitialized();
         $point = null;
         $countryCode = $countryCode ?: ($this->_helper->getStoreCountry($this->storeId) ?: 'AR');
 

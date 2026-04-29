@@ -185,14 +185,6 @@ class Webservice
                 if (strtoupper($verb) === 'POST') {
                     $client->post($url, $postFields ?: '');
                 } else {
-                    /**
-                     * Magento's HTTP client does not have a built-in method for sending a body with GET requests, and it's generally not recommended to do so.
-                     * However, if the API requires it, we can set the POSTFIELDS option directly on the cURL handle.
-                     * This is a workaround and should be used with caution, as it may not be supported by all servers or may cause unexpected behavior.
-                     */
-                    if ($postFields) {
-                        $client->setOption(CURLOPT_POSTFIELDS, $postFields);
-                    }
                     $client->get($url);
                 }
 
@@ -456,7 +448,7 @@ class Webservice
             if (empty($decodedResponse->data)) {
                 $coords = $this->getCoordinatesForZipCode($zipCode, $countryCode, $point);
                 if ($coords) {
-                    $proximityResult = $this->getPickupPointsByCoordinates($coords['lat'], $coords['lng']);
+                    $proximityResult = $this->getPickupPointsByCoordinates($sellerCode, $coords['lat'], $coords['lng']);
                     if ($proximityResult) {
                         $decodedResponse = $proximityResult['decoded'];
                         $response = $proximityResult['raw'];
@@ -489,11 +481,7 @@ class Webservice
      */
     public function fetchAllPostalCodes(string $countryCode): array
     {
-        /**
-         * This get request uses post body instead of query parameters because the API endpoint expects it that way, even for GET requests.
-         * This is not a common practice, but we need to follow the API specifications to retrieve the postal codes correctly.
-         */
-        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/postal_codes", [], json_encode(['country' => $countryCode]));
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/postal_codes", ['country' => $countryCode]);
         if (!$response) {
             return [];
         }
@@ -528,15 +516,17 @@ class Webservice
     }
 
     /**
+     * @param string $sellerCode
      * @param string $lat
      * @param string $lng
      * @return array{raw: string, decoded: \stdClass}|null
      */
-    protected function getPickupPointsByCoordinates($lat, $lng)
+    protected function getPickupPointsByCoordinates($sellerCode, $lat, $lng)
     {
         $distances = [5, 10, 25];
         foreach ($distances as $distance){
             $response = $this->curl("GET", "api.hopenvios.com.ar/api/{$this->pickupPointsApiVersion}/pickup_points", [
+                'seller_code' => $sellerCode,
                 'lat'      => $lat,
                 'lng'      => $lng,
                 'distance' => $distance,

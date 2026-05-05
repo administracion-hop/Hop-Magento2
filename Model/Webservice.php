@@ -190,8 +190,9 @@ class Webservice
         $this->_email        = $this->_helper->getEmail($this->storeId);
         $this->_password     = $this->_helper->getPassword($this->storeId);
         $this->pickupPointsApiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
-        $this->login();
-        $this->initialized = true;
+        if ($this->login()) {
+            $this->initialized = true;
+        }
     }
 
     /**
@@ -210,7 +211,6 @@ class Webservice
         $response = false;
 
         do {
-            $curl = curl_init();
             $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
             $url = "https://" . $entorno . $path;
             if ($queryParams) {

@@ -130,6 +130,7 @@ class ShippingMethod extends AbstractHelper
         }
 
         if(!$hopEnvios->getInfoHop()) {
+            $this->webservice->setStoreId($order->getStoreId());
             $result = $this->webservice->createShipping($order);
             if(!isset($result['error'])){
                 $hopEnvios->setInfoHop($result);

@@ -49,11 +49,12 @@ class SalesOrderSaveAfter implements ObserverInterface
     {
 
         try {
-            if ($this->helper->isActive()) {
-                $order = $observer->getEvent()->getOrder();
+            $order = $observer->getEvent()->getOrder();
+            $storeId = $order->getStoreId();
+            if ($this->helper->isActive($storeId)) {
                 if ($order->getShippingMethod() == 'hop_hop') {
                     if ($order instanceof \Magento\Framework\Model\AbstractModel) {
-                        $statuses = $this->helper->getStatusOrderAllowed();
+                        $statuses = $this->helper->getStatusOrderAllowed($storeId);
 
                         $orderStatus = $order->getStatus();
 

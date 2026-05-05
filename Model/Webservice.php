@@ -101,6 +101,16 @@ class Webservice
     protected $orderPickupPointRepository;
 
     /**
+     * @var int|null
+     */
+    protected $storeId = null;
+
+    /**
+     * @var bool
+     */
+    protected $initialized = false;
+
+    /**
      * @var string
      */
     protected $pickupPointsApiVersion;
@@ -145,14 +155,43 @@ class Webservice
         $this->tokenResourceModel = $tokenResourceModel;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->httpClientFactory = $httpClientFactory;
+    }
 
-        $this->_clientId = $helperHop->getClientId();
-        $this->_clientSecret = $helperHop->getClientSecret();
-        $this->_email = $helperHop->getEmail();
-        $this->_password = $helperHop->getPassword();
-        $this->pickupPointsApiVersion = $helperHop->getPickupPointsApiVersion();
+    /**
+     * Set the store context for all subsequent API calls.
+     * Resets initialization so credentials are re-read for the new store.
+     *
+     * @param int|null $storeId
+     * @return void
+     */
+    public function setStoreId($storeId): void
+    {
+        if ($this->storeId !== $storeId) {
+            $this->storeId = $storeId;
+            $this->initialized = false;
+            $this->_accessToken = null;
+            $this->_tokenType = null;
+        }
+    }
 
+    /**
+     * Lazy-initialize credentials and token for the current store.
+     * Safe to call multiple times; only runs once per store switch.
+     *
+     * @return void
+     */
+    protected function ensureInitialized(): void
+    {
+        if ($this->initialized) {
+            return;
+        }
+        $this->_clientId     = $this->_helper->getClientId($this->storeId);
+        $this->_clientSecret = $this->_helper->getClientSecret($this->storeId);
+        $this->_email        = $this->_helper->getEmail($this->storeId);
+        $this->_password     = $this->_helper->getPassword($this->storeId);
+        $this->pickupPointsApiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
         $this->login();
+        $this->initialized = true;
     }
 
     /**
@@ -160,18 +199,20 @@ class Webservice
      *
      * @param string $verb HTTP method ('GET' or 'POST')
      * @param string $path API endpoint path (without base URL)
-     * @param array $queryParams Query string parameters
+     * @param array $queryParams Optional associative array of query parameters to append to the URL
      * @param string|false $postFields JSON body for POST requests
      * @return string|false Response body on success, false on failure
      */
     protected function curl($verb, $path, $queryParams = [], $postFields = false)
     {
+        $this->ensureInitialized();
         $retry = false;
         $response = false;
 
         do {
-            $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
-            $url = 'https://' . $entorno . $path;
+            $curl = curl_init();
+            $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
+            $url = "https://" . $entorno . $path;
             if ($queryParams) {
                 $url .= '?' . http_build_query($queryParams);
             }
@@ -226,7 +267,7 @@ class Webservice
             }
         }
 
-        $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+        $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
         $url = 'https://' . $entorno . 'api.hopenvios.com.ar/api/v1/login?' . http_build_query([
             'client_id'     => $this->_clientId,
             'client_secret' => $this->_clientSecret,
@@ -261,7 +302,8 @@ class Webservice
             $this->saveNewToken(
                 $this->_tokenType,
                 $this->_accessToken,
-                isset($response['expires_in']) ? $response['expires_in'] / 1000 : 0
+                isset($response['expires_in']) ? $response['expires_in'] / 1000 : 0,
+                $this->_clientId
             );
         } catch (LocalizedException  $e) {
             $this->_helper->log('Error saving token: ' . $e->getMessage(), true);
@@ -334,6 +376,9 @@ class Webservice
         if ($tokenType !== null) {
             $collection->addFieldToFilter('token_type', $tokenType);
         }
+        if ($this->_clientId !== null) {
+            $collection->addFieldToFilter('client_id', $this->_clientId);
+        }
         $collection->setPageSize(1);
         return $collection->getFirstItem();
     }
@@ -347,7 +392,7 @@ class Webservice
      * @return \Hop\Envios\Model\Token
      * @throws LocalizedException
      */
-    public function saveNewToken($tokenType, $accessToken, $expiresIn)
+    public function saveNewToken($tokenType, $accessToken, $expiresIn, $clientId = null)
     {
         if (empty($tokenType)) {
             throw new LocalizedException(
@@ -371,6 +416,7 @@ class Webservice
         $token->setTokenType($tokenType);
         $token->setAccessToken($accessToken);
         $token->setExpiresIn($expiresIn);
+        $token->setClientId($clientId);
 
         try {
             $this->tokenResourceModel->save($token);
@@ -389,7 +435,8 @@ class Webservice
      */
     public function isSellerActive()
     {
-        $curlRequest = "api.hopenvios.com.ar/api/v1/sellers/" . $this->_helper->getSellerCode();
+        $this->ensureInitialized();
+        $curlRequest = "api.hopenvios.com.ar/api/v1/sellers/" . $this->_helper->getSellerCode($this->storeId);
         $response = $this->curl("GET", $curlRequest);
         if ($response === false) {
             $this->_helper->log(__('Failed to check seller status: API request failed'), true);
@@ -412,13 +459,15 @@ class Webservice
      */
     public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
     {
+        $this->ensureInitialized();
         $point = null;
+        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry($this->storeId) ?: 'AR');
 
-        $countryCode = $countryCode ?: ($this->_helper->getStoreCountry() ?: 'AR');
 
         $collection = $this->pointCollectionFactory->create()
             ->addFieldToFilter('zip_code', $zipCode)
-            ->addFieldToFilter('country_code', $countryCode);
+            ->addFieldToFilter('country_code', $countryCode)
+            ->addFieldToFilter('client_id', $this->_clientId);
         if ($collection->getSize()) {
             $point = $collection->getFirstItem();
             if (!$forceFromApi) {
@@ -430,7 +479,7 @@ class Webservice
             }
         }
 
-        $sellerCode = $this->_helper->getSellerCode();
+        $sellerCode = $this->_helper->getSellerCode($this->storeId);
 
         $queryParams = [];
         if ($zipCode) {
@@ -463,6 +512,7 @@ class Webservice
                 $point->setZipCode($zipCode);
                 $point->setCountryCode($countryCode);
                 $point->setPointData($response);
+                $point->setClientId($this->_clientId);
                 if ($coords) {
                     $point->setLatitude($coords['lat']);
                     $point->setLongitude($coords['lng']);
@@ -554,13 +604,14 @@ class Webservice
      */
     public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
+        $this->ensureInitialized();
         $width = $package['width'] ?? 0;
         $length = $package['length'] ?? 0;
         $height = $package['height'] ?? 0;
         $weight = $package['weight'] ?? 0;
         $value = $package['value'] ?? 0;
 
-        $sizeCategory = $this->_helper->getSizeCategory();
+        $sizeCategory = $this->_helper->getSizeCategory($this->storeId);
         $queryParams = [
             'origin_zipcode'  => $originZipCode,
             'destiny_zipcode' => $destinyZipCode,
@@ -588,7 +639,7 @@ class Webservice
             return $responseObject->data->amount;
         } else {
             if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
-                $entorno = $this->_helper->getProductivo() ? '' : 'sandbox-';
+                $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
                 $this->_helper->log('Url used: https://' . $entorno . 'api.hopenvios.com.ar/api/v1/pricing/estimate?' . http_build_query($queryParams), true);
                 foreach ($responseObject->errors as $error) {
                     if (!empty($error->detail) && is_string($error->detail)) {
@@ -606,15 +657,16 @@ class Webservice
      */
     public function createShipping($order)
     {
-        $sellerCode = $this->_helper->getSellerCode();
-        $shippingType = $this->_helper->getShippingType();
-        $labelType = $this->_helper->getLabelType();
-        $labelSize = $this->_helper->getLabelSize();
-        $daysOffset = $this->_helper->getDaysOffset();
-        $validateClientId = $this->_helper->getValidateClientId();
-        $sizeCategory = $this->_helper->getSizeCategory();
-        $storageCode = $this->_helper->getStorageCode();
-        $packageData = $this->_helper->getPackageData($order);
+        $this->ensureInitialized();
+        $sellerCode = $this->_helper->getSellerCode($this->storeId);
+        $shippingType = $this->_helper->getShippingType($this->storeId);
+        $labelType = $this->_helper->getLabelType($this->storeId);
+        $labelSize = $this->_helper->getLabelSize($this->storeId);
+        $daysOffset = $this->_helper->getDaysOffset($this->storeId);
+        $validateClientId = $this->_helper->getValidateClientId($this->storeId);
+        $sizeCategory = $this->_helper->getSizeCategory($this->storeId);
+        $storageCode = $this->_helper->getStorageCode($this->storeId);
+        $packageData = $this->_helper->getPackageData($order, $this->storeId);
 
         $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$hopData) {
@@ -651,10 +703,10 @@ class Webservice
         $paramClient['email'] = $order->getCustomerEmail();
         $paramClient['id_type'] = 'D.N.I';
 
-        if ($this->_helper->useCustomerTaxvat()) {
+        if ($this->_helper->useCustomerTaxvat($this->storeId)) {
             $paramClient['id_number'] = $billingAddress->getVatId();
         } else {
-            $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute());
+            $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute($this->storeId));
         }
 
         $paramClient['telephone'] = ($billingAddress->getTelephone()) ? $billingAddress->getTelephone() : '';
@@ -677,10 +729,10 @@ class Webservice
         $params['package'] = $paramPackage;
 
         $paramSender = [];
-        $paramSender['name'] = $this->_helper->getStorename();
+        $paramSender['name'] = $this->_helper->getStorename($this->storeId);
         $paramSender['id_number'] = '';
         $paramSender['phone'] = '';
-        $paramSender['mail'] = $this->_helper->getStoreEmail();
+        $paramSender['mail'] = $this->_helper->getStoreEmail($this->storeId);
         $params['sender'] = $paramSender;
 
         $postFields = json_encode($params);

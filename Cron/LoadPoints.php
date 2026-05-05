@@ -7,6 +7,7 @@ use Hop\Envios\Model\ResourceModel\Point\CollectionFactory as PointCollectionFac
 use Hop\Envios\Model\ResourceModel\Point as PointResource;
 use Hop\Envios\Helper\Data as HelperData;
 use Hop\Envios\Model\Webservice;
+use Magento\Store\Model\StoreManagerInterface;
 
 class LoadPoints
 {
@@ -35,18 +36,25 @@ class LoadPoints
      */
     protected $webservice;
 
+    /**
+     * @var StoreManagerInterface
+     */
+    protected $storeManager;
+
     public function __construct(
         LoggerInterface $logger,
         PointCollectionFactory $pointCollectionFactory,
         PointResource $pointResource,
         HelperData $helper,
-        Webservice $webservice
+        Webservice $webservice,
+        StoreManagerInterface $storeManager
     ) {
         $this->logger = $logger;
         $this->pointCollectionFactory = $pointCollectionFactory;
         $this->pointResource = $pointResource;
         $this->helper = $helper;
         $this->webservice = $webservice;
+        $this->storeManager = $storeManager;
     }
 
     public function execute()
@@ -55,8 +63,30 @@ class LoadPoints
         try {
             $this->cacheCoordinatesForPointsWithoutThem();
 
-            $pointCollection = $this->pointCollectionFactory->create();
+            $clientStoreMap = [];
+            foreach ($this->storeManager->getStores() as $store) {
+                $clientId = $this->helper->getClientId($store->getId());
+                if (!empty($clientId) && !isset($clientStoreMap[$clientId])) {
+                    $clientStoreMap[$clientId] = $store->getId();
+                }
+            }
+
+            if (empty($clientStoreMap)) {
+                $this->logger->info(__('No stores with client_id configured. Skipping.'));
+                return;
+            }
+
+            $pointCollection = $this->pointCollectionFactory->create()
+                ->addFieldToFilter('client_id', ['in' => array_keys($clientStoreMap)])
+                ->setOrder('client_id', 'ASC');
+
+            $currentClientId = null;
             foreach ($pointCollection as $point) {
+                $clientId = $point->getClientId();
+                if ($clientId !== $currentClientId) {
+                    $currentClientId = $clientId;
+                    $this->webservice->setStoreId($clientStoreMap[$clientId]);
+                }
                 $zipCode = null;
                 try {
                     $zipCode = $point->getZipCode();
@@ -66,6 +96,7 @@ class LoadPoints
                     $this->logger->error(__('Failed to process point with zip code %1: %2', $zipCode ?? 'unknown', $e->getMessage()));
                 }
             }
+
             $this->logger->info(__('Load points cron job completed successfully.'));
         } catch (\Exception $e) {
             $this->logger->error(__('Error during the load points cron job: ') . $e->getMessage());

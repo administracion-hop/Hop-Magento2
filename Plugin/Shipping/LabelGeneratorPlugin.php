@@ -82,14 +82,6 @@ class LabelGeneratorPlugin
                     $filename = basename($url);
                     $filePath = $mediapath . $filename;
 
-                    $lastToken = $this->_webservice->getLastToken();
-                    if (!$lastToken || !$lastToken->getId()) {
-                        throw new \Magento\Framework\Exception\LocalizedException(
-                            __('No se pudo obtener el token de autenticación para descargar la etiqueta.')
-                        );
-                    }
-                    $_accessToken = $lastToken->getAccessToken();
-
                     try {
                         $curl = curl_init();
 

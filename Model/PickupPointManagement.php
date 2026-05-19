@@ -6,6 +6,7 @@ use Hop\Envios\Model\QuotePickupPointRepository;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
 use Hop\Envios\Model\Webservice;
+use Magento\Quote\Api\CartRepositoryInterface;
 
 /**
  * Class PickupPointManagement
@@ -38,23 +39,31 @@ class PickupPointManagement implements PickupPointManagementInterface
     protected $quotePickupPointRepository;
 
     /**
+     * @var CartRepositoryInterface
+     */
+    protected $quoteRepository;
+
+    /**
      * PickupPointManagement constructor.
      *
      * @param Session $checkoutSession
      * @param RequestInterface $request
      * @param Webservice $webservice
      * @param QuotePickupPointRepository $quotePickupPointRepository
+     * @param CartRepositoryInterface $quoteRepository
      */
     public function __construct(
         Session $checkoutSession,
         RequestInterface $request,
         Webservice $webservice,
-        QuotePickupPointRepository $quotePickupPointRepository
+        QuotePickupPointRepository $quotePickupPointRepository,
+        CartRepositoryInterface $quoteRepository
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->request = $request;
         $this->webservice = $webservice;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
+        $this->quoteRepository = $quoteRepository;
     }
 
     /**
@@ -110,8 +119,53 @@ class PickupPointManagement implements PickupPointManagementInterface
         );
 
         $this->checkoutSession->setHopData($filteredParams);
+        $this->persistPickupPointToDb($filteredParams);
 
         return json_encode(['success' => true, 'message' => 'Hop data saved successfully']);
+    }
+
+    /**
+     * Persists the pickup point to DB so collectRates() can recover it if the session is lost.
+     */
+    private function persistPickupPointToDb(array $filteredParams): void
+    {
+        if (empty($filteredParams['hopPointId'])) {
+            return;
+        }
+
+        try {
+            $quote = $this->checkoutSession->getQuote();
+            if (!$quote->getId() && $quote->getItemsCount() > 0) {
+                $this->quoteRepository->save($quote);
+            }
+            if (!$quote->getId()) {
+                return;
+            }
+
+            if (!empty($filteredParams['hopPointDescription'])) {
+                $shippingDescription = $filteredParams['hopPointDescription'];
+            } elseif (!empty($filteredParams['hopPointReferenceName'])) {
+                $shippingDescription = 'Retirá tu pedido en: ' .
+                    $filteredParams['hopPointReferenceName'] .
+                    ' (' . ($filteredParams['hopPointAddress'] ?? '') . ') ' .
+                    ' - Horario: ' . ($filteredParams['hopPointSchedules'] ?? '');
+            } else {
+                $shippingDescription = '';
+            }
+
+            $selectedPickupPoint = $this->quotePickupPointRepository->getByQuoteId((int)$quote->getId());
+            if (!$selectedPickupPoint) {
+                $selectedPickupPoint = $this->quotePickupPointRepository->create();
+                $selectedPickupPoint->setQuoteId($quote->getId());
+            }
+            $selectedPickupPoint->setPickupPointId($filteredParams['hopPointId']);
+            $selectedPickupPoint->setOriginalPickupPointId($filteredParams['hopPointId']);
+            $selectedPickupPoint->setOriginalShippingDescription($shippingDescription);
+            $selectedPickupPoint->setOriginalZipCode($filteredParams['hopPointPostcode'] ?? '');
+            $this->quotePickupPointRepository->save($selectedPickupPoint);
+        } catch (\Exception $e) {
+            // DB failure is non-fatal; session write already succeeded
+        }
     }
 
     /**

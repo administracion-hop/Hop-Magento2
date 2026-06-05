@@ -13,6 +13,7 @@ use Hop\Envios\Model\ResourceModel\Token as TokenResourceModel;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
 use Hop\Envios\Model\OrderPickupPointRepository;
+use Magento\Framework\HTTP\Client\CurlFactory;
 
 /**
  * Class Webservice
@@ -110,6 +111,16 @@ class Webservice
     protected $initialized = false;
 
     /**
+     * @var string
+     */
+    protected $pickupPointsApiVersion;
+
+    /**
+     * @var CurlFactory
+     */
+    private $httpClientFactory;
+
+    /**
      * Webservice constructor.
      * @param HelperHop $helperHop
      * @param PointCollectionFactory $pointCollectionFactory
@@ -120,6 +131,7 @@ class Webservice
      * @param TokenFactory $tokenFactory
      * @param TokenResourceModel $tokenResourceModel
      * @param OrderPickupPointRepository $orderPickupPointRepository
+     * @param CurlFactory $httpClientFactory
      */
     public function __construct(
         HelperHop $helperHop,
@@ -130,7 +142,8 @@ class Webservice
         TokenCollectionFactory $tokenCollectionFactory,
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel,
-        OrderPickupPointRepository $orderPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository,
+        CurlFactory $httpClientFactory
     ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
@@ -141,6 +154,7 @@ class Webservice
         $this->tokenFactory = $tokenFactory;
         $this->tokenResourceModel = $tokenResourceModel;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
+        $this->httpClientFactory = $httpClientFactory;
     }
 
     /**
@@ -175,75 +189,61 @@ class Webservice
         $this->_clientSecret = $this->_helper->getClientSecret($this->storeId);
         $this->_email        = $this->_helper->getEmail($this->storeId);
         $this->_password     = $this->_helper->getPassword($this->storeId);
-        $this->login();
-        $this->initialized = true;
+        $this->pickupPointsApiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
+        if ($this->login()) {
+            $this->initialized = true;
+        }
     }
 
     /**
-     * Performs an HTTP request using cURL with automatic authentication retry
+     * Performs an HTTP request using Magento's HTTP client with automatic authentication retry.
      *
-     * This method sends HTTP requests to an API endpoint with support for different HTTP verbs,
-     * automatic token refresh on 401 (Unauthorized) errors, and logging.
-     *
-     * @param string $verb The HTTP method to use (e.g., 'GET', 'POST', 'PUT', 'DELETE')
-     * @param string $path The API endpoint path (without the full URL)
+     * @param string $verb HTTP method ('GET' or 'POST')
+     * @param string $path API endpoint path (without base URL)
      * @param array $queryParams Optional associative array of query parameters to append to the URL
-     * @param mixed $postFields Optional data to be sent with the request (typically for POST/PUT)
-     *
-     * @return string|false The API response body on success, or false on failure
-     *
-     * @throws Exception Potential exceptions from cURL operations
-     *
-     * @todo: Refactor to use Magento's built-in HTTP client for better integration and error handling.
+     * @param string|false $postFields JSON body for POST requests
+     * @return string|false Response body on success, false on failure
      */
     protected function curl($verb, $path, $queryParams = [], $postFields = false)
     {
         $this->ensureInitialized();
         $retry = false;
+        $response = false;
+
         do {
-            $curl = curl_init();
             $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
             $url = "https://" . $entorno . $path;
             if ($queryParams) {
                 $url .= '?' . http_build_query($queryParams);
             }
             $this->_helper->log('API URL: ' . $url);
-            $curlData = [
-                CURLOPT_URL => $url,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => "",
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_CUSTOMREQUEST => $verb,
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_HTTPHEADER => [
-                    "Authorization: Bearer {$this->_accessToken}",
-                    "Content-Type: application/json"
-                ],
-            ];
 
-            if ($postFields) {
-                $curlData[CURLOPT_POSTFIELDS] = $postFields;
-            }
-            curl_setopt_array($curl, $curlData);
+            try {
+                $client = $this->httpClientFactory->create();
+                $client->addHeader('Authorization', 'Bearer ' . $this->_accessToken);
+                $client->addHeader('Content-Type', 'application/json');
 
-            $response = curl_exec($curl);
+                if (strtoupper($verb) === 'POST') {
+                    $client->post($url, $postFields ?: '');
+                } else {
+                    $client->get($url);
+                }
 
-            if (!$retry && curl_getinfo($curl, CURLINFO_HTTP_CODE) === 401) {
-                $this->login(true);
-                $retry = true;
-            } else {
+                if (!$retry && $client->getStatus() === 401) {
+                    $this->login(true);
+                    $retry = true;
+                    continue;
+                }
+
                 $retry = false;
+                $response = $client->getBody();
+            } catch (\Exception $e) {
+                $error = 'Se produjo un error: ' . $e->getMessage();
+                $this->_helper->log($error, true);
+                $this->messageManager->addErrorMessage($error);
+                return false;
             }
         } while ($retry);
-
-        if (curl_error($curl)) {
-            $error = 'Se produjo un error: ' . curl_error($curl);
-            $this->_helper->log($error, true);
-            $this->messageManager->addErrorMessage($error);
-            $response = false;
-        }
-
-        curl_close($curl);
 
         return $response;
     }
@@ -251,8 +251,6 @@ class Webservice
     /**
      * @param bool $forceNewToken
      * @return bool
-     *
-     * @todo Refactor to use Magento's built-in HTTP client for better integration and error handling.
      */
     public function login($forceNewToken = false)
     {
@@ -270,37 +268,29 @@ class Webservice
         }
 
         $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
+        $url = 'https://' . $entorno . 'api.hopenvios.com.ar/api/v1/login?' . http_build_query([
+            'client_id'     => $this->_clientId,
+            'client_secret' => $this->_clientSecret,
+            'email'         => $this->_email,
+            'password'      => $this->_password,
+        ]);
 
-        $curl = curl_init();
-
-        curl_setopt_array(
-            $curl,
-            [
-                CURLOPT_URL => "https://" . $entorno . "api.hopenvios.com.ar/api/v1/login?client_id={$this->_clientId}&client_secret={$this->_clientSecret}&email={$this->_email}&password={$this->_password}",
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => "",
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_CUSTOMREQUEST => "POST",
-            ]
-        );
-
-        $response = curl_exec($curl);
-
-        if (curl_error($curl)) {
-            $error = 'Se produjo un error al solicitar cotización: ' . curl_error($curl);
+        try {
+            $client = $this->httpClientFactory->create();
+            $client->post($url, '');
+            $response = json_decode($client->getBody(), true);
+        } catch (\Exception $e) {
+            $error = 'Se produjo un error al solicitar cotización: ' . $e->getMessage();
             $this->_helper->log($error, true);
-
             return false;
         }
 
-        $response = json_decode($response, true);
         if (!empty($response['errors'])) {
             $error = __('Error al iniciar sesión en Hop: ');
             try {
                 $error .= $this->get_login_error_messagges($response['errors']);
             } catch (\Exception $e) {
                 $error .= __('No se pudo procesar el mensaje de error: ') . $e->getMessage();
-
             }
             $this->_helper->log($error, true);
             return false;
@@ -489,7 +479,6 @@ class Webservice
             }
         }
 
-        $apiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
         $sellerCode = $this->_helper->getSellerCode($this->storeId);
 
         $queryParams = [];
@@ -500,9 +489,22 @@ class Webservice
         $queryParams['country'] = $countryCode;
         $queryParams['seller_code'] = $sellerCode;
 
-        $response = $this->curl("GET", "api.hopenvios.com.ar/api/{$apiVersion}/pickup_points", $queryParams);
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/{$this->pickupPointsApiVersion}/pickup_points", $queryParams);
         $decodedResponse = json_decode($response);
+
+        $coords = null;
         if ($decodedResponse && $zipCode) {
+            if (empty($decodedResponse->data)) {
+                $coords = $this->getCoordinatesForZipCode($zipCode, $countryCode, $point);
+                if ($coords) {
+                    $proximityResult = $this->getPickupPointsByCoordinates($sellerCode, $coords['lat'], $coords['lng']);
+                    if ($proximityResult) {
+                        $decodedResponse = $proximityResult['decoded'];
+                        $response = $proximityResult['raw'];
+                    }
+                }
+            }
+
             try {
                 if ($point === null) {
                     $point = $this->pointFactory->create();
@@ -511,12 +513,84 @@ class Webservice
                 $point->setCountryCode($countryCode);
                 $point->setPointData($response);
                 $point->setClientId($this->_clientId);
+                if ($coords) {
+                    $point->setLatitude($coords['lat']);
+                    $point->setLongitude($coords['lng']);
+                }
                 $this->pointResource->save($point);
             } catch (\Exception $e) {
                 $this->_helper->log($e->getMessage(), true);
             }
         }
         return $decodedResponse;
+    }
+
+    /**
+     * @param string $countryCode
+     * @return array<int, array{cp: string, lat: string, lng: string}>
+     */
+    public function fetchAllPostalCodes(string $countryCode): array
+    {
+        $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/postal_codes", ['country' => $countryCode]);
+        if (!$response) {
+            return [];
+        }
+        $postalCodes = json_decode($response, true);
+        return is_array($postalCodes) ? $postalCodes : [];
+    }
+
+    /**
+     * @param string $zipCode
+     * @param string $countryCode
+     * @param \Hop\Envios\Model\Point|null $point
+     * @return array{lat: string, lng: string}|null
+     */
+    private function getCoordinatesForZipCode($zipCode, $countryCode, $point = null)
+    {
+        if ($point && $point->getId() && $point->getLatitude() && $point->getLongitude()) {
+            return ['lat' => $point->getLatitude(), 'lng' => $point->getLongitude()];
+        }
+
+        $postalCodes = $this->fetchAllPostalCodes($countryCode);
+        foreach ($postalCodes as $entry) {
+            if (isset($entry['cp']) && (string)$entry['cp'] === (string)$zipCode) {
+                $lat = $entry['lat'] ?? null;
+                $lng = $entry['lng'] ?? null;
+                if ($lat !== null && $lng !== null) {
+                    return ['lat' => $lat, 'lng' => $lng];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string $sellerCode
+     * @param string $lat
+     * @param string $lng
+     * @return array{raw: string, decoded: \stdClass}|null
+     */
+    protected function getPickupPointsByCoordinates($sellerCode, $lat, $lng)
+    {
+        $distances = [5, 10, 25];
+        foreach ($distances as $distance){
+            $response = $this->curl("GET", "api.hopenvios.com.ar/api/{$this->pickupPointsApiVersion}/pickup_points", [
+                'seller_code' => $sellerCode,
+                'lat'      => $lat,
+                'lng'      => $lng,
+                'distance' => $distance,
+            ]);
+            if (!$response) {
+                continue;
+            }
+            $decoded = json_decode($response);
+            if (!$decoded) {
+                continue;
+            }
+            return ['raw' => $response, 'decoded' => $decoded];
+        }
+        return null;
     }
 
     /**

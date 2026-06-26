@@ -372,6 +372,36 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getUbigeoField($storeId = null)
+    {
+        return $this->getConfigValue('shipping/hop/ubigeo_field', $storeId);
+    }
+
+    /**
+     * Returns the ubigeo value from the given address if a ubigeo field is configured,
+     * or null if not configured or the field is empty.
+     *
+     * @param \Magento\Framework\DataObject $address
+     * @param int|null $storeId
+     * @return string|null
+     */
+    public function getUbigeoFromAddress($address, $storeId = null)
+    {
+        $ubigeoField = $this->getUbigeoField($storeId);
+        if (!$ubigeoField || !$address) {
+            return null;
+        }
+        if ($address->getData('country_id') !== 'PE') {
+            return null;
+        }
+        $value = $address->getData($ubigeoField);
+        return ($value !== null && $value !== '') ? (string)$value : null;
+    }
+
+    /**
      * @param string $code
      * @param int|null $storeId
      * @return string

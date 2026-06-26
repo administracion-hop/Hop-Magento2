@@ -201,6 +201,11 @@
                     <validate>required-entry</validate>
                     <comment>Zipcode del deposito de origen usado para estimar el envio</comment>
                 </field>
+                <field id="ubigeo_field" translate="label" type="select" sortOrder="85" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Campo de Ubigeo</label>
+                    <source_model>Hop\Envios\Model\Config\Source\AddressAttributes</source_model>
+                    <comment>Atributo del shipping address que contiene el Ubigeo. Si se configura, su valor reemplazará al código postal en la estimación de precio y búsqueda de puntos de retiro.</comment>
+                </field>
                 <field id="seller_code" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Seller Code</label>
                     <validate>required-entry</validate>

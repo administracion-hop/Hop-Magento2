@@ -2,6 +2,7 @@
 namespace Hop\Envios\Model;
 
 use Hop\Envios\Api\PickupPointManagementInterface;
+use Hop\Envios\Helper\Data as HopHelper;
 use Hop\Envios\Model\QuotePickupPointRepository;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
@@ -44,6 +45,11 @@ class PickupPointManagement implements PickupPointManagementInterface
     protected $quoteRepository;
 
     /**
+     * @var HopHelper
+     */
+    protected $helper;
+
+    /**
      * PickupPointManagement constructor.
      *
      * @param Session $checkoutSession
@@ -51,19 +57,22 @@ class PickupPointManagement implements PickupPointManagementInterface
      * @param Webservice $webservice
      * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param CartRepositoryInterface $quoteRepository
+     * @param HopHelper $helper
      */
     public function __construct(
         Session $checkoutSession,
         RequestInterface $request,
         Webservice $webservice,
         QuotePickupPointRepository $quotePickupPointRepository,
-        CartRepositoryInterface $quoteRepository
+        CartRepositoryInterface $quoteRepository,
+        HopHelper $helper
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->request = $request;
         $this->webservice = $webservice;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
         $this->quoteRepository = $quoteRepository;
+        $this->helper = $helper;
     }
 
     /**
@@ -76,6 +85,17 @@ class PickupPointManagement implements PickupPointManagementInterface
      */
     public function get($zipCode, $countryCode = null)
     {
+        $ubigeoField = $this->helper->getUbigeoField();
+        if ($ubigeoField) {
+            $shippingAddress = $this->checkoutSession->getQuote()->getShippingAddress();
+            if ($shippingAddress) {
+                $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress);
+                if ($ubigeoValue) {
+                    $zipCode = $ubigeoValue;
+                }
+            }
+        }
+
         if ($zipCode !== null && $zipCode !== '') {
             $normalizedCountryCode = ($countryCode !== null && $countryCode !== '') ? $countryCode : null;
             return json_encode($this->webservice->getPickupPoints($zipCode, $normalizedCountryCode));

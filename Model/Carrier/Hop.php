@@ -323,8 +323,17 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         $totalPrice = 0;
 
-        $destZipCode = (int)$request->getDestPostcode();
         $quote = $this->_checkoutSession->getQuote();
+        $ubigeoField = $helper->getUbigeoField($storeId);
+        if ($ubigeoField) {
+            $shippingAddress = $quote->getShippingAddress();
+            $ubigeoValue = $shippingAddress ? $helper->getUbigeoFromAddress($shippingAddress, $storeId) : null;
+            $raw = $request->getDestPostcode();
+            $destZipCode = $ubigeoValue ?: (ctype_digit((string)$raw) ? $raw : null);
+        } else {
+            $raw = $request->getDestPostcode();
+            $destZipCode = ctype_digit((string)$raw) ? $raw : null;
+        }
 
         if (!$destZipCode) {
             if($helper->isAmastyOscEnabled($storeId)) {

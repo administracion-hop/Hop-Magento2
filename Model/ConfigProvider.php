@@ -58,7 +58,8 @@ class ConfigProvider implements ConfigProviderInterface
     {
         return $this->_helper->isActive() ? [
             'hop' => [
-                'hop_icon' => $this->_assetRepo->getUrlWithParams('Hop_Envios::images/hop_marker.png',[])
+                'hop_icon'     => $this->_assetRepo->getUrlWithParams('Hop_Envios::images/hop_marker.png', []),
+                'ubigeo_field' => $this->_helper->getUbigeoField() ?: null,
             ],
         ] : [];
     }

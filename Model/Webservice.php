@@ -452,12 +452,12 @@ class Webservice
     }
 
     /**
-     * @param integer $zipCode
-     * @param string|null $countryCode
-     * @param bool $forceFromApi
+     * @param string $zipCode Numeric zip code string (may have leading zeros, e.g. "010112")
+     * @param string|null $countryCode ISO 3166-1 alpha-2 country code; defaults to store country or 'AR'
+     * @param bool $forceFromApi Skip cached DB result and always hit the API
      * @return \stdClass|null
      */
-    public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
+    public function getPickupPoints(string $zipCode, ?string $countryCode = null, bool $forceFromApi = false)
     {
         $this->ensureInitialized();
         $point = null;
@@ -677,12 +677,18 @@ class Webservice
         $billingAddress = $order->getBillingAddress();
         $shippingAddress = $order->getShippingAddress();
 
+        $ubigeoValue = $this->_helper->getUbigeoFromAddress($shippingAddress, $this->storeId);
+        $effectiveZipCode = $ubigeoValue ?: ($shippingAddress ? $shippingAddress->getPostcode() : null);
+
         $params = [];
 
         if ($shippingAddress && $shippingAddress->getCountryId()){
             $params['country'] = $shippingAddress->getCountryId();
         } else {
             $params['country'] = $this->_helper->getStoreCountry() ?: 'AR';
+        }
+        if ($effectiveZipCode) {
+            $params['zip_code'] = $effectiveZipCode;
         }
         $params['shipping_type'] = $shippingType;
         $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();

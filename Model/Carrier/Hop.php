@@ -37,6 +37,7 @@ use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\QuotePickupPointRepository;
+use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
 
 /**
  * Class Hop
@@ -249,11 +250,19 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     }
 
     /**
+     * In "mapping" ubigeo mode, Peru addresses are resolved via distrito/provincia + region,
+     * not a literal zip code, so Magento\Shipping\Model\Shipping::prepareCarrier() must not
+     * reject the request via processAdditionalValidation() before collectRates() ever runs.
+     *
      * @param null $countryId
      * @return bool
      */
     public function isZipCodeRequired($countryId = null)
     {
+        if ($countryId === 'PE' && $this->_helper->getUbigeoSource() === UbigeoSourceOption::MAPPING) {
+            return false;
+        }
+
         if ($countryId != null) {
             return !$this->_directoryData->isZipCodeOptional($countryId);
         }
@@ -324,8 +333,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $totalPrice = 0;
 
         $quote = $this->_checkoutSession->getQuote();
-        $ubigeoField = $helper->getUbigeoField($storeId);
-        if ($ubigeoField) {
+        if ($helper->isUbigeoConfigured($storeId)) {
             $shippingAddress = $quote->getShippingAddress();
             $ubigeoValue = $shippingAddress ? $helper->getUbigeoFromAddress($shippingAddress, $storeId) : null;
             $raw = $request->getDestPostcode();
@@ -445,7 +453,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $helper->log("COTIZACIÓN");
             $helper->log($dataForLog, false, true);
 
-            if (!$costoEnvio) {
+            if ($costoEnvio === false) {
                 $this->cleanQuoteData();
                 if (!$showMethod){
                     return false;

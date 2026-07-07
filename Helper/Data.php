@@ -16,6 +16,9 @@ use Magento\Directory\Model\Region;
 use Magento\Shipping\Helper\Data as ShippingData;
 use Hop\Envios\Logger\LoggerInterface;
 use Magento\Framework\Module\Manager as ModuleManager;
+use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
+use Hop\Envios\Model\ResourceModel\PeruDistrito as PeruDistritoResource;
+use Hop\Envios\Model\ResourceModel\PeruProvincia as PeruProvinciaResource;
 
 /**
  * Class Data
@@ -77,6 +80,16 @@ class Data extends AbstractHelper
      */
     protected $moduleManager;
 
+    /**
+     * @var PeruDistritoResource
+     */
+    protected $peruDistritoResource;
+
+    /**
+     * @var PeruProvinciaResource
+     */
+    protected $peruProvinciaResource;
+
 
     /**
      * Data constructor.
@@ -88,6 +101,9 @@ class Data extends AbstractHelper
      * @param Config $fieldsetConfig
      * @param CartRepositoryInterface $cartRepository
      * @param ShippingData $shippingHelper
+     * @param ModuleManager $moduleManager
+     * @param PeruDistritoResource $peruDistritoResource
+     * @param PeruProvinciaResource $peruProvinciaResource
      */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -98,7 +114,9 @@ class Data extends AbstractHelper
         Config $fieldsetConfig,
         CartRepositoryInterface $cartRepository,
         ShippingData $shippingHelper,
-        ModuleManager $moduleManager
+        ModuleManager $moduleManager,
+        PeruDistritoResource $peruDistritoResource,
+        PeruProvinciaResource $peruProvinciaResource
     ) {
         $this->_scopeConfig             = $scopeConfig;
         $this->_storeManagerInterface   = $storeManagerInterface;
@@ -109,6 +127,8 @@ class Data extends AbstractHelper
         $this->quoteRepository          = $cartRepository;
         $this->_shippingData            = $shippingHelper;
         $this->moduleManager            = $moduleManager;
+        $this->peruDistritoResource      = $peruDistritoResource;
+        $this->peruProvinciaResource     = $peruProvinciaResource;
     }
 
     /**
@@ -381,8 +401,57 @@ class Data extends AbstractHelper
     }
 
     /**
-     * Returns the ubigeo value from the given address if a ubigeo field is configured,
-     * or null if not configured or the field is empty.
+     * Whether the ubigeo feature has a usable configuration for the current
+     * "shipping/hop/ubigeo_source" setting, regardless of which option is selected.
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isUbigeoConfigured($storeId = null)
+    {
+        if ($this->getUbigeoSource($storeId) === UbigeoSourceOption::MAPPING) {
+            return (bool)$this->getUbigeoDistritoAttribute($storeId) && (bool)$this->getUbigeoProvinciaAttribute($storeId);
+        }
+        return (bool)$this->getUbigeoField($storeId);
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getUbigeoSource($storeId = null)
+    {
+        $source = $this->getConfigValue('shipping/hop/ubigeo_source', $storeId);
+        return $source === UbigeoSourceOption::MAPPING
+            ? UbigeoSourceOption::MAPPING
+            : UbigeoSourceOption::FIELD;
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getUbigeoDistritoAttribute($storeId = null)
+    {
+        return $this->getConfigValue('shipping/hop/ubigeo_distrito_attribute', $storeId);
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getUbigeoProvinciaAttribute($storeId = null)
+    {
+        return $this->getConfigValue('shipping/hop/ubigeo_provincia_attribute', $storeId);
+    }
+
+    /**
+     * Returns the ubigeo value for the given address, or null if it can't be resolved.
+     *
+     * Depending on the "shipping/hop/ubigeo_source" config, the value is either read
+     * directly from a configured address attribute, or resolved by combining the
+     * address region with the mapped Distrito/Provincia attributes against the
+     * hop_peru_distrito table.
      *
      * @param \Magento\Framework\DataObject $address
      * @param int|null $storeId
@@ -390,15 +459,122 @@ class Data extends AbstractHelper
      */
     public function getUbigeoFromAddress($address, $storeId = null)
     {
+        if (!$address || $address->getData('country_id') !== 'PE') {
+            return null;
+        }
+
+        if ($this->getUbigeoSource($storeId) === UbigeoSourceOption::MAPPING) {
+            return $this->getUbigeoFromDistritoProvinciaMapping($address, $storeId);
+        }
+
         $ubigeoField = $this->getUbigeoField($storeId);
-        if (!$ubigeoField || !$address) {
+        if (!$ubigeoField) {
             return null;
         }
-        if ($address->getData('country_id') !== 'PE') {
+        $value = $this->getAddressAttributeValue($address, $ubigeoField);
+        return $value !== null ? (string)$value : null;
+    }
+
+    /**
+     * Reads an address attribute value, falling back to the extensible model's
+     * custom_attributes bucket.
+     *
+     * Attributes that only exist on the `customer_address` EAV entity (and not on
+     * `Magento\Quote\Api\Data\AddressInterface` / `Magento\Sales\Api\Data\OrderAddressInterface`)
+     * are treated by the Web API framework as custom attributes when the address is built
+     * from a checkout request. In that case the value lands in
+     * `$address->getCustomAttribute($code)`, not in the flat `getData($code)`.
+     *
+     * @param \Magento\Framework\DataObject $address
+     * @param string $attributeCode
+     * @return string|null
+     */
+    private function getAddressAttributeValue($address, $attributeCode)
+    {
+        $value = $address->getData($attributeCode);
+        // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
+        $this->log("[MENZE_TEST_DEBUG] getAddressAttributeValue('{$attributeCode}') getData() = "
+            . var_export($value, true));
+
+        if (($value === null || $value === '') && method_exists($address, 'getCustomAttribute')) {
+            $customAttribute = $address->getCustomAttribute($attributeCode);
+            $value = $customAttribute ? $customAttribute->getValue() : null;
+            // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
+            $this->log("[MENZE_TEST_DEBUG] getAddressAttributeValue('{$attributeCode}') getCustomAttribute() = "
+                . var_export($value, true) . '; custom_attributes codes present = '
+                . implode(',', array_keys($address->getCustomAttributes() ?: [])));
+        }
+
+        return ($value !== null && $value !== '') ? $value : null;
+    }
+
+    /**
+     * Resolves the ubigeo code by combining the address region with the mapped
+     * Distrito/Provincia attribute values against the hop_peru_distrito table.
+     *
+     * @param \Magento\Framework\DataObject $address
+     * @param int|null $storeId
+     * @return string|null
+     */
+    private function getUbigeoFromDistritoProvinciaMapping($address, $storeId = null)
+    {
+        $distritoAttribute = $this->getUbigeoDistritoAttribute($storeId);
+        $provinciaAttribute = $this->getUbigeoProvinciaAttribute($storeId);
+        $regionId = (int)$address->getData('region_id');
+
+        // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
+        $this->log("[MENZE_TEST_DEBUG] mapping config: distritoAttribute={$distritoAttribute}, "
+            . "provinciaAttribute={$provinciaAttribute}, regionId={$regionId}");
+
+        if (!$distritoAttribute || !$provinciaAttribute || !$regionId) {
             return null;
         }
-        $value = $address->getData($ubigeoField);
-        return ($value !== null && $value !== '') ? (string)$value : null;
+
+        $distritoValue = $this->getAddressAttributeValue($address, $distritoAttribute);
+        $provinciaValue = $this->getAddressAttributeValue($address, $provinciaAttribute);
+
+        if (!$distritoValue || !$provinciaValue) {
+            return null;
+        }
+
+        return $this->getUbigeoFromDistritoProvinciaValues($regionId, $provinciaValue, $distritoValue);
+    }
+
+    /**
+     * Resolves the ubigeo code from raw region/provincia/distrito values against the
+     * hop_peru_distrito table, bypassing any address object.
+     *
+     * Used when the caller already has these values on hand (e.g. read client-side from
+     * quote.shippingAddress() before the quote address is persisted), since the checkout
+     * session's quote address is only saved to quote_address once shipping-information
+     * is submitted - too late for flows like the pickup-point picker.
+     *
+     * @param int $regionId
+     * @param string $provinciaValue
+     * @param string $distritoValue
+     * @return string|null
+     */
+    public function getUbigeoFromDistritoProvinciaValues($regionId, $provinciaValue, $distritoValue)
+    {
+        if (!$regionId || !$provinciaValue || !$distritoValue) {
+            return null;
+        }
+
+        $connection = $this->peruDistritoResource->getConnection();
+        $ubigeo = $connection->fetchOne(
+            $connection->select()
+                ->from(['d' => $this->peruDistritoResource->getMainTable()], ['ubigeo'])
+                ->join(
+                    ['p' => $this->peruProvinciaResource->getMainTable()],
+                    'p.provincia_id = d.provincia_id',
+                    []
+                )
+                ->where('p.region_id = ?', $regionId)
+                ->where('LOWER(p.name) = LOWER(?)', $provinciaValue)
+                ->where('LOWER(d.name) = LOWER(?)', $distritoValue)
+        );
+
+        return $ubigeo !== false ? (string)$ubigeo : null;
     }
 
     /**

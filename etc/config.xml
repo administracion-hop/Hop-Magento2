@@ -55,6 +55,7 @@
                 <label_size>S</label_size>
                 <pickup_points_api_version>v1</pickup_points_api_version>
                 <ubigeo_field></ubigeo_field>
+                <ubigeo_source>field</ubigeo_source>
             </hop>
         </shipping>
     </default>

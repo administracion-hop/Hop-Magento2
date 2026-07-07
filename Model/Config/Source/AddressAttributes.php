@@ -1,32 +1,10 @@
 <?php
 namespace Hop\Envios\Model\Config\Source;
 
-use Magento\Customer\Model\ResourceModel\Address\Attribute\CollectionFactory;
-
-class AddressAttributes implements \Magento\Framework\Data\OptionSourceInterface
+class AddressAttributes extends AbstractAddressAttributes
 {
-    /** @var CollectionFactory */
-    protected $attributeCollectionFactory;
-
-    public function __construct(CollectionFactory $attributeCollectionFactory)
+    protected function getEmptyOptionLabel()
     {
-        $this->attributeCollectionFactory = $attributeCollectionFactory;
-    }
-
-    public function toOptionArray()
-    {
-        $options = [['value' => '', 'label' => __('-- Usar código postal (predeterminado) --')]];
-        $attributes = $this->attributeCollectionFactory->create()
-            ->addFieldToFilter('frontend_input', ['in' => ['text', 'select']])
-            ->setOrder('attribute_code', 'ASC');
-
-        foreach ($attributes as $attribute) {
-            $label = $attribute->getFrontendLabel()
-                ? $attribute->getFrontendLabel() . ' (' . $attribute->getAttributeCode() . ')'
-                : $attribute->getAttributeCode();
-            $options[] = ['value' => $attribute->getAttributeCode(), 'label' => $label];
-        }
-
-        return $options;
+        return __('-- Usar código postal (predeterminado) --');
     }
 }

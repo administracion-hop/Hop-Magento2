@@ -600,7 +600,7 @@ class Webservice
      * @param array $package
      * @param $sellerCode
      * @param $hopPointId
-     * @return false
+     * @return float|false
      */
     public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
@@ -635,8 +635,8 @@ class Webservice
         $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pricing/estimate", $queryParams);
         $responseObject = json_decode($response);
 
-        if (isset($responseObject->data->amount)) {
-            return $responseObject->data->amount;
+        if (isset($responseObject->data->amount) && is_numeric($responseObject->data->amount)) {
+            return (float)$responseObject->data->amount;
         } else {
             if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
                 $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
@@ -739,7 +739,9 @@ class Webservice
         $paramSender['id_number'] = '';
         $paramSender['phone'] = '';
         $paramSender['mail'] = $this->_helper->getStoreEmail($this->storeId);
+        $paramSender['zip_code'] = $this->_helper->getOriginZipcode($this->storeId);
         $params['sender'] = $paramSender;
+        $params['country'] = $this->_helper->getStoreCountry($this->storeId) ?: 'AR';
 
         $postFields = json_encode($params);
 

@@ -78,25 +78,48 @@ class PickupPointManagement implements PickupPointManagementInterface
     /**
      * Returns the available pickup points for the given zip code.
      *
+     * $regionId/$provincia/$distrito let the frontend pass the live-typed address
+     * directly (see Hop/Envios/view/frontend/web/js/view/hop.js::getHopPoints), since the
+     * checkout session's quote address is only persisted once shipping-information is
+     * saved - too late for the pickup-point picker, which opens earlier in the flow.
+     *
      * @api
      * @param string $zipCode
      * @param string|null $countryCode
+     * @param int|null $regionId
+     * @param string|null $provincia
+     * @param string|null $distrito
      * @return string
      */
-    public function get($zipCode, $countryCode = null)
+    public function get($zipCode, $countryCode = null, $regionId = null, $provincia = null, $distrito = null)
     {
-        $ubigeoField = $this->helper->getUbigeoField();
-        if ($ubigeoField) {
-            $shippingAddress = $this->checkoutSession->getQuote()->getShippingAddress();
-            if ($shippingAddress) {
-                $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress);
-                if ($ubigeoValue) {
-                    $zipCode = $ubigeoValue;
+        if ($this->helper->isUbigeoConfigured()) {
+            $ubigeoValue = null;
+
+            if ($regionId && $provincia && $distrito) {
+                $ubigeoValue = $this->helper->getUbigeoFromDistritoProvinciaValues(
+                    (int)$regionId,
+                    $provincia,
+                    $distrito
+                );
+            }
+
+            if (!$ubigeoValue) {
+                $shippingAddress = $this->checkoutSession->getQuote()->getShippingAddress();
+                if ($shippingAddress) {
+                    $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress);
                 }
+            }
+
+            if ($ubigeoValue) {
+                $zipCode = $ubigeoValue;
             }
         }
 
-        if ($zipCode !== null && $zipCode !== '') {
+        // '0' is the placeholder the frontend sends when it has no literal zip code and
+        // relies entirely on regionId/provincia/distrito (see hop.js::loadHopPoints). If the
+        // mapping lookup above didn't resolve a real ubigeo, treat it as no zip code at all.
+        if ($zipCode !== null && $zipCode !== '' && $zipCode !== '0') {
             $normalizedCountryCode = ($countryCode !== null && $countryCode !== '') ? $countryCode : null;
             return json_encode($this->webservice->getPickupPoints($zipCode, $normalizedCountryCode));
         }

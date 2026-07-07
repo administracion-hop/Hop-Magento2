@@ -1,38 +1,91 @@
 define([
+    "underscore",
     "Magento_Checkout/js/model/quote",
     "mage/translate",
     "Magento_Checkout/js/model/address-converter",
-    "Magento_Checkout/js/model/shipping-rate-service",
     "uiRegistry",
-], function (quote, $t, addressConverter, rateService, registry) {
+], function (_, quote, $t, addressConverter, registry) {
     "use strict";
 
     return function (targetModule) {
         return targetModule.extend({
             initialize: function () {
                 this._super();
-                var ubigeoField = window.checkoutConfig.hop && window.checkoutConfig.hop.ubigeo_field;
-                if (!ubigeoField) {
+
+                var hopConfig = window.checkoutConfig.hop;
+                if (!hopConfig) {
                     return this;
                 }
 
-                var componentPath = 'checkout.steps.shipping-step.shippingAddress' +
-                    '.shipping-address-fieldset.' + ubigeoField;
+                var timer;
 
-                registry.async(componentPath)(function (component) {
-                    var timer;
-                    component.value.subscribe(function () {
-                        clearTimeout(timer);
-                        timer = setTimeout(function () {
+                /**
+                 * Whether a change to the given field code should trigger a rate
+                 * re-collection, given the CURRENT country. This is evaluated per change
+                 * (not once at init) because the customer can switch country live:
+                 * - Outside Peru: only "postcode" matters, same as always.
+                 * - Peru + ubigeo_source "field": only the one configured field matters.
+                 * - Peru + ubigeo_source "mapping": only region_id + the configured
+                 *   distrito/provincia attributes matter - never a plain postcode change.
+                 *
+                 * @param {String} code
+                 * @param {String} countryId
+                 * @return {Boolean}
+                 */
+                function isRelevantChange(code, countryId) {
+                    if (countryId !== 'PE') {
+                        return code === 'postcode';
+                    }
+
+                    if (hopConfig.ubigeo_source === 'mapping') {
+                        return code === 'region_id'
+                            || code === hopConfig.ubigeo_distrito_attribute
+                            || code === hopConfig.ubigeo_provincia_attribute;
+                    }
+
+                    return code === hopConfig.ubigeo_field;
+                }
+
+                /**
+                 * Rebuilds the address from the current form data and reassigns it onto
+                 * quote.shippingAddress(), which re-triggers rate collection via the
+                 * subscription already set up in Magento_Checkout/js/model/shipping-rate-service.
+                 */
+                function scheduleRateCollection() {
+                    clearTimeout(timer);
+                    timer = setTimeout(function () {
+                        var provider = registry.get('checkoutProvider');
+                        if (!provider) {
+                            return;
+                        }
+                        var addressData = provider.get('shippingAddress');
+                        if (addressData && addressData.country_id) {
+                            quote.shippingAddress(addressConverter.formAddressDataToQuoteAddress(addressData));
+                        }
+                    }, 400);
+                }
+
+                var candidateCodes = _.uniq(_.compact([
+                    'postcode',
+                    'region_id',
+                    hopConfig.ubigeo_field,
+                    hopConfig.ubigeo_distrito_attribute,
+                    hopConfig.ubigeo_provincia_attribute
+                ]));
+
+                candidateCodes.forEach(function (code) {
+                    var componentPath = 'checkout.steps.shipping-step.shippingAddress' +
+                        '.shipping-address-fieldset.' + code;
+
+                    registry.async(componentPath)(function (component) {
+                        component.value.subscribe(function () {
                             var provider = registry.get('checkoutProvider');
-                            if (!provider) { return; }
-                            var addressData = provider.get('shippingAddress');
-                            if (addressData && addressData.country_id) {
-                                rateService.estimateShippingMethods(
-                                    addressConverter.formAddressDataToQuoteAddress(addressData)
-                                );
+                            var countryId = provider && provider.get('shippingAddress.country_id');
+
+                            if (isRelevantChange(code, countryId)) {
+                                scheduleRateCollection();
                             }
-                        }, 400);
+                        });
                     });
                 });
 

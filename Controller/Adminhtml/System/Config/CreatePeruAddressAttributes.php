@@ -17,6 +17,8 @@ use Magento\Framework\Controller\ResultFactory;
  */
 class CreatePeruAddressAttributes extends Action implements HttpPostActionInterface
 {
+    use ResolvesConfigScopeTrait;
+
     public const ADMIN_RESOURCE = 'Magento_Config::config';
 
     public function __construct(
@@ -33,7 +35,8 @@ class CreatePeruAddressAttributes extends Action implements HttpPostActionInterf
         $result = $this->resultFactory->create(ResultFactory::TYPE_JSON);
 
         try {
-            $this->attributesManager->create();
+            [$scope, $scopeId] = $this->resolveConfigScope();
+            $this->attributesManager->create($scope, $scopeId);
 
             return $result->setData([
                 'error'   => false,

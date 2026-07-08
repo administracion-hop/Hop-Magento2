@@ -17,6 +17,8 @@ use Magento\Framework\Controller\ResultFactory;
  */
 class RevertPeruAddressAttributes extends Action implements HttpPostActionInterface
 {
+    use ResolvesConfigScopeTrait;
+
     public const ADMIN_RESOURCE = 'Magento_Config::config';
 
     public function __construct(
@@ -33,7 +35,8 @@ class RevertPeruAddressAttributes extends Action implements HttpPostActionInterf
         $result = $this->resultFactory->create(ResultFactory::TYPE_JSON);
 
         try {
-            $this->attributesManager->revert();
+            [$scope, $scopeId] = $this->resolveConfigScope();
+            $this->attributesManager->revert($scope, $scopeId);
 
             return $result->setData([
                 'error'   => false,

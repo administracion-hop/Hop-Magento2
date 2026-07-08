@@ -47,12 +47,33 @@ class PeruAddressAttributesButton extends Field
 
     public function getCreateAjaxUrl(): string
     {
-        return $this->getUrl('hop/system_config/createPeruAddressAttributes');
+        return $this->getUrl('hop/system_config/createPeruAddressAttributes', $this->getScopeUrlParams());
     }
 
     public function getRevertAjaxUrl(): string
     {
-        return $this->getUrl('hop/system_config/revertPeruAddressAttributes');
+        return $this->getUrl('hop/system_config/revertPeruAddressAttributes', $this->getScopeUrlParams());
+    }
+
+    /**
+     * Carries the website/store scope the admin is currently viewing, so the controller writes
+     * the config at that same scope instead of always at default.
+     */
+    private function getScopeUrlParams(): array
+    {
+        $params = [];
+
+        $websiteId = (int)$this->getRequest()->getParam('website');
+        if ($websiteId) {
+            $params['website'] = $websiteId;
+        }
+
+        $storeId = (int)$this->getRequest()->getParam('store');
+        if ($storeId) {
+            $params['store'] = $storeId;
+        }
+
+        return $params;
     }
 
     public function getCreateButtonHtml(): string

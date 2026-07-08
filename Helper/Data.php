@@ -397,12 +397,12 @@ class Data extends AbstractHelper
      */
     public function getUbigeoField($storeId = null)
     {
-        return $this->getConfigValue('shipping/hop/ubigeo_field', $storeId);
+        return $this->getConfigValue('shipping/hop_peru/ubigeo_field', $storeId);
     }
 
     /**
      * Whether the ubigeo feature has a usable configuration for the current
-     * "shipping/hop/ubigeo_source" setting, regardless of which option is selected.
+     * "shipping/hop_peru/ubigeo_source" setting, regardless of which option is selected.
      *
      * @param int|null $storeId
      * @return bool
@@ -421,7 +421,7 @@ class Data extends AbstractHelper
      */
     public function getUbigeoSource($storeId = null)
     {
-        $source = $this->getConfigValue('shipping/hop/ubigeo_source', $storeId);
+        $source = $this->getConfigValue('shipping/hop_peru/ubigeo_source', $storeId);
         return $source === UbigeoSourceOption::MAPPING
             ? UbigeoSourceOption::MAPPING
             : UbigeoSourceOption::FIELD;
@@ -433,7 +433,7 @@ class Data extends AbstractHelper
      */
     public function getUbigeoDistritoAttribute($storeId = null)
     {
-        return $this->getConfigValue('shipping/hop/ubigeo_distrito_attribute', $storeId);
+        return $this->getConfigValue('shipping/hop_peru/ubigeo_distrito_attribute', $storeId);
     }
 
     /**
@@ -442,13 +442,13 @@ class Data extends AbstractHelper
      */
     public function getUbigeoProvinciaAttribute($storeId = null)
     {
-        return $this->getConfigValue('shipping/hop/ubigeo_provincia_attribute', $storeId);
+        return $this->getConfigValue('shipping/hop_peru/ubigeo_provincia_attribute', $storeId);
     }
 
     /**
      * Returns the ubigeo value for the given address, or null if it can't be resolved.
      *
-     * Depending on the "shipping/hop/ubigeo_source" config, the value is either read
+     * Depending on the "shipping/hop_peru/ubigeo_source" config, the value is either read
      * directly from a configured address attribute, or resolved by combining the
      * address region with the mapped Distrito/Provincia attributes against the
      * hop_peru_distrito table.

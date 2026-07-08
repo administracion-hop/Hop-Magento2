@@ -17,7 +17,7 @@ use Magento\Shipping\Helper\Data as ShippingData;
 use Hop\Envios\Logger\LoggerInterface;
 use Magento\Framework\Module\Manager as ModuleManager;
 use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
-use Hop\Envios\Model\ResourceModel\PeruDistrito as PeruDistritoResource;
+use Hop\Envios\Model\ResourceModel\PeruDistrito\CollectionFactory as PeruDistritoCollectionFactory;
 use Hop\Envios\Model\ResourceModel\PeruProvincia as PeruProvinciaResource;
 
 /**
@@ -81,9 +81,9 @@ class Data extends AbstractHelper
     protected $moduleManager;
 
     /**
-     * @var PeruDistritoResource
+     * @var PeruDistritoCollectionFactory
      */
-    protected $peruDistritoResource;
+    protected $peruDistritoCollectionFactory;
 
     /**
      * @var PeruProvinciaResource
@@ -102,7 +102,7 @@ class Data extends AbstractHelper
      * @param CartRepositoryInterface $cartRepository
      * @param ShippingData $shippingHelper
      * @param ModuleManager $moduleManager
-     * @param PeruDistritoResource $peruDistritoResource
+     * @param PeruDistritoCollectionFactory $peruDistritoCollectionFactory
      * @param PeruProvinciaResource $peruProvinciaResource
      */
     public function __construct(
@@ -115,7 +115,7 @@ class Data extends AbstractHelper
         CartRepositoryInterface $cartRepository,
         ShippingData $shippingHelper,
         ModuleManager $moduleManager,
-        PeruDistritoResource $peruDistritoResource,
+        PeruDistritoCollectionFactory $peruDistritoCollectionFactory,
         PeruProvinciaResource $peruProvinciaResource
     ) {
         $this->_scopeConfig             = $scopeConfig;
@@ -127,7 +127,7 @@ class Data extends AbstractHelper
         $this->quoteRepository          = $cartRepository;
         $this->_shippingData            = $shippingHelper;
         $this->moduleManager            = $moduleManager;
-        $this->peruDistritoResource      = $peruDistritoResource;
+        $this->peruDistritoCollectionFactory = $peruDistritoCollectionFactory;
         $this->peruProvinciaResource     = $peruProvinciaResource;
     }
 
@@ -492,17 +492,10 @@ class Data extends AbstractHelper
     private function getAddressAttributeValue($address, $attributeCode)
     {
         $value = $address->getData($attributeCode);
-        // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
-        $this->log("[MENZE_TEST_DEBUG] getAddressAttributeValue('{$attributeCode}') getData() = "
-            . var_export($value, true));
 
         if (($value === null || $value === '') && method_exists($address, 'getCustomAttribute')) {
             $customAttribute = $address->getCustomAttribute($attributeCode);
             $value = $customAttribute ? $customAttribute->getValue() : null;
-            // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
-            $this->log("[MENZE_TEST_DEBUG] getAddressAttributeValue('{$attributeCode}') getCustomAttribute() = "
-                . var_export($value, true) . '; custom_attributes codes present = '
-                . implode(',', array_keys($address->getCustomAttributes() ?: [])));
         }
 
         return ($value !== null && $value !== '') ? $value : null;
@@ -521,10 +514,6 @@ class Data extends AbstractHelper
         $distritoAttribute = $this->getUbigeoDistritoAttribute($storeId);
         $provinciaAttribute = $this->getUbigeoProvinciaAttribute($storeId);
         $regionId = (int)$address->getData('region_id');
-
-        // TEMP DEBUG - remove after diagnosing null provincia_pe/distrito_pe
-        $this->log("[MENZE_TEST_DEBUG] mapping config: distritoAttribute={$distritoAttribute}, "
-            . "provinciaAttribute={$provinciaAttribute}, regionId={$regionId}");
 
         if (!$distritoAttribute || !$provinciaAttribute || !$regionId) {
             return null;
@@ -560,21 +549,22 @@ class Data extends AbstractHelper
             return null;
         }
 
-        $connection = $this->peruDistritoResource->getConnection();
-        $ubigeo = $connection->fetchOne(
-            $connection->select()
-                ->from(['d' => $this->peruDistritoResource->getMainTable()], ['ubigeo'])
-                ->join(
-                    ['p' => $this->peruProvinciaResource->getMainTable()],
-                    'p.provincia_id = d.provincia_id',
-                    []
-                )
-                ->where('p.region_id = ?', $regionId)
-                ->where('LOWER(p.name) = LOWER(?)', $provinciaValue)
-                ->where('LOWER(d.name) = LOWER(?)', $distritoValue)
+        /** @var \Hop\Envios\Model\ResourceModel\PeruDistrito\Collection $collection */
+        $collection = $this->peruDistritoCollectionFactory->create();
+        $collection->addFieldToSelect('ubigeo');
+        $collection->getSelect()->joinInner(
+            ['p' => $this->peruProvinciaResource->getMainTable()],
+            'p.provincia_id = main_table.provincia_id',
+            []
         );
+        $collection->getSelect()
+            ->where('p.region_id = ?', $regionId)
+            ->where('LOWER(p.name) = LOWER(?)', $provinciaValue)
+            ->where('LOWER(main_table.name) = LOWER(?)', $distritoValue);
 
-        return $ubigeo !== false ? (string)$ubigeo : null;
+        $ubigeo = $collection->getFirstItem()->getData('ubigeo');
+
+        return $ubigeo !== null && $ubigeo !== '' ? (string)$ubigeo : null;
     }
 
     /**

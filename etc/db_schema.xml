@@ -7,6 +7,14 @@
     <table name="sales_order">
         <column xsi:type="text" name="hop_data" nullable="true"/>
     </table>
+    <table name="quote_address">
+        <column xsi:type="varchar" name="hop_ubigeo_provincia" nullable="true" length="255" comment="Provincia (Perú)"/>
+        <column xsi:type="varchar" name="hop_ubigeo_distrito" nullable="true" length="255" comment="Distrito (Perú)"/>
+    </table>
+    <table name="sales_order_address">
+        <column xsi:type="varchar" name="hop_ubigeo_provincia" nullable="true" length="255" comment="Provincia (Perú)"/>
+        <column xsi:type="varchar" name="hop_ubigeo_distrito" nullable="true" length="255" comment="Distrito (Perú)"/>
+    </table>
     <table name="hop_tokens">
         <column xsi:type="int" name="id" padding="10" unsigned="true" nullable="false" identity="true" />
         <column xsi:type="varchar" name="token_type" nullable="true" length="255"/>

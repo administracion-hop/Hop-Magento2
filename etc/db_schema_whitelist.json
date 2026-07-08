@@ -9,6 +9,18 @@
             "hop_data": true
         }
     },
+    "quote_address": {
+        "column": {
+            "hop_ubigeo_provincia": true,
+            "hop_ubigeo_distrito": true
+        }
+    },
+    "sales_order_address": {
+        "column": {
+            "hop_ubigeo_provincia": true,
+            "hop_ubigeo_distrito": true
+        }
+    },
     "hop_tokens": {
         "column": {
             "id": true,

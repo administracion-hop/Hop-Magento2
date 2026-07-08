@@ -238,6 +238,24 @@
                     </depends>
                     <comment>Atributo del shipping address que contiene el nombre de la Provincia. Se combina con el atributo de Distrito y la región de la dirección para buscar el Ubigeo.</comment>
                 </field>
+                <field id="import_peru_ubigeo" translate="label" type="button" sortOrder="88" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Importar tabla de Ubigeo (Perú)</label>
+                    <frontend_model>Hop\Envios\Block\Adminhtml\System\Config\ImportUbigeoButton</frontend_model>
+                    <depends>
+                        <field id="general/country/default">PE</field>
+                        <field id="ubigeo_source">mapping</field>
+                    </depends>
+                    <comment>Carga la tabla de Distritos/Provincias de Perú usada para resolver el Ubigeo. Una vez importada, el botón deja de mostrarse.</comment>
+                </field>
+                <field id="create_peru_address_attributes" translate="label" type="button" sortOrder="89" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Campos de Distrito y Provincia</label>
+                    <frontend_model>Hop\Envios\Block\Adminhtml\System\Config\PeruAddressAttributesButton</frontend_model>
+                    <depends>
+                        <field id="general/country/default">PE</field>
+                        <field id="ubigeo_source">mapping</field>
+                    </depends>
+                    <comment>Crea automáticamente los atributos de dirección "Distrito (Perú)" y "Provincia (Perú)" (tipo select, visibles en el checkout) y los deja seleccionados arriba. Solo disponible una vez importado el Ubigeo.</comment>
+                </field>
                 <field id="seller_code" translate="label" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Seller Code</label>
                     <validate>required-entry</validate>

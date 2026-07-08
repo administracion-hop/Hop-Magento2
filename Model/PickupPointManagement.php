@@ -93,7 +93,11 @@ class PickupPointManagement implements PickupPointManagementInterface
      */
     public function get($zipCode, $countryCode = null, $regionId = null, $provincia = null, $distrito = null)
     {
-        if ($this->helper->isUbigeoConfigured()) {
+        $quote = $this->checkoutSession->getQuote();
+        $storeId = $quote && $quote->getStoreId() ? (int)$quote->getStoreId() : null;
+        $this->webservice->setStoreId($storeId);
+
+        if ($this->helper->isUbigeoConfigured($storeId)) {
             $ubigeoValue = null;
 
             if ($regionId && $provincia && $distrito) {
@@ -105,9 +109,9 @@ class PickupPointManagement implements PickupPointManagementInterface
             }
 
             if (!$ubigeoValue) {
-                $shippingAddress = $this->checkoutSession->getQuote()->getShippingAddress();
+                $shippingAddress = $quote ? $quote->getShippingAddress() : null;
                 if ($shippingAddress) {
-                    $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress);
+                    $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress, $storeId);
                 }
             }
 

@@ -6,7 +6,9 @@ namespace Hop\Envios\Plugin\Checkout;
 use Hop\Envios\Helper\Data;
 use Hop\Envios\Model\Ubigeo\PeruAddressAttributesManager;
 use Magento\Checkout\Block\Checkout\LayoutProcessor;
+use Magento\Framework\App\CacheInterface;
 use Magento\Framework\App\ResourceConnection;
+use Magento\Framework\Serialize\Serializer\Json as JsonSerializer;
 
 /**
  * Injects the Provincia/Distrito selects into the checkout shipping address form when the
@@ -20,9 +22,22 @@ use Magento\Framework\App\ResourceConnection;
  */
 class UbigeoAddressAttributesLayoutProcessorPlugin
 {
+    /**
+     * Tag shared with Hop\Envios\Model\Ubigeo\PeruUbigeoImporter, which cleans it after a
+     * (re)import so this cache can't go stale.
+     */
+    private const CACHE_TAG = 'HOP_ENVIOS_PERU_UBIGEO';
+
+    // Peru provincia/distrito data is nationwide reference data, not store/website-scoped,
+    // so a single global cache entry per option list is correct.
+    private const CACHE_KEY_PROVINCIA = 'hop_envios_peru_provincia_options';
+    private const CACHE_KEY_DISTRITO  = 'hop_envios_peru_distrito_options';
+
     public function __construct(
         private readonly Data $helper,
-        private readonly ResourceConnection $resourceConnection
+        private readonly ResourceConnection $resourceConnection,
+        private readonly CacheInterface $cache,
+        private readonly JsonSerializer $serializer
     ) {
     }
 
@@ -127,6 +142,11 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
      */
     private function getProvinciaOptions(): array
     {
+        $cached = $this->cache->load(self::CACHE_KEY_PROVINCIA);
+        if ($cached !== false) {
+            return $this->serializer->unserialize($cached);
+        }
+
         $connection = $this->resourceConnection->getConnection();
         $table      = $this->resourceConnection->getTableName('hop_peru_provincia');
 
@@ -134,7 +154,7 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
             $connection->select()->from($table, ['name', 'region_id'])->order('name ASC')
         );
 
-        return array_map(
+        $options = array_map(
             static fn (array $row) => [
                 'value'     => $row['name'],
                 'label'     => $row['name'],
@@ -142,6 +162,10 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
             ],
             $rows
         );
+
+        $this->cache->save($this->serializer->serialize($options), self::CACHE_KEY_PROVINCIA, [self::CACHE_TAG]);
+
+        return $options;
     }
 
     /**
@@ -152,6 +176,11 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
      */
     private function getDistritoOptions(): array
     {
+        $cached = $this->cache->load(self::CACHE_KEY_DISTRITO);
+        if ($cached !== false) {
+            return $this->serializer->unserialize($cached);
+        }
+
         $connection    = $this->resourceConnection->getConnection();
         $distritoTable = $this->resourceConnection->getTableName('hop_peru_distrito');
         $provinciaTable = $this->resourceConnection->getTableName('hop_peru_provincia');
@@ -165,7 +194,7 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
                 ->order('d.name ASC')
         );
 
-        return array_map(
+        $options = array_map(
             static fn (array $row) => [
                 'value'     => $row['distrito_name'],
                 'label'     => $row['distrito_name'],
@@ -173,5 +202,9 @@ class UbigeoAddressAttributesLayoutProcessorPlugin
             ],
             $rows
         );
+
+        $this->cache->save($this->serializer->serialize($options), self::CACHE_KEY_DISTRITO, [self::CACHE_TAG]);
+
+        return $options;
     }
 }

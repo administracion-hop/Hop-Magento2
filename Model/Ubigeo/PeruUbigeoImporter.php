@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Hop\Envios\Model\Ubigeo;
 
+use Magento\Framework\App\CacheInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Module\Dir;
 
@@ -14,9 +15,16 @@ use Magento\Framework\Module\Dir;
  */
 class PeruUbigeoImporter
 {
+    /**
+     * Shared with Hop\Envios\Plugin\Checkout\UbigeoAddressAttributesLayoutProcessorPlugin,
+     * which caches the provincia/distrito option lists under this tag.
+     */
+    private const CACHE_TAG = 'HOP_ENVIOS_PERU_UBIGEO';
+
     public function __construct(
         private readonly ResourceConnection $resourceConnection,
-        private readonly Dir $moduleDir
+        private readonly Dir $moduleDir,
+        private readonly CacheInterface $cache
     ) {
     }
 
@@ -121,6 +129,8 @@ class PeruUbigeoImporter
             $connection->rollBack();
             throw $e;
         }
+
+        $this->cache->clean([self::CACHE_TAG]);
 
         return true;
     }

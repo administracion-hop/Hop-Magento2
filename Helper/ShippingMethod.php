@@ -115,7 +115,10 @@ class ShippingMethod extends AbstractHelper
     }
 
     /**
-     * @param Magento\Sales\Model\Order $order
+     * Creates the hop_envios record for the order if it doesn't exist yet.
+     * The Hop API call is handled by SalesOrderShipmentSaveAfter observer.
+     *
+     * @param \Magento\Sales\Model\Order $order
      * @return bool
      */
     public function createShipmentData($order)
@@ -129,18 +132,6 @@ class ShippingMethod extends AbstractHelper
             $this->hopEnviosRepository->save($hopEnvios);
         }
 
-        if(!$hopEnvios->getInfoHop()) {
-            $this->webservice->setStoreId($order->getStoreId());
-            $result = $this->webservice->createShipping($order);
-            if(!isset($result['error'])){
-                $hopEnvios->setInfoHop($result);
-                $this->hopEnviosRepository->save($hopEnvios);
-            } else {
-                $order->setShippingDescription($result['error']);
-                $order->getResource()->saveAttribute($order, "shipping_description");
-                return false;
-            }
-        }
         return true;
     }
 }

@@ -97,5 +97,27 @@
             "HOP_ENVIOS_SELECTED_PICKUP_POINT_PICKUP_POINT_ID": true,
             "HOP_ENVIOS_SELECTED_PICKUP_POINT_ORIGINAL_PICKUP_POINT_ID": true
         }
+    },
+    "hop_envios_shipment": {
+        "column": {
+            "entity_id": true,
+            "hop_envio_id": true,
+            "shipment_id": true,
+            "bulto_index": true,
+            "shipping_id": true,
+            "tracking_nro": true,
+            "label_url": true,
+            "status": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_ENVIOS_SHIPMENT_SHIPMENT_ID": true,
+            "HOP_ENVIOS_SHIPMENT_HOP_ENVIO_ID_HOP_ENVIOS_ENTITY_ID": true,
+            "HOP_ENVIOS_SHIPMENT_SHIPMENT_ID_SALES_SHIPMENT_ENTITY_ID": true
+        },
+        "index": {
+            "HOP_ENVIOS_SHIPMENT_HOP_ENVIO_ID": true
+        }
     }
 }

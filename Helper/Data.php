@@ -469,6 +469,60 @@ class Data extends AbstractHelper
     }
 
     /**
+     * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @param int|null $storeId
+     * @return array
+     */
+    public function getPackageDataForShipment($shipment, $storeId = null)
+    {
+        $storeId = $storeId ?? $shipment->getStoreId();
+        $hopAltoTotal = 0;
+        $hopLargoTotal = [];
+        $hopAnchoTotal = [];
+        $totalPrice = 0;
+        $weightTotal = 0;
+
+        foreach ($shipment->getAllItems() as $shipmentItem) {
+            $orderItem = $shipmentItem->getOrderItem();
+            if (!$orderItem) {
+                continue;
+            }
+            if ($orderItem->getProductType() === 'configurable') {
+                continue;
+            }
+            if ($orderItem->getParentItem()) {
+                continue;
+            }
+            $_product = $orderItem->getProduct();
+            if (!$_product) {
+                continue;
+            }
+
+            $qty = $shipmentItem->getQty();
+
+            $hopAltoTotal += (int)$_product->getResource()
+                ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('alto', $storeId), $_product->getStoreId()) * $qty;
+
+            $hopLargoTotal[] = (int)$_product->getResource()
+                ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('largo', $storeId), $_product->getStoreId()) * $qty;
+
+            $hopAnchoTotal[] = (int)$_product->getResource()
+                ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('ancho', $storeId), $_product->getStoreId()) * $qty;
+
+            $weightTotal += ($_product->getWeight() * 1000) * $qty;
+            $totalPrice += $_product->getFinalPrice() * $qty;
+        }
+
+        return [
+            'width'  => !empty($hopAnchoTotal) ? max($hopAnchoTotal) : 0,
+            'length' => !empty($hopLargoTotal) ? max($hopLargoTotal) : 0,
+            'height' => $hopAltoTotal,
+            'value'  => $totalPrice,
+            'weight' => $weightTotal,
+        ];
+    }
+
+    /**
      * @param int|null $storeId
      * @return string
      */

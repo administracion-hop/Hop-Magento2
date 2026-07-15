@@ -120,4 +120,34 @@
         </index>
     </table>
 
+
+    <table name="hop_envios_shipment" resource="default" engine="innodb" comment="Hop Envios Per-Shipment Multibulto Data">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Entity ID"/>
+        <column xsi:type="int" name="hop_envio_id" padding="10" unsigned="true" nullable="false" comment="FK hop_envios.entity_id"/>
+        <column xsi:type="int" name="shipment_id" padding="10" unsigned="true" nullable="false" comment="FK sales_shipment.entity_id"/>
+        <column xsi:type="smallint" name="bulto_index" padding="5" unsigned="true" nullable="false" default="0" comment="Position in package array"/>
+        <column xsi:type="varchar" name="shipping_id" length="64" nullable="true" comment="Hop shipping UUID"/>
+        <column xsi:type="varchar" name="tracking_nro" length="255" nullable="true" comment="Tracking number"/>
+        <column xsi:type="text" name="label_url" nullable="true" comment="Label URL"/>
+        <column xsi:type="varchar" name="status" length="50" nullable="true" default="pending" comment="Status"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created At"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="HOP_ENVIOS_SHIPMENT_SHIPMENT_ID">
+            <column name="shipment_id"/>
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="HOP_ENVIOS_SHIPMENT_HOP_ENVIO_ID_HOP_ENVIOS_ENTITY_ID"
+            table="hop_envios_shipment" column="hop_envio_id"
+            referenceTable="hop_envios" referenceColumn="entity_id" onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="HOP_ENVIOS_SHIPMENT_SHIPMENT_ID_SALES_SHIPMENT_ENTITY_ID"
+            table="hop_envios_shipment" column="shipment_id"
+            referenceTable="sales_shipment" referenceColumn="entity_id" onDelete="CASCADE"/>
+
+        <index referenceId="HOP_ENVIOS_SHIPMENT_HOP_ENVIO_ID" indexType="btree">
+            <column name="hop_envio_id"/>
+        </index>
+    </table>
+
 </schema>

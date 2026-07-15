@@ -103,6 +103,21 @@ class LabelGeneratorPlugin
                         if ($imageData === false) {
                             $this->_helper->log('No se pudo descargar la imagen desde la URL: ' . $url, true);
                         }
+
+                        // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
+                        if ($imageData && function_exists('imagecreatefromstring')) {
+                            $img = @imagecreatefromstring($imageData);
+                            if ($img !== false) {
+                                ob_start();
+                                imagejpeg($img, null, 95);
+                                $normalized = ob_get_clean();
+                                imagedestroy($img);
+                                if ($normalized && strlen($normalized) > 100) {
+                                    $imageData = $normalized;
+                                }
+                            }
+                        }
+
                         file_put_contents($filePath, $imageData);
 
                         if (!file_exists($filePath)) {
@@ -176,6 +191,20 @@ class LabelGeneratorPlugin
                     if ($imageData === false) {
                         $this->_helper->log(__('Error descargando imagen desde: ') . $url, true);
                         continue;
+                    }
+
+                    // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
+                    if (function_exists('imagecreatefromstring')) {
+                        $img = @imagecreatefromstring($imageData);
+                        if ($img !== false) {
+                            ob_start();
+                            imagejpeg($img, null, 95);
+                            $normalized = ob_get_clean();
+                            imagedestroy($img);
+                            if ($normalized && strlen($normalized) > 100) {
+                                $imageData = $normalized;
+                            }
+                        }
                     }
 
                     file_put_contents($filePath, $imageData);

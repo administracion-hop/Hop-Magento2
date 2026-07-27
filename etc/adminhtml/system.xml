@@ -304,14 +304,26 @@
                     <comment>Cuando el pedido cambie de estado a cualquiera de los seleccionados, se generará la etiqueta de despacho automáticamente.</comment>
                 </field>
             </group>
-            <group id="hop_peru" translate="label" type="text" sortOrder="410" showInDefault="1" showInWebsite="1" showInStore="1">
+            <group id="hop_peru" translate="label" type="text" sortOrder="410" showInDefault="1" showInWebsite="1" showInStore="0">
                 <label>Configuración Hop específica de Perú</label>
-                <field id="ubigeo_source" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <!--
+                    showInStore="0" on this whole group is deliberate: these fields decide which
+                    address attribute resolves the Ubigeo code, and the attribute list rendered by
+                    Hop\Envios\Plugin\Checkout\UbigeoAddressAttributesLayoutProcessorPlugin and
+                    Hop\Envios\Model\ViewModel\Customer\UbigeoAddressAttributes is only correct at
+                    Website scope (a Store View has no independent notion of "which country this
+                    site sells in" beyond its Website). Leaving Store View editable let a leftover
+                    per-store override silently win over the Website-level "mapping" setting with
+                    no visible warning — Store scope beats Website scope in Magento's fallback, so
+                    the checkout/account UbigeoAddressAttributes screens would just render as if
+                    unconfigured, with nothing pointing an admin at why.
+                -->
+                <field id="ubigeo_source" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Origen del Ubigeo</label>
                     <source_model>Hop\Envios\Model\Config\Source\UbigeoSourceOption</source_model>
                     <comment>Cómo obtener el código de Ubigeo para direcciones de Perú: desde un único atributo de dirección, o combinando los atributos de Distrito y Provincia con la tabla de Ubigeos de Hop.</comment>
                 </field>
-                <field id="ubigeo_field" translate="label" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="ubigeo_field" translate="label" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Campo de Ubigeo</label>
                     <source_model>Hop\Envios\Model\Config\Source\AddressAttributes</source_model>
                     <depends>
@@ -319,7 +331,7 @@
                     </depends>
                     <comment>Atributo del shipping address que contiene el Ubigeo. Si se configura, su valor reemplazará al código postal en la estimación de precio y búsqueda de puntos de retiro.</comment>
                 </field>
-                <field id="ubigeo_distrito_attribute" translate="label" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="ubigeo_distrito_attribute" translate="label" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Atributo de Distrito</label>
                     <source_model>Hop\Envios\Model\Config\Source\AddressAttributesSelect</source_model>
                     <validate>required-entry</validate>
@@ -328,7 +340,7 @@
                     </depends>
                     <comment>Atributo del shipping address que contiene el nombre del Distrito. Se combina con el atributo de Provincia y la región de la dirección para buscar el Ubigeo.</comment>
                 </field>
-                <field id="ubigeo_provincia_attribute" translate="label" type="select" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1">
+                <field id="ubigeo_provincia_attribute" translate="label" type="select" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Atributo de Provincia</label>
                     <source_model>Hop\Envios\Model\Config\Source\AddressAttributesSelect</source_model>
                     <validate>required-entry</validate>

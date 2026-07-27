@@ -585,24 +585,12 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         }
         try {
             $result = new \Magento\Framework\DataObject();
-            // Only include tracking number if this shipment doesn't already have a Hop track.
-            // Prevents duplicate tracks when "Create Label" is clicked after the observer already added one.
-            // Force fresh DB load: Magento caches the tracks collection during _afterSave() (before the
-            // SalesOrderShipmentSaveAfter observer runs), so the in-memory collection may be stale.
-            $alreadyTracked = false;
-            if ($shipment->getId()) {
-                $shipment->unsetData('tracks');
-                $shipment->getTracksCollection()->clear();
-            }
-            foreach ($shipment->getTracks() as $track) {
-                if ($track->getCarrierCode() === self::CARRIER_CODE) {
-                    $alreadyTracked = true;
-                    break;
-                }
-            }
-            if (!$alreadyTracked) {
-                $result->setTrackingNumber($trackingNumber);
-            }
+            // Always set tracking number: Magento\Shipping\Model\Shipping\LabelGenerator::create()
+            // drops the whole label (tracking_number + label_content) when tracking_number is empty,
+            // even though the label itself is valid. Previously this was skipped when the shipment
+            // already had a Hop track (added by the observer) to avoid a duplicate track row, but that
+            // silently produced a 0-page PDF stored as the shipment's shipping label.
+            $result->setTrackingNumber($trackingNumber);
             // Store the label URL; LabelGeneratorPlugin handles the URL→PDF conversion.
             $result->setShippingLabelContent($labelUrl);
             return $result;

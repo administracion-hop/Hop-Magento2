@@ -70,6 +70,8 @@ class LabelGeneratorPlugin
             $order = $shipment->getOrder();
             $shippingMethod = $order->getShippingMethod();
 
+            $this->_helper->log('[DEBUG][createPdfPageFromImageString] ENTRY orderId=' . $order->getId() . ' shippingMethod=' . $shippingMethod . ' imageString=' . $imageString);
+
             if ($shippingMethod === 'hop_hop') {
                 $url = $imageString;
 
@@ -81,6 +83,8 @@ class LabelGeneratorPlugin
 
                     $filename = basename($url);
                     $filePath = $mediapath . $filename;
+
+                    $this->_helper->log('[DEBUG][createPdfPageFromImageString] url=' . $url . ' filename=' . $filename . ' extension=' . pathinfo($filename, PATHINFO_EXTENSION) . ' filePath=' . $filePath);
 
                     try {
                         $curl = curl_init();
@@ -98,7 +102,14 @@ class LabelGeneratorPlugin
 
                         $imageData = curl_exec($curl);
 
+                        $curlHttpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                        $curlContentType = curl_getinfo($curl, CURLINFO_CONTENT_TYPE);
+                        $curlErrno = curl_errno($curl);
+                        $curlError = curl_error($curl);
+
                         curl_close($curl);
+
+                        $this->_helper->log('[DEBUG][createPdfPageFromImageString] curl httpCode=' . $curlHttpCode . ' contentType=' . $curlContentType . ' errno=' . $curlErrno . ' error=' . $curlError . ' bytesDownloaded=' . ($imageData !== false ? strlen($imageData) : 'false') . ' first16bytesHex=' . ($imageData !== false ? bin2hex(substr($imageData, 0, 16)) : 'n/a'));
 
                         if ($imageData === false) {
                             $this->_helper->log('No se pudo descargar la imagen desde la URL: ' . $url, true);
@@ -107,15 +118,19 @@ class LabelGeneratorPlugin
                         // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
                         if ($imageData && function_exists('imagecreatefromstring')) {
                             $img = @imagecreatefromstring($imageData);
+                            $this->_helper->log('[DEBUG][createPdfPageFromImageString] imagecreatefromstring success=' . ($img !== false ? '1' : '0') . ' gdLastError=' . json_encode(error_get_last()));
                             if ($img !== false) {
                                 ob_start();
                                 imagejpeg($img, null, 95);
                                 $normalized = ob_get_clean();
                                 imagedestroy($img);
+                                $this->_helper->log('[DEBUG][createPdfPageFromImageString] normalized bytes=' . ($normalized ? strlen($normalized) : '0') . ' willReplace=' . (($normalized && strlen($normalized) > 100) ? '1' : '0'));
                                 if ($normalized && strlen($normalized) > 100) {
                                     $imageData = $normalized;
                                 }
                             }
+                        } else {
+                            $this->_helper->log('[DEBUG][createPdfPageFromImageString] SKIPPED GD normalization: imageData empty or imagecreatefromstring missing');
                         }
 
                         file_put_contents($filePath, $imageData);
@@ -124,16 +139,22 @@ class LabelGeneratorPlugin
                             $this->_helper->log('No se pudo guardar la imagen desde la URL: ' . $url, true);
                         }
 
+                        $finalSize = file_exists($filePath) ? filesize($filePath) : 'n/a';
+                        $gis = @getimagesize($filePath);
+                        $this->_helper->log('[DEBUG][createPdfPageFromImageString] savedFilePath=' . $filePath . ' fileSize=' . $finalSize . ' getimagesize=' . json_encode($gis));
+
                         list($width, $height) = getimagesize($filePath);
 
                         $pdfPage = new Zend_Pdf_Page($width, $height);
                         $image = Zend_Pdf_Image::imageWithPath($filePath);
                         $pdfPage->drawImage($image, 0, 0, $width, $height);
 
+                        $this->_helper->log('[DEBUG][createPdfPageFromImageString] SUCCESS width=' . $width . ' height=' . $height);
+
                         return $pdfPage;
 
                     } catch (\Exception $e) {
-                        $this->_helper->log('Error al procesar la etiqueta PDF: ' . $e->getMessage(), true);
+                        $this->_helper->log('Error al procesar la etiqueta PDF: ' . $e->getMessage() . ' trace=' . $e->getTraceAsString(), true);
                         throw new \Magento\Framework\Exception\LocalizedException(
                             __('Error al generar la etiqueta de envío: %1', $e->getMessage())
                         );
@@ -171,11 +192,17 @@ class LabelGeneratorPlugin
             mkdir($mediaPath, 0775, true);
         }
 
+        $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] ENTRY labelsCount=' . count($labelsContent) . ' contents=' . json_encode(array_map(function ($c) {
+            return is_string($c) ? (strlen($c) > 200 ? substr($c, 0, 200) . '...(' . strlen($c) . ' bytes)' : $c) : gettype($c);
+        }, $labelsContent)));
+
         foreach ($labelsContent as &$content) {
             if (filter_var($content, FILTER_VALIDATE_URL)) {
                 $url = $content;
                 $filename = basename(parse_url($url, PHP_URL_PATH));
                 $filePath = $mediaPath . $filename;
+
+                $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] url=' . $url . ' filename=' . $filename . ' extension=' . pathinfo($filename, PATHINFO_EXTENSION) . ' filePath=' . $filePath);
 
                 try {
                     $curl = curl_init();
@@ -186,7 +213,15 @@ class LabelGeneratorPlugin
                         CURLOPT_TIMEOUT        => 10
                     ]);
                     $imageData = curl_exec($curl);
+
+                    $curlHttpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                    $curlContentType = curl_getinfo($curl, CURLINFO_CONTENT_TYPE);
+                    $curlErrno = curl_errno($curl);
+                    $curlError = curl_error($curl);
+
                     curl_close($curl);
+
+                    $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] curl httpCode=' . $curlHttpCode . ' contentType=' . $curlContentType . ' errno=' . $curlErrno . ' error=' . $curlError . ' bytesDownloaded=' . ($imageData !== false ? strlen($imageData) : 'false') . ' first16bytesHex=' . ($imageData !== false ? bin2hex(substr($imageData, 0, 16)) : 'n/a'));
 
                     if ($imageData === false) {
                         $this->_helper->log(__('Error descargando imagen desde: ') . $url, true);
@@ -196,11 +231,13 @@ class LabelGeneratorPlugin
                     // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
                     if (function_exists('imagecreatefromstring')) {
                         $img = @imagecreatefromstring($imageData);
+                        $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] imagecreatefromstring success=' . ($img !== false ? '1' : '0'));
                         if ($img !== false) {
                             ob_start();
                             imagejpeg($img, null, 95);
                             $normalized = ob_get_clean();
                             imagedestroy($img);
+                            $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] normalized bytes=' . ($normalized ? strlen($normalized) : '0') . ' willReplace=' . (($normalized && strlen($normalized) > 100) ? '1' : '0'));
                             if ($normalized && strlen($normalized) > 100) {
                                 $imageData = $normalized;
                             }
@@ -214,6 +251,10 @@ class LabelGeneratorPlugin
                         continue;
                     }
 
+                    $finalSize = file_exists($filePath) ? filesize($filePath) : 'n/a';
+                    $gis = @getimagesize($filePath);
+                    $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] savedFilePath=' . $filePath . ' fileSize=' . $finalSize . ' getimagesize=' . json_encode($gis));
+
                     list($width, $height) = getimagesize($filePath);
 
                     $pdf = new \Zend_Pdf();
@@ -224,8 +265,10 @@ class LabelGeneratorPlugin
                     $pdfBinary = $pdf->render();
                     $content = $pdfBinary;
 
+                    $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] SUCCESS width=' . $width . ' height=' . $height . ' pdfBytes=' . strlen($pdfBinary));
+
                 } catch (\Exception $e) {
-                    $this->_helper->log(__('Error procesando la imagen: ') . $e->getMessage(), true);
+                    $this->_helper->log(__('Error procesando la imagen: ') . $e->getMessage() . ' trace=' . $e->getTraceAsString(), true);
                     continue;
                 } finally {
                     if (file_exists($filePath)) {

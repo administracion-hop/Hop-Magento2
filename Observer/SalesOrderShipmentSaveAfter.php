@@ -93,6 +93,9 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 $this->helper->log('[ShipmentSaveAfter] EXIT: shippingMethod=' . $order->getShippingMethod(), true);
                 return;
             }
+
+            $this->removeDuplicateHopTracks($shipment);
+
             // Only proceed when all items are now shipped
             if ($order->canShip()) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: canShip=true (items still pending)', true);
@@ -155,6 +158,31 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             }
         } catch (\Exception $e) {
             $this->helper->log('SalesOrderShipmentSaveAfter: ' . $e->getMessage(), true);
+        }
+    }
+
+    /**
+     * Core LabelGenerator::create() adds its own track (same tracking number, different carrier
+     * code) whenever a Hop label is generated, on top of the one this observer already saved.
+     * Keep the first-saved track (lowest entity_id) and drop later duplicates by number.
+     */
+    private function removeDuplicateHopTracks($shipment)
+    {
+        $seenNumbers = [];
+        foreach ($shipment->getAllTracks() as $track) {
+            $number = $track->getTrackNumber();
+            if (!$number) {
+                continue;
+            }
+            if (isset($seenNumbers[$number])) {
+                try {
+                    $this->trackResource->delete($track);
+                } catch (\Exception $e) {
+                    $this->helper->log('removeDuplicateHopTracks: ' . $e->getMessage(), true);
+                }
+            } else {
+                $seenNumbers[$number] = true;
+            }
         }
     }
 

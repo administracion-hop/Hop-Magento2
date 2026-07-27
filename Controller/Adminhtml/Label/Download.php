@@ -254,21 +254,27 @@ class Download implements ActionInterface, HttpGetActionInterface
         $contentType = $this->detectContentType($fileContent);
         $originalFileContent = $fileContent;
 
+        $this->logger->info('[DEBUG][Download] downloaded bytes=' . strlen($fileContent) . ' detectedContentType=' . $contentType . ' first16bytesHex=' . bin2hex(substr($fileContent, 0, 16)) . ' filename=' . $filename);
+
         if ($this->isImageType($contentType)) {
             try {
                 $fileContent = $this->convertImageToPdf($fileContent);
                 $filename = $this->ensurePdfExtension($filename);
                 $contentType = 'application/pdf';
+                $this->logger->info('[DEBUG][Download] convertImageToPdf SUCCESS pdfBytes=' . strlen($fileContent) . ' pdfSignatureOk=' . (stripos($fileContent, '%PDF-') === 0 ? '1' : '0'));
             } catch (\Exception $e) {
                 $this->logger->warning(
                     'Failed to convert image to PDF, downloading original file instead',
                     [
                         'filename' => $filename,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
                     ]
                 );
                 $fileContent = $originalFileContent;
             }
+        } else {
+            $this->logger->info('[DEBUG][Download] contentType not recognized as image, serving as-is: ' . $contentType);
         }
 
         return $this->fileFactory->create(
@@ -333,10 +339,17 @@ class Download implements ActionInterface, HttpGetActionInterface
 
             list($width, $height, $imageType) = $imageInfo;
 
+            $this->logger->info('[DEBUG][Download::convertImageToPdf] width=' . $width . ' height=' . $height . ' imageType=' . $imageType . ' channels=' . ($imageInfo['channels'] ?? 'n/a') . ' bits=' . ($imageInfo['bits'] ?? 'n/a'));
+
             $tmpJpegPath = $tmpDir->getAbsolutePath('hop_label_' . uniqid() . '.jpg');
             $this->convertToJpeg($tmpImagePath, $tmpJpegPath, $imageType);
 
+            $jpegInfo = @getimagesize($tmpJpegPath);
+            $this->logger->info('[DEBUG][Download::convertImageToPdf] after convertToJpeg fileSize=' . (file_exists($tmpJpegPath) ? filesize($tmpJpegPath) : 'n/a') . ' getimagesize=' . json_encode($jpegInfo));
+
             $pdfContent = $this->createPdfWithZend($tmpJpegPath, $width, $height);
+
+            $this->logger->info('[DEBUG][Download::convertImageToPdf] final pdfBytes=' . strlen($pdfContent) . ' signature=' . bin2hex(substr($pdfContent, 0, 8)));
 
             return $pdfContent;
         } catch (\Exception $e) {

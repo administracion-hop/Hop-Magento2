@@ -93,7 +93,7 @@ define(
             if (lastHopRequest) {
                 lastHopRequest.abort();
             }
-            var thisRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
+            var thisRequest = $.ajax('/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/selected-point', {
                 method: 'GET',
                 success: function (response) {
                     if (lastHopRequest === thisRequest) lastHopRequest = null;
@@ -381,8 +381,16 @@ define(
                 // leave a "//" in the URL and fail to match the route at all. When only the
                 // mapping params are available, send a placeholder; the server ignores it
                 // and resolves the real zip code from regionId/provincia/distrito instead.
-                var pointsUrl = '/rest/V2/hop-envios/points/' + encodeURIComponent(zipcode || '0') + '/'
-                    + encodeURIComponent(countryCode);
+                //
+                // The store code segment is required too: a REST call without it (bare
+                // "/rest/V2/...") always resolves to the default store's website in Magento,
+                // regardless of which store view the shopper is actually on. That made
+                // PickupPointManagement::get() always load the *default store's* quote via
+                // Magento\Checkout\Model\Session - silently the wrong cart on any secondary
+                // website/store view. Same convention core uses in
+                // Magento_Checkout/js/model/url-builder.js.
+                var pointsUrl = '/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/points/'
+                    + encodeURIComponent(zipcode || '0') + '/' + encodeURIComponent(countryCode);
 
                 if (ubigeoParams) {
                     pointsUrl += '?' + ubigeoParams;
@@ -524,7 +532,7 @@ define(
                 var processors = [];
                 $('#points-maps-hop').addClass('loading-hop');
 
-                $.ajax('/rest/V1/hop-envios/estimate',
+                $.ajax('/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/estimate',
                     {
                         method: 'GET',
                         context: this,

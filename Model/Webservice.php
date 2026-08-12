@@ -869,9 +869,11 @@ class Webservice
         $paramSender['mail']      = $this->_helper->getStoreEmail($this->storeId);
         $params['sender'] = $paramSender;
 
-        // Build package array — one entry per Magento shipment (= one bulto)
+        // Build package array — one entry per Magento shipment (= one bulto).
+        // Set the order on each collection-loaded shipment so getOrderItem() can resolve correctly.
         $params['package'] = [];
         foreach ($shipments as $shipment) {
+            $shipment->setOrder($order);
             $pkgData = $this->_helper->getPackageDataForShipment($shipment, $this->storeId);
             $bultoDetails = [];
             foreach (['length', 'height', 'width'] as $sizeField) {
@@ -880,7 +882,7 @@ class Webservice
                 }
             }
             if ($sizeCategory && (empty($bultoDetails['width']) || empty($bultoDetails['length']) || empty($bultoDetails['height']))) {
-                $bultoDetails['size_category'] = $sizeCategory;
+                $bultoDetails['size_category'] = (int)$sizeCategory;
             }
             $bultoDetails['value']  = (string)$pkgData['value'];
             $bultoDetails['weight'] = $pkgData['weight'];
@@ -889,6 +891,7 @@ class Webservice
 
         $postFields = json_encode($params);
         $this->_helper->log($params, false, true);
+        $this->_helper->log('[DEBUG][multibulto] JSON payload: ' . $postFields);
 
         $url = "api.hopenvios.com.ar/api/v1/shipping";
         $responseJson = $this->curl('POST', $url, [], $postFields);
@@ -904,8 +907,29 @@ class Webservice
             return false;
         }
 
+        $hasErrors = false;
         foreach ($responseArray as $i => $bulto) {
             if (!isset($shipments[$i])) {
+                continue;
+            }
+            if (!empty($bulto['error'])) {
+                $errorMsg = is_string($bulto['message'] ?? null)
+                    ? $bulto['message']
+                    : json_encode($bulto['message'] ?? 'unknown');
+                $this->_helper->log('[multibulto] bulto ' . $i . ' error: ' . $errorMsg, true);
+                $this->messageManager->addErrorMessage(
+                    __('Error en bulto %1 de Hop: %2', $i + 1, $errorMsg)
+                );
+                $this->hopEnviosShipmentRepository->saveForShipment(
+                    $hopEnvioId,
+                    (int)$shipments[$i]->getId(),
+                    $i,
+                    null,
+                    null,
+                    null,
+                    'failed'
+                );
+                $hasErrors = true;
                 continue;
             }
             $this->hopEnviosShipmentRepository->saveForShipment(
@@ -918,7 +942,7 @@ class Webservice
             );
         }
 
-        return true;
+        return !$hasErrors;
     }
 
     /**

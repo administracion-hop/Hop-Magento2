@@ -73,7 +73,8 @@ class HopEnviosShipmentRepository
         int $bultoIndex,
         ?string $shippingId,
         ?string $trackingNro,
-        ?string $labelUrl
+        ?string $labelUrl,
+        string $status = 'completed'
     ): HopEnviosShipment {
         $record = $this->factory->create();
         $record->setHopEnvioId($hopEnvioId);
@@ -82,7 +83,7 @@ class HopEnviosShipmentRepository
         $record->setShippingId($shippingId);
         $record->setTrackingNro($trackingNro);
         $record->setLabelUrl($labelUrl);
-        $record->setStatus('completed');
+        $record->setStatus($status);
         $this->resource->save($record);
         return $record;
     }

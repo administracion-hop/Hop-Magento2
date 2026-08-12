@@ -490,9 +490,6 @@ class Data extends AbstractHelper
             if ($orderItem->getProductType() === 'configurable') {
                 continue;
             }
-            if ($orderItem->getParentItem()) {
-                continue;
-            }
             $_product = $orderItem->getProduct();
             if (!$_product) {
                 continue;
@@ -509,8 +506,10 @@ class Data extends AbstractHelper
             $hopAnchoTotal[] = (int)$_product->getResource()
                 ->getAttributeRawValue($_product->getId(), $this->getMeasureCode('ancho', $storeId), $_product->getStoreId()) * $qty;
 
-            $weightTotal += ($_product->getWeight() * 1000) * $qty;
-            $totalPrice += $_product->getFinalPrice() * $qty;
+            // For configurable children price/weight live on the parent order item, not the child.
+            $priceSource = $orderItem->getParentItem() ?: $orderItem;
+            $weightTotal += ($priceSource->getWeight() * 1000) * $qty;
+            $totalPrice += $priceSource->getPrice() * $qty;
         }
 
         return [

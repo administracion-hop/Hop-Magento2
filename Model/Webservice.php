@@ -685,7 +685,7 @@ class Webservice
         if ($shippingAddress && $shippingAddress->getCountryId()){
             $params['country'] = $shippingAddress->getCountryId();
         } else {
-            $params['country'] = $this->_helper->getStoreCountry() ?: 'AR';
+            $params['country'] = $this->_helper->getStoreCountry($this->storeId) ?: 'AR';
         }
         if ($effectiveZipCode) {
             $params['zip_code'] = $effectiveZipCode;
@@ -741,7 +741,6 @@ class Webservice
         $paramSender['mail'] = $this->_helper->getStoreEmail($this->storeId);
         $paramSender['zip_code'] = $this->_helper->getOriginZipcode($this->storeId);
         $params['sender'] = $paramSender;
-        $params['country'] = $this->_helper->getStoreCountry($this->storeId) ?: 'AR';
 
         $postFields = json_encode($params);
 

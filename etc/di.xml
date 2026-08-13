@@ -10,6 +10,19 @@
     <preference for="Magento\Sales\Block\Order\Info" type="Hop\Envios\Block\Order\Info" />
     <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
         <plugin name="hop_envios_layout_processor" type="Hop\Envios\Plugin\Checkout\LayoutProcessorPlugin" sortOrder="10"/>
+        <plugin name="hop_envios_ubigeo_layout_processor" type="Hop\Envios\Plugin\Checkout\UbigeoAddressAttributesLayoutProcessorPlugin" sortOrder="20"/>
+    </type>
+    <type name="Magento\Quote\Model\Quote\Address\CustomAttributeListInterface">
+        <plugin name="hop_envios_ubigeo_quote_address_custom_attribute_list" type="Hop\Envios\Plugin\Quote\Address\UbigeoCustomAttributeListPlugin"/>
+    </type>
+    <type name="Magento\Quote\Model\Quote\Address">
+        <plugin name="hop_envios_ubigeo_quote_address_flatten_custom_attributes" type="Hop\Envios\Plugin\Quote\Address\UbigeoFlattenCustomAttributesPlugin"/>
+    </type>
+    <type name="Magento\Quote\Model\Quote\Address\ToOrderAddress">
+        <plugin name="hop_envios_ubigeo_quote_address_to_order_address" type="Hop\Envios\Plugin\Quote\Address\UbigeoToOrderAddressPlugin"/>
+    </type>
+    <type name="Magento\Checkout\Model\ShippingInformationManagement">
+        <plugin name="hop_envios_ubigeo_shipping_information_management" type="Hop\Envios\Plugin\Checkout\UbigeoShippingInformationManagementPlugin"/>
     </type>
     <type name="Magento\Shipping\Model\Shipping\LabelGenerator">
         <plugin name="hop_envios_label_generator" type="Hop\Envios\Plugin\Shipping\LabelGeneratorPlugin" />

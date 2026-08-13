@@ -1,0 +1,85 @@
+<?php
+/** @var \Hop\Envios\Block\Adminhtml\System\Config\PeruAddressAttributesButton $block */
+?>
+<?php if (!$block->isUbigeoImported()): ?>
+    <?php // Nothing to map the new attributes to until the Ubigeo table itself is imported. ?>
+<?php elseif ($block->isCreated()): ?>
+    <div id="hop-peru-address-attributes">
+        <?= $block->escapeHtml(__('Campos de Distrito y Provincia creados y seleccionados.')) ?>
+        <div style="margin-top: 10px;">
+            <?= $block->getRevertButtonHtml() ?>
+            <span id="hop-peru-address-attributes-message" style="margin-left: 10px;"></span>
+        </div>
+    </div>
+    <script type="text/javascript">
+        require(['jquery', 'mage/translate'], function ($) {
+            'use strict';
+
+            $('#hop_revert_peru_address_attributes_button').on('click', function (event) {
+                event.preventDefault();
+
+                var $button = $(this),
+                    $message = $('#hop-peru-address-attributes-message');
+
+                $button.prop('disabled', true);
+                $message.text($.mage.__('Revirtiendo...')).css('color', '');
+
+                $.ajax({
+                    url: <?= /* @noEscape */ json_encode($block->getRevertAjaxUrl()) ?>,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        form_key: window.FORM_KEY
+                    }
+                }).done(function (response) {
+                    $message.text(response.message).css('color', response.error ? 'red' : 'green');
+                    if (!response.error) {
+                        window.location.reload();
+                    }
+                }).fail(function () {
+                    $message.text($.mage.__('Ocurrió un error inesperado.')).css('color', 'red');
+                }).always(function () {
+                    $button.prop('disabled', false);
+                });
+            });
+        });
+    </script>
+<?php else: ?>
+    <div id="hop-peru-address-attributes">
+        <?= $block->getCreateButtonHtml() ?>
+        <span id="hop-peru-address-attributes-message" style="margin-left: 10px;"></span>
+    </div>
+    <script type="text/javascript">
+        require(['jquery', 'mage/translate'], function ($) {
+            'use strict';
+
+            $('#hop_create_peru_address_attributes_button').on('click', function (event) {
+                event.preventDefault();
+
+                var $button = $(this),
+                    $message = $('#hop-peru-address-attributes-message');
+
+                $button.prop('disabled', true);
+                $message.text($.mage.__('Creando...')).css('color', '');
+
+                $.ajax({
+                    url: <?= /* @noEscape */ json_encode($block->getCreateAjaxUrl()) ?>,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        form_key: window.FORM_KEY
+                    }
+                }).done(function (response) {
+                    $message.text(response.message).css('color', response.error ? 'red' : 'green');
+                    if (!response.error) {
+                        window.location.reload();
+                    }
+                }).fail(function () {
+                    $message.text($.mage.__('Ocurrió un error inesperado.')).css('color', 'red');
+                }).always(function () {
+                    $button.prop('disabled', false);
+                });
+            });
+        });
+    </script>
+<?php endif; ?>

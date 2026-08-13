@@ -452,12 +452,12 @@ class Webservice
     }
 
     /**
-     * @param integer $zipCode
-     * @param string|null $countryCode
-     * @param bool $forceFromApi
+     * @param string $zipCode Numeric zip code string (may have leading zeros, e.g. "010112")
+     * @param string|null $countryCode ISO 3166-1 alpha-2 country code; defaults to store country or 'AR'
+     * @param bool $forceFromApi Skip cached DB result and always hit the API
      * @return \stdClass|null
      */
-    public function getPickupPoints($zipCode, $countryCode = null, $forceFromApi = false)
+    public function getPickupPoints(string $zipCode, ?string $countryCode = null, bool $forceFromApi = false)
     {
         $this->ensureInitialized();
         $point = null;
@@ -600,7 +600,7 @@ class Webservice
      * @param array $package
      * @param $sellerCode
      * @param $hopPointId
-     * @return false
+     * @return float|false
      */
     public function estimatePrice($originZipCode, $destinyZipCode, $sellerCode, $hopPointId, $shippingType = 'E', $package = [])
     {
@@ -635,8 +635,8 @@ class Webservice
         $response = $this->curl("GET", "api.hopenvios.com.ar/api/v1/pricing/estimate", $queryParams);
         $responseObject = json_decode($response);
 
-        if (isset($responseObject->data->amount)) {
-            return $responseObject->data->amount;
+        if (isset($responseObject->data->amount) && is_numeric($responseObject->data->amount)) {
+            return (float)$responseObject->data->amount;
         } else {
             if (!empty($responseObject->errors) && is_array($responseObject->errors)) {
                 $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
@@ -677,12 +677,18 @@ class Webservice
         $billingAddress = $order->getBillingAddress();
         $shippingAddress = $order->getShippingAddress();
 
+        $ubigeoValue = $this->_helper->getUbigeoFromAddress($shippingAddress, $this->storeId);
+        $effectiveZipCode = $ubigeoValue ?: ($shippingAddress ? $shippingAddress->getPostcode() : null);
+
         $params = [];
 
         if ($shippingAddress && $shippingAddress->getCountryId()){
             $params['country'] = $shippingAddress->getCountryId();
         } else {
-            $params['country'] = $this->_helper->getStoreCountry() ?: 'AR';
+            $params['country'] = $this->_helper->getStoreCountry($this->storeId) ?: 'AR';
+        }
+        if ($effectiveZipCode) {
+            $params['zip_code'] = $effectiveZipCode;
         }
         $params['shipping_type'] = $shippingType;
         $params['reference_id'] = $sellerCode . '-' . $order->getIncrementId();
@@ -733,6 +739,7 @@ class Webservice
         $paramSender['id_number'] = '';
         $paramSender['phone'] = '';
         $paramSender['mail'] = $this->_helper->getStoreEmail($this->storeId);
+        $paramSender['zip_code'] = $this->_helper->getOriginZipcode($this->storeId);
         $params['sender'] = $paramSender;
 
         $postFields = json_encode($params);

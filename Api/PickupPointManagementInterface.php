@@ -14,11 +14,18 @@ interface PickupPointManagementInterface
     /**
      * Return hop points.
      *
+     * $regionId/$provincia/$distrito are optional overrides sent by the frontend when it
+     * already has the live-typed address on hand (quote.shippingAddress()), since the
+     * checkout session's quote address is not yet persisted at this point in the flow.
+     *
      * @param string $zipCode
      * @param string|null $countryCode
+     * @param int|null $regionId
+     * @param string|null $provincia
+     * @param string|null $distrito
      * @return string
      */
-    public function get($zipCode, $countryCode = null);
+    public function get($zipCode, $countryCode = null, $regionId = null, $provincia = null, $distrito = null);
 
     /**
      * Saves the selected pickup point data in session and triggers rate recalculation.

@@ -2,6 +2,7 @@
 namespace Hop\Envios\Model;
 
 use Hop\Envios\Api\PickupPointManagementInterface;
+use Hop\Envios\Helper\Data as HopHelper;
 use Hop\Envios\Model\QuotePickupPointRepository;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
@@ -44,6 +45,11 @@ class PickupPointManagement implements PickupPointManagementInterface
     protected $quoteRepository;
 
     /**
+     * @var HopHelper
+     */
+    protected $helper;
+
+    /**
      * PickupPointManagement constructor.
      *
      * @param Session $checkoutSession
@@ -51,32 +57,73 @@ class PickupPointManagement implements PickupPointManagementInterface
      * @param Webservice $webservice
      * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param CartRepositoryInterface $quoteRepository
+     * @param HopHelper $helper
      */
     public function __construct(
         Session $checkoutSession,
         RequestInterface $request,
         Webservice $webservice,
         QuotePickupPointRepository $quotePickupPointRepository,
-        CartRepositoryInterface $quoteRepository
+        CartRepositoryInterface $quoteRepository,
+        HopHelper $helper
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->request = $request;
         $this->webservice = $webservice;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
         $this->quoteRepository = $quoteRepository;
+        $this->helper = $helper;
     }
 
     /**
      * Returns the available pickup points for the given zip code.
      *
+     * $regionId/$provincia/$distrito let the frontend pass the live-typed address
+     * directly (see Hop/Envios/view/frontend/web/js/view/hop.js::getHopPoints), since the
+     * checkout session's quote address is only persisted once shipping-information is
+     * saved - too late for the pickup-point picker, which opens earlier in the flow.
+     *
      * @api
      * @param string $zipCode
      * @param string|null $countryCode
+     * @param int|null $regionId
+     * @param string|null $provincia
+     * @param string|null $distrito
      * @return string
      */
-    public function get($zipCode, $countryCode = null)
+    public function get($zipCode, $countryCode = null, $regionId = null, $provincia = null, $distrito = null)
     {
-        if ($zipCode !== null && $zipCode !== '') {
+        $quote = $this->checkoutSession->getQuote();
+        $storeId = $quote && $quote->getStoreId() ? (int)$quote->getStoreId() : null;
+        $this->webservice->setStoreId($storeId);
+
+        if ($this->helper->isUbigeoConfigured($storeId)) {
+            $ubigeoValue = null;
+
+            if ($regionId && $provincia && $distrito) {
+                $ubigeoValue = $this->helper->getUbigeoFromDistritoProvinciaValues(
+                    (int)$regionId,
+                    $provincia,
+                    $distrito
+                );
+            }
+
+            if (!$ubigeoValue) {
+                $shippingAddress = $quote ? $quote->getShippingAddress() : null;
+                if ($shippingAddress) {
+                    $ubigeoValue = $this->helper->getUbigeoFromAddress($shippingAddress, $storeId);
+                }
+            }
+
+            if ($ubigeoValue) {
+                $zipCode = $ubigeoValue;
+            }
+        }
+
+        // '0' is the placeholder the frontend sends when it has no literal zip code and
+        // relies entirely on regionId/provincia/distrito (see hop.js::loadHopPoints). If the
+        // mapping lookup above didn't resolve a real ubigeo, treat it as no zip code at all.
+        if ($zipCode !== null && $zipCode !== '' && $zipCode !== '0') {
             $normalizedCountryCode = ($countryCode !== null && $countryCode !== '') ? $countryCode : null;
             return json_encode($this->webservice->getPickupPoints($zipCode, $normalizedCountryCode));
         }

@@ -52,9 +52,18 @@
                 <measure_attribute_alto>hop_alto</measure_attribute_alto>
                 <measure_attribute_largo>hop_largo</measure_attribute_largo>
                 <measure_attribute_ancho>hop_ancho</measure_attribute_ancho>
-                <label_size>S</label_size>
+                <modo_productivo>0</modo_productivo>
                 <pickup_points_api_version>v1</pickup_points_api_version>
+                <storage_code>DEPOSITO</storage_code>
+                <shipping_type>E</shipping_type>
+                <type_label>JPEG</type_label>
+                <label_size>S</label_size>
+                <days_offset>0</days_offset>
             </hop>
+            <hop_peru>
+                <ubigeo_field></ubigeo_field>
+                <ubigeo_source>field</ubigeo_source>
+            </hop_peru>
         </shipping>
     </default>
 </config>

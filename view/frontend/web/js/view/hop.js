@@ -40,6 +40,52 @@ define(
         var activeInfoWindow;
         var lastHopRequest;
 
+        /**
+         * address.customAttributes can be either a plain {code: value} map or an array of
+         * {attribute_code, value} pairs, depending on which code path built the address
+         * model (see Magento_Checkout/js/model/address-converter.js). Handle both.
+         *
+         * @param {Object|Array} customAttributes
+         * @param {String} code
+         * @return {String|null}
+         */
+        function getCustomAttributeValue(customAttributes, code) {
+            if (!customAttributes || !code) {
+                return null;
+            }
+
+            if (_.isArray(customAttributes)) {
+                var match = _.find(customAttributes, function (attribute) {
+                    return attribute && attribute['attribute_code'] === code;
+                });
+
+                return match ? match.value : null;
+            }
+
+            return customAttributes[code] || null;
+        }
+
+        /**
+         * Whether hop_data invalidation should compare against the customer's literal
+         * postcode. Outside Peru, postcode is always the right signal. In Peru it's only
+         * meaningful when ubigeo_source is "field" AND that configured field IS the
+         * postcode itself - in "mapping" mode (region + distrito/provincia) the customer's
+         * postcode has nothing to do with the pickup point's own zip code, so comparing
+         * them would wipe a valid selection on every address change.
+         *
+         * @param {String} countryId
+         * @return {Boolean}
+         */
+        function isPostcodeValidationApplicable(countryId) {
+            var hopConfig = window.checkoutConfig && window.checkoutConfig.hop;
+
+            if (countryId !== 'PE') {
+                return true;
+            }
+
+            return !!(hopConfig && hopConfig.ubigeo_source === 'field' && hopConfig.ubigeo_field === 'postcode');
+        }
+
         function fetchAndSetHopData(currentPostcode) {
             if (!currentPostcode) {
                 return;
@@ -47,7 +93,7 @@ define(
             if (lastHopRequest) {
                 lastHopRequest.abort();
             }
-            var thisRequest = $.ajax('/rest/V1/hop-envios/selected-point', {
+            var thisRequest = $.ajax('/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/selected-point', {
                 method: 'GET',
                 success: function (response) {
                     if (lastHopRequest === thisRequest) lastHopRequest = null;
@@ -188,7 +234,9 @@ define(
                 quote.shippingAddress.subscribe(function (newAddress) {
                     if (!newAddress) return;
 
-                    if (window.checkoutConfig.quoteData.hop_data) {
+                    if (isPostcodeValidationApplicable(newAddress.countryId)
+                        && window.checkoutConfig.quoteData.hop_data
+                    ) {
                         try {
                             let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
                             if (hopData.hopPointPostcode != newAddress.postcode) {
@@ -212,12 +260,17 @@ define(
                             continue;
                         }
                         let shippingAddress = quote.shippingAddress();
-                        if (shippingAddress){
-                            if (window.checkoutConfig.quoteData.hop_data) {
+                        if (shippingAddress
+                            && isPostcodeValidationApplicable(shippingAddress.countryId)
+                            && window.checkoutConfig.quoteData.hop_data
+                        ) {
+                            try {
                                 let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
                                 if (hopData.hopPointPostcode != shippingAddress.postcode){
                                     window.checkoutConfig.quoteData.hop_data = null;
                                 }
+                            } catch (e) {
+                                window.checkoutConfig.quoteData.hop_data = null;
                             }
                         }
                         if (!rate.available) {
@@ -252,9 +305,62 @@ define(
             initMap: function () {
                 map = GoogleMaps.init();
             },
+
+            /**
+             * Builds the regionId/provincia/distrito query string for the pickup-points
+             * endpoint, read straight from the live (not-yet-persisted) shippingAddress
+             * model, since the checkout session's quote address has nothing until
+             * shipping-information is saved (see PickupPointManagement::get()).
+             *
+             * @param {Object} shippingAddress
+             * @return {String|null}
+             */
+            getUbigeoOverrideParams: function (shippingAddress) {
+                var hopConfig = window.checkoutConfig && window.checkoutConfig.hop;
+
+                if (!shippingAddress || !hopConfig || hopConfig.ubigeo_source !== 'mapping') {
+                    return null;
+                }
+
+                var regionId = shippingAddress.regionId;
+                var provincia = getCustomAttributeValue(
+                    shippingAddress.customAttributes,
+                    hopConfig.ubigeo_provincia_attribute
+                );
+                var distrito = getCustomAttributeValue(
+                    shippingAddress.customAttributes,
+                    hopConfig.ubigeo_distrito_attribute
+                );
+
+                if (!regionId || !provincia || !distrito) {
+                    return null;
+                }
+
+                return $.param({
+                    regionId: regionId,
+                    provincia: provincia,
+                    distrito: distrito
+                });
+            },
+
             getHopPoints: function () {
                 $('#points-maps-hop').html("");
+
+                // The modal's "openModal" call kicks off a CSS transition; the container
+                // still has zero size until it finishes. Initializing google.maps.Map before
+                // then breaks its internal IntersectionObserver/ResizeObserver setup
+                // ("parameter 1 is not of type 'Element'"). "modalopened" (mage.modal's
+                // _trigger('opened'), fired after options.transitionEvent) guarantees the
+                // container is actually visible/sized first.
+                $("#hop-popup-modal").off('modalopened.hopPoints').one('modalopened.hopPoints', _.bind(function () {
+                    this.loadHopPoints();
+                }, this));
+                $("#hop-popup-modal").modal("openModal");
+            },
+
+            loadHopPoints: function () {
                 map = GoogleMaps.init();
+
                 var shippingAddress = quote.shippingAddress();
                 var zipcode = '';
                 var countryCode = 'AR';
@@ -262,10 +368,35 @@ define(
                     zipcode = shippingAddress.postcode;
                     countryCode = shippingAddress.countryId || 'AR';
                 }
-                if (!zipcode) {
+
+                var ubigeoParams = this.getUbigeoOverrideParams(shippingAddress);
+
+                // In "mapping" mode the address is resolved via region/provincia/distrito,
+                // not a literal zip code - only bail out if we have neither.
+                if (!zipcode && !ubigeoParams) {
                     return;
                 }
-                $.ajax('/rest/V2/hop-envios/points/' + encodeURIComponent(zipcode) + '/' + encodeURIComponent(countryCode),
+
+                // :zipCode is a required path segment in webapi.xml - an empty value would
+                // leave a "//" in the URL and fail to match the route at all. When only the
+                // mapping params are available, send a placeholder; the server ignores it
+                // and resolves the real zip code from regionId/provincia/distrito instead.
+                //
+                // The store code segment is required too: a REST call without it (bare
+                // "/rest/V2/...") always resolves to the default store's website in Magento,
+                // regardless of which store view the shopper is actually on. That made
+                // PickupPointManagement::get() always load the *default store's* quote via
+                // Magento\Checkout\Model\Session - silently the wrong cart on any secondary
+                // website/store view. Same convention core uses in
+                // Magento_Checkout/js/model/url-builder.js.
+                var pointsUrl = '/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/points/'
+                    + encodeURIComponent(zipcode || '0') + '/' + encodeURIComponent(countryCode);
+
+                if (ubigeoParams) {
+                    pointsUrl += '?' + ubigeoParams;
+                }
+
+                $.ajax(pointsUrl,
                     {
                         method: 'GET',
                         context: this,
@@ -373,8 +504,6 @@ define(
                             console.log(status);
                         }
                     });
-
-                $("#hop-popup-modal").modal("openModal");
             },
             selectHopPoint: function () {
                 var selectedPointHop = $('.selected-point-hop');
@@ -403,7 +532,7 @@ define(
                 var processors = [];
                 $('#points-maps-hop').addClass('loading-hop');
 
-                $.ajax('/rest/V1/hop-envios/estimate',
+                $.ajax('/rest/' + window.checkoutConfig.storeCode + '/V2/hop-envios/estimate',
                     {
                         method: 'GET',
                         context: this,

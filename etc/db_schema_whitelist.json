@@ -9,6 +9,18 @@
             "hop_data": true
         }
     },
+    "quote_address": {
+        "column": {
+            "hop_ubigeo_provincia": true,
+            "hop_ubigeo_distrito": true
+        }
+    },
+    "sales_order_address": {
+        "column": {
+            "hop_ubigeo_provincia": true,
+            "hop_ubigeo_distrito": true
+        }
+    },
     "hop_tokens": {
         "column": {
             "id": true,
@@ -96,6 +108,36 @@
         "index": {
             "HOP_ENVIOS_SELECTED_PICKUP_POINT_PICKUP_POINT_ID": true,
             "HOP_ENVIOS_SELECTED_PICKUP_POINT_ORIGINAL_PICKUP_POINT_ID": true
+        }
+    },
+    "hop_peru_provincia": {
+        "column": {
+            "provincia_id": true,
+            "name": true,
+            "region_id": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_PERU_PROVINCIA_NAME_REGION_ID": true
+        },
+        "index": {
+            "HOP_PERU_PROVINCIA_REGION_ID": true
+        }
+    },
+    "hop_peru_distrito": {
+        "column": {
+            "distrito_id": true,
+            "provincia_id": true,
+            "name": true,
+            "ubigeo": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_PERU_DISTRITO_UBIGEO": true,
+            "HOP_PERU_DISTRITO_PROVINCIA_ID_HOP_PERU_PROVINCIA_PROVINCIA_ID": true
+        },
+        "index": {
+            "HOP_PERU_DISTRITO_PROVINCIA_ID": true
         }
     }
 }

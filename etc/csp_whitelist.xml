@@ -14,7 +14,8 @@
         </policy>
         <policy id="img-src">
             <values>
-                <value id="hop-points" type="host">*.adobedtm.com</value>
+                <value id="hop-googleapis" type="host">https://maps.googleapis.com</value>
+                <value id="hop-gstatic" type="host">https://*.gstatic.com</value>
             </values>
         </policy>
     </policies>

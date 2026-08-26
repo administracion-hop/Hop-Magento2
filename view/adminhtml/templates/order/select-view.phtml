@@ -1,6 +1,9 @@
 <div class="modal">
     <h1>Seleccionar un local HOP</h1>
     <p>Código Postal <?php echo $block->getZipcode(); ?></p>
+    <?php if ($block->getEffectiveZipCode() !== $block->getZipcode()): ?>
+        <p>Ubigeo <?php echo $block->getEffectiveZipCode(); ?></p>
+    <?php endif; ?>
     <p>Advertencia: <?php echo $block->getWarning(); ?></p>
     <div id="selector-maps-hop">
         <div id="points-maps-hop"></div>

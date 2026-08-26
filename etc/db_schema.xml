@@ -7,6 +7,14 @@
     <table name="sales_order">
         <column xsi:type="text" name="hop_data" nullable="true"/>
     </table>
+    <table name="quote_address">
+        <column xsi:type="varchar" name="hop_ubigeo_provincia" nullable="true" length="255" comment="Provincia (Perú)"/>
+        <column xsi:type="varchar" name="hop_ubigeo_distrito" nullable="true" length="255" comment="Distrito (Perú)"/>
+    </table>
+    <table name="sales_order_address">
+        <column xsi:type="varchar" name="hop_ubigeo_provincia" nullable="true" length="255" comment="Provincia (Perú)"/>
+        <column xsi:type="varchar" name="hop_ubigeo_distrito" nullable="true" length="255" comment="Distrito (Perú)"/>
+    </table>
     <table name="hop_tokens">
         <column xsi:type="int" name="id" padding="10" unsigned="true" nullable="false" identity="true" />
         <column xsi:type="varchar" name="token_type" nullable="true" length="255"/>
@@ -147,6 +155,48 @@
 
         <index referenceId="HOP_ENVIOS_SHIPMENT_HOP_ENVIO_ID" indexType="btree">
             <column name="hop_envio_id"/>
+        </index>
+    </table>
+
+    <table name="hop_peru_provincia" resource="default" engine="innodb" comment="Hop Peru Provincias">
+        <column xsi:type="int" name="provincia_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Provincia ID"/>
+        <column xsi:type="varchar" name="name" length="255" nullable="false" comment="Nombre de la provincia"/>
+        <column xsi:type="int" name="region_id" padding="10" unsigned="true" nullable="false" comment="Magento Region ID (departamento)"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="provincia_id"/>
+        </constraint>
+
+        <constraint xsi:type="unique" referenceId="HOP_PERU_PROVINCIA_NAME_REGION_ID">
+            <column name="name"/>
+            <column name="region_id"/>
+        </constraint>
+
+        <index referenceId="HOP_PERU_PROVINCIA_REGION_ID" indexType="btree">
+            <column name="region_id"/>
+        </index>
+    </table>
+
+    <table name="hop_peru_distrito" resource="default" engine="innodb" comment="Hop Peru Distritos">
+        <column xsi:type="int" name="distrito_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Distrito ID"/>
+        <column xsi:type="int" name="provincia_id" padding="10" unsigned="true" nullable="false" comment="Provincia ID"/>
+        <column xsi:type="varchar" name="name" length="255" nullable="false" comment="Nombre del distrito"/>
+        <column xsi:type="varchar" name="ubigeo" length="10" nullable="false" comment="Código Ubigeo"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="distrito_id"/>
+        </constraint>
+
+        <constraint xsi:type="unique" referenceId="HOP_PERU_DISTRITO_UBIGEO">
+            <column name="ubigeo"/>
+        </constraint>
+
+        <constraint xsi:type="foreign" referenceId="HOP_PERU_DISTRITO_PROVINCIA_ID_HOP_PERU_PROVINCIA_PROVINCIA_ID"
+                    table="hop_peru_distrito" column="provincia_id"
+                    referenceTable="hop_peru_provincia" referenceColumn="provincia_id" onDelete="CASCADE"/>
+
+        <index referenceId="HOP_PERU_DISTRITO_PROVINCIA_ID" indexType="btree">
+            <column name="provincia_id"/>
         </index>
     </table>
 

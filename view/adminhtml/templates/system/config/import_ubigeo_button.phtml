@@ -1,0 +1,46 @@
+<?php
+/** @var \Hop\Envios\Block\Adminhtml\System\Config\ImportUbigeoButton $block */
+?>
+<?php if ($block->isImported()): ?>
+    <div id="hop-import-peru-ubigeo">
+        <?= $block->escapeHtml(__('El Ubigeo de Perú ya fue importado.')) ?>
+    </div>
+<?php else: ?>
+<div id="hop-import-peru-ubigeo">
+    <?= $block->getButtonHtml() ?>
+    <span id="hop-import-peru-ubigeo-message" style="margin-left: 10px;"></span>
+</div>
+<script type="text/javascript">
+    require(['jquery', 'mage/translate'], function ($) {
+        'use strict';
+
+        $('#hop_import_peru_ubigeo_button').on('click', function (event) {
+            event.preventDefault();
+
+            var $button = $(this),
+                $message = $('#hop-import-peru-ubigeo-message');
+
+            $button.prop('disabled', true);
+            $message.text($.mage.__('Importando...')).css('color', '');
+
+            $.ajax({
+                url: <?= /* @noEscape */ json_encode($block->getAjaxUrl()) ?>,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    form_key: window.FORM_KEY
+                }
+            }).done(function (response) {
+                $message.text(response.message).css('color', response.error ? 'red' : 'green');
+                if (!response.error) {
+                    window.location.reload();
+                }
+            }).fail(function () {
+                $message.text($.mage.__('Ocurrió un error inesperado al importar el Ubigeo.')).css('color', 'red');
+            }).always(function () {
+                $button.prop('disabled', false);
+            });
+        });
+    });
+</script>
+<?php endif; ?>

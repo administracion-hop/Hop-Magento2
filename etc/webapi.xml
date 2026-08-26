@@ -12,13 +12,33 @@
             <resource ref="anonymous" />
         </resources>
     </route>
+    <!--
+        V1 kept as-is for backward compatibility with any existing caller of the bare
+        "/rest/V1/..." form - that form has no store-code segment, so Magento resolves it
+        against the default store/website only. V2 is what Hop_Envios/js/view/hop.js now
+        calls, always prefixed with the shopper's actual store code
+        ("/rest/:storeCode/V2/..."), so Magento\Checkout\Model\Session::getQuote() resolves
+        the quote from the correct store/website instead of always defaulting to store 1.
+    -->
     <route url="/V1/hop-envios/estimate" method="GET">
         <service class="Hop\Envios\Api\PickupPointManagementInterface" method="estimate"/>
         <resources>
             <resource ref="anonymous" />
         </resources>
     </route>
+    <route url="/V2/hop-envios/estimate" method="GET">
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="estimate"/>
+        <resources>
+            <resource ref="anonymous" />
+        </resources>
+    </route>
     <route url="/V1/hop-envios/selected-point" method="GET">
+        <service class="Hop\Envios\Api\PickupPointManagementInterface" method="getSelectedPoint"/>
+        <resources>
+            <resource ref="anonymous" />
+        </resources>
+    </route>
+    <route url="/V2/hop-envios/selected-point" method="GET">
         <service class="Hop\Envios\Api\PickupPointManagementInterface" method="getSelectedPoint"/>
         <resources>
             <resource ref="anonymous" />

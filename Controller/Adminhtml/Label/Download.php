@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Hop\Envios\Controller\Adminhtml\Label;
 
 use Hop\Envios\Model\HopEnviosRepository;
+use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\App\ActionInterface;
 use Magento\Framework\App\Filesystem\DirectoryList;
@@ -54,6 +55,11 @@ class Download implements ActionInterface, HttpGetActionInterface
     private HopEnviosRepository $hopEnviosRepository;
 
     /**
+     * @var HopEnviosShipmentRepository
+     */
+    private HopEnviosShipmentRepository $hopEnviosShipmentRepository;
+
+    /**
      * @var Curl
      */
     private Curl $curl;
@@ -99,6 +105,7 @@ class Download implements ActionInterface, HttpGetActionInterface
      * @param HttpRequest $request
      * @param ResultFactory $resultFactory
      * @param HopEnviosRepository $hopEnviosRepository
+     * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      * @param Curl $curl
      * @param LoggerInterface $logger
      * @param FileFactory $fileFactory
@@ -112,6 +119,7 @@ class Download implements ActionInterface, HttpGetActionInterface
         HttpRequest $request,
         ResultFactory $resultFactory,
         HopEnviosRepository $hopEnviosRepository,
+        HopEnviosShipmentRepository $hopEnviosShipmentRepository,
         Curl $curl,
         LoggerInterface $logger,
         FileFactory $fileFactory,
@@ -124,6 +132,7 @@ class Download implements ActionInterface, HttpGetActionInterface
         $this->request = $request;
         $this->resultFactory = $resultFactory;
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
         $this->curl = $curl;
         $this->logger = $logger;
         $this->fileFactory = $fileFactory;
@@ -146,15 +155,16 @@ class Download implements ActionInterface, HttpGetActionInterface
             return $this->createRedirectResponse();
         }
 
+        $shipmentId = (int) $this->request->getParam('shipment_id');
         $orderId = (int) $this->request->getParam('order_id');
 
-        if (!$orderId) {
+        if (!$shipmentId && !$orderId) {
             $this->messageManager->addErrorMessage(__('Order ID is required.'));
             return $this->createRedirectResponse();
         }
 
         try {
-            $labelUrl = $this->getLabelUrl($orderId);
+            $labelUrl = $shipmentId ? $this->getLabelUrlForShipment($shipmentId) : $this->getLabelUrl($orderId);
 
             if (empty($labelUrl)) {
                 $this->messageManager->addErrorMessage(
@@ -171,6 +181,7 @@ class Download implements ActionInterface, HttpGetActionInterface
                 'Error downloading Hop label',
                 [
                     'order_id' => $orderId,
+                    'shipment_id' => $shipmentId,
                     'exception' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]
@@ -180,6 +191,18 @@ class Download implements ActionInterface, HttpGetActionInterface
             );
             return $this->createRedirectResponse();
         }
+    }
+
+    /**
+     * Get label URL for one specific shipment (multibulto-aware)
+     *
+     * @param int $shipmentId
+     * @return string
+     */
+    private function getLabelUrlForShipment(int $shipmentId): string
+    {
+        $record = $this->hopEnviosShipmentRepository->getByShipmentId($shipmentId);
+        return $record ? (string)($record->getLabelUrl() ?? '') : '';
     }
 
     /**

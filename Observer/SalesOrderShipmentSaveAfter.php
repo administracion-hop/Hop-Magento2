@@ -5,6 +5,7 @@ namespace Hop\Envios\Observer;
 use Hop\Envios\Helper\Data;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
+use Hop\Envios\Model\Shipping\NativeLabelGenerator;
 use Hop\Envios\Model\Webservice;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Sales\Model\Order\Shipment\TrackFactory;
@@ -48,6 +49,11 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      */
     protected $trackResource;
 
+    /**
+     * @var NativeLabelGenerator
+     */
+    protected $nativeLabelGenerator;
+
     public function __construct(
         Data $helper,
         HopEnviosRepository $hopEnviosRepository,
@@ -55,7 +61,8 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         Webservice $webservice,
         ShipmentCollectionFactory $shipmentCollectionFactory,
         TrackFactory $trackFactory,
-        TrackResource $trackResource
+        TrackResource $trackResource,
+        NativeLabelGenerator $nativeLabelGenerator
     ) {
         $this->helper = $helper;
         $this->hopEnviosRepository = $hopEnviosRepository;
@@ -64,6 +71,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         $this->shipmentCollectionFactory = $shipmentCollectionFactory;
         $this->trackFactory = $trackFactory;
         $this->trackResource = $trackResource;
+        $this->nativeLabelGenerator = $nativeLabelGenerator;
     }
 
     /**
@@ -109,31 +117,85 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 $hopEnvio->setIncrementId($order->getIncrementId());
                 $this->hopEnviosRepository->save($hopEnvio);
             }
-            // Guard: already processed (idempotency for subsequent saves like label writes)
-            if ($hopEnvio->getStatusShipment() === 'completed') {
-                $this->helper->log('[ShipmentSaveAfter] EXIT: status already completed');
-                return;
-            }
+            $hopEnvioId = (int)$hopEnvio->getEntityId();
+
+            // Idempotency guard, keyed per shipment instead of per order: a shipment that
+            // already has a hop_envios_shipment record was already sent to Hop (or explicitly
+            // marked unsupported below) and must not be resubmitted on a later save of the
+            // same shipment (e.g. when core writes the shipping label back onto it).
+            $existingRecords = $this->hopEnviosShipmentRepository->getByHopEnvioId($hopEnvioId);
+            $processedShipmentIds = array_map(
+                static function ($record) {
+                    return (int)$record->getShipmentId();
+                },
+                $existingRecords
+            );
 
             $shipments = array_values(
                 $this->shipmentCollectionFactory->create()
                     ->setOrderFilter($order)
                     ->getItems()
             );
-            $count = count($shipments);
+
+            $unprocessed = array_values(array_filter(
+                $shipments,
+                static function ($s) use ($processedShipmentIds) {
+                    return !in_array((int)$s->getId(), $processedShipmentIds, true);
+                }
+            ));
+
+            if (empty($unprocessed)) {
+                $this->helper->log('[ShipmentSaveAfter] EXIT: shipment already processed for this Hop envio');
+                return;
+            }
 
             $this->webservice->setStoreId($storeId);
 
-            if ($count === 1) {
+            // Hop creates one "envio" per order reference_id at dispatch time and exposes no
+            // endpoint to add bultos to an envio that was already created. So only the very
+            // first dispatch for this order (no per-shipment records yet) may call the API;
+            // any shipment that shows up afterwards can't be represented in Hop and must not
+            // silently inherit an earlier shipment's tracking number.
+            if (!empty($existingRecords)) {
+                foreach ($unprocessed as $i => $s) {
+                    $this->helper->log(
+                        '[ShipmentSaveAfter] shipment ' . $s->getId() . ' (order ' . $order->getId() . ')'
+                        . ' appeared after this order\'s Hop envio was already dispatched; Hop has no'
+                        . ' endpoint to add bultos afterwards. Marking as unsupported, no tracking assigned.',
+                        true
+                    );
+                    $this->hopEnviosShipmentRepository->saveForShipment(
+                        $hopEnvioId,
+                        (int)$s->getId(),
+                        count($existingRecords) + $i,
+                        null,
+                        null,
+                        null,
+                        'unsupported'
+                    );
+                }
+                return;
+            }
+
+            if (count($shipments) === 1) {
                 $result = $this->webservice->createShipping($order);
                 if (is_string($result) && $result !== '') {
                     $hopEnvio->setInfoHop($result);
                     $hopEnvio->setStatusShipment('completed');
                     $this->hopEnviosRepository->save($hopEnvio);
                     $infoHop = json_decode($result, true);
+                    $this->hopEnviosShipmentRepository->saveForShipment(
+                        $hopEnvioId,
+                        (int)$shipment->getId(),
+                        0,
+                        $infoHop['shipping_id'] ?? null,
+                        $infoHop['tracking_nro'] ?? null,
+                        $infoHop['label_url'] ?? null
+                    );
                     if (!empty($infoHop['tracking_nro'])) {
                         $this->addTrackToShipment($shipment, $infoHop['tracking_nro']);
                     }
+                    $this->nativeLabelGenerator->generate($shipment);
                 } elseif (is_array($result) && isset($result['error'])) {
                     $this->helper->log('Hop API error (single): ' . $result['error'], true);
                 }
@@ -151,6 +213,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                         if ($hopShipment && $hopShipment->getTrackingNro()) {
                             $this->addTrackToShipment($s, $hopShipment->getTrackingNro());
                         }
+                        $this->nativeLabelGenerator->generate($s);
                     }
                 } else {
                     $this->helper->log('Hop API error (multibulto) order: ' . $order->getId(), true);

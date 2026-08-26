@@ -11,6 +11,7 @@ use Magento\Shipping\Model\ShipmentNotifier;
 use Hop\Envios\Model\Carrier\Hop;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Model\HopEnviosRepository;
+use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 
 class GenarateShipment
 {
@@ -55,6 +56,11 @@ class GenarateShipment
      */
     protected $hopEnviosRepository;
 
+    /**
+     * @var ShipmentCollectionFactory
+     */
+    protected $shipmentCollectionFactory;
+
     const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
@@ -68,7 +74,8 @@ class GenarateShipment
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
         Hop $hopCarrier,
-        HopEnviosRepository $hopEnviosRepository
+        HopEnviosRepository $hopEnviosRepository,
+        ShipmentCollectionFactory $shipmentCollectionFactory
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -78,6 +85,7 @@ class GenarateShipment
         $this->shipmentNotifier = $shipmentNotifier;
         $this->hopCarrier = $hopCarrier;
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->shipmentCollectionFactory = $shipmentCollectionFactory;
     }
 
     /**
@@ -113,6 +121,13 @@ class GenarateShipment
      * Saves the Magento shipment first; the SalesOrderShipmentSaveAfter observer
      * then calls the Hop API synchronously and writes info_hop to DB.
      *
+     * Only acts on orders with zero existing shipments, so the one shipment it creates
+     * always covers every shippable item at once and the order ends up fully dispatched
+     * in that same action. If a shipment already exists (e.g. an admin is manually
+     * splitting the order into several), this cron must never create a competing one —
+     * it backs off permanently for that order (status_shipment stays 'pending', but the
+     * shipment-count guard keeps skipping it on every future run too).
+     *
      * @param \Hop\Envios\Model\HopEnvios $hopEnvio
      */
     protected function processOrder($hopEnvio)
@@ -121,6 +136,16 @@ class GenarateShipment
 
         if (!$order->getId() || !$order->canShip()) {
             $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
+            return;
+        }
+
+        $existingShipments = $this->shipmentCollectionFactory->create()
+            ->addFieldToFilter('order_id', $order->getId())
+            ->getSize();
+        if ($existingShipments > 0) {
+            $this->logger->info(
+                __('Orden %1 ya tiene envíos existentes (probablemente despacho manual en curso); cron no interviene.', $order->getId())
+            );
             return;
         }
 

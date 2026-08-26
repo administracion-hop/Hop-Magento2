@@ -96,4 +96,19 @@ class HopEnviosShipmentRepository
     {
         $this->resource->save($record);
     }
+
+    /**
+     * Records that were successfully dispatched to Hop (have a label to fetch) — the
+     * candidate set for the native shipping_label retry cron. Caller still has to check
+     * each shipment's own shipping_label, since this table doesn't know about that column.
+     *
+     * @return HopEnviosShipment[]
+     */
+    public function getCompletedWithLabel(): array
+    {
+        $collection = $this->collectionFactory->create();
+        $collection->addFieldToFilter('status', 'completed');
+        $collection->addFieldToFilter('label_url', ['notnull' => true]);
+        return array_values($collection->getItems());
+    }
 }

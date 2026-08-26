@@ -565,6 +565,18 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                     __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
                 );
             }
+        } elseif (!empty($this->hopEnviosShipmentRepository->getByHopEnvioId((int)$hopEnvio->getEntityId()))) {
+            // Other shipments of this envio already have their own per-shipment record but this
+            // one doesn't — it appeared after the envio was already dispatched to Hop (see the
+            // "unsupported" marking in SalesOrderShipmentSaveAfter) and must not silently inherit
+            // another shipment's tracking/label via the info_hop fallback below.
+            $this->_helper->log(
+                __('Error: Este envío no tiene registro propio en hop_envios_shipment.'),
+                true
+            );
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
+            );
         } else {
             // Single-shipment flow: fall back to info_hop
             $infoHop = json_decode($hopEnvio->getInfoHop(), true);

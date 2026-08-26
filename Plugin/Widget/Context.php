@@ -5,6 +5,7 @@ use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
 use Hop\Envios\Model\HopEnviosRepository;
+use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Magento\Framework\UrlInterface;
 use Hop\Envios\Model\OrderPickupPointRepository;
 
@@ -39,6 +40,11 @@ class Context
     protected $hopEnviosRepository;
 
     /**
+     * @var HopEnviosShipmentRepository
+     */
+    protected $hopEnviosShipmentRepository;
+
+    /**
      * @var OrderPickupPointRepository
      */
     protected $orderPickupPointRepository;
@@ -49,6 +55,7 @@ class Context
      * @param DataHop $helperHop
      * @param UrlInterface $urlInterface,
      * @param HopEnviosRepository $hopEnviosRepository
+     * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      * @param OrderPickupPointRepository $orderPickupPointRepository
      */
     public function __construct(
@@ -56,6 +63,7 @@ class Context
         DataHop $helperHop,
         UrlInterface $urlInterface,
         HopEnviosRepository $hopEnviosRepository,
+        HopEnviosShipmentRepository $hopEnviosShipmentRepository,
         OrderPickupPointRepository $orderPickupPointRepository
     )
     {
@@ -63,6 +71,7 @@ class Context
         $this->helperHop = $helperHop;
         $this->backendUrl = $urlInterface;
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
     }
 
@@ -83,43 +92,72 @@ class Context
             if ($order->getShippingMethod() === 'hop_hop')
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
-                $tracking_nro = '';
-                $baseUrl = '';
-                if ($hopEnvios) {
-                    $infoHop = $hopEnvios->getInfoHop();
-                    $infoHop = json_decode($infoHop ?? '');
-                    if (!empty($infoHop->label_url)) {
-                        if (substr_compare($infoHop->label_url, '.zpl', -4) === 0){
-                            $baseUrl = isset($infoHop->label_url) ? str_ireplace( 'http://', 'https://', $infoHop->label_url ) : '';
-                        } else {
-                            $baseUrl = $this->backendUrl->getUrl('hop/label/download',['order_id' => $orderId]);
-                        }
-                    }
+                // Multibulto orders (2+ shipments) never populate the order-level info_hop
+                // field — each shipment's tracking/label lives in its own hop_envios_shipment
+                // row instead. status_shipment is the only order-level signal that's reliable
+                // for both the single-shipment and multibulto paths.
+                $isDispatched = $hopEnvios && $hopEnvios->getStatusShipment() === 'completed';
 
-                    $tracking_nro = isset($infoHop->tracking_nro) ? $infoHop->tracking_nro : '';
-                }
+                if ($isDispatched) {
+                    $records = $this->hopEnviosShipmentRepository->getByHopEnvioId((int)$hopEnvios->getEntityId());
 
-                if (!empty($baseUrl)) {
-
-                    $buttonList->add(
-                        'descargar_etiqueta_hop',
-                        [
-                            'label'     => __('Descargar etiqueta HOP'),
-                            'onclick' => "setLocation('{$baseUrl}')",
-                            'class'     => 'primary hop-shipment-button'
-                        ]
-                    );
-                    if (!empty($tracking_nro)) {
-                        $trackingUrl = 'https://hopenvios.com.ar/segui-tu-envio?c='.$tracking_nro;
-
+                    if (count($records) > 1) {
+                        // Multibulto: several labels, no single one to put on the toolbar —
+                        // open the picker modal instead of stacking a button per shipment.
+                        $labelsUrl = $this->backendUrl->getUrl('hop/order/labels');
                         $buttonList->add(
-                            'estado_hop',
+                            'etiquetas_hop',
                             [
-                                'label'     => __('Estado HOP'),
-                                'onclick' => "window.open('".$trackingUrl."', '_blank')",
+                                'label'     => __('Etiquetas HOP'),
+                                'onclick' => "hopLabelsView.open('". $labelsUrl."', ".$orderId.")",
                                 'class'     => 'primary hop-shipment-button'
                             ]
                         );
+                    } else {
+                        // Single shipment: same one-off download/status buttons as before,
+                        // sourced from the per-shipment record if present, else the legacy
+                        // order-level info_hop (pre-hop_envios_shipment orders).
+                        if (!empty($records)) {
+                            $labelUrl = $records[0]->getLabelUrl();
+                            $trackingNro = $records[0]->getTrackingNro();
+                            $downloadParams = ['shipment_id' => (int)$records[0]->getShipmentId()];
+                        } else {
+                            $infoHop = json_decode($hopEnvios->getInfoHop() ?? '');
+                            $labelUrl = $infoHop->label_url ?? '';
+                            $trackingNro = $infoHop->tracking_nro ?? '';
+                            $downloadParams = ['order_id' => $orderId];
+                        }
+
+                        $baseUrl = '';
+                        if (!empty($labelUrl)) {
+                            if (substr_compare($labelUrl, '.zpl', -4) === 0) {
+                                $baseUrl = str_ireplace('http://', 'https://', $labelUrl);
+                            } else {
+                                $baseUrl = $this->backendUrl->getUrl('hop/label/download', $downloadParams);
+                            }
+                        }
+
+                        if (!empty($baseUrl)) {
+                            $buttonList->add(
+                                'descargar_etiqueta_hop',
+                                [
+                                    'label'     => __('Descargar etiqueta HOP'),
+                                    'onclick' => "setLocation('{$baseUrl}')",
+                                    'class'     => 'primary hop-shipment-button'
+                                ]
+                            );
+                            if (!empty($trackingNro)) {
+                                $trackingUrl = 'https://hopenvios.com.ar/segui-tu-envio?c=' . $trackingNro;
+                                $buttonList->add(
+                                    'estado_hop',
+                                    [
+                                        'label'     => __('Estado HOP'),
+                                        'onclick' => "window.open('".$trackingUrl."', '_blank')",
+                                        'class'     => 'primary hop-shipment-button'
+                                    ]
+                                );
+                            }
+                        }
                     }
                 } else {
                     $baseUrl = $this->backendUrl->getUrl('hop/order/view');

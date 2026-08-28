@@ -223,9 +223,16 @@ class LabelGeneratorPlugin
 
                     $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] curl httpCode=' . $curlHttpCode . ' contentType=' . $curlContentType . ' errno=' . $curlErrno . ' error=' . $curlError . ' bytesDownloaded=' . ($imageData !== false ? strlen($imageData) : 'false') . ' first16bytesHex=' . ($imageData !== false ? bin2hex(substr($imageData, 0, 16)) : 'n/a'));
 
-                    if ($imageData === false) {
-                        $this->_helper->log(__('Error descargando imagen desde: ') . $url, true);
-                        continue;
+                    // Hop's label_url routinely 403s for ~1 minute after dispatch while the file
+                    // propagates to S3/CloudFront. Must throw (not swallow) so the caller treats
+                    // this as a failed attempt and retries later — silently continuing here used
+                    // to leave $content as the raw URL, which combineLabelsPdf then turned into a
+                    // "successful" 0-page PDF that permanently poisoned the retry cron.
+                    if ($imageData === false || $curlHttpCode !== 200) {
+                        $this->_helper->log(__('Error descargando imagen desde: ') . $url . ' httpCode=' . $curlHttpCode, true);
+                        throw new \Magento\Framework\Exception\LocalizedException(
+                            __('No se pudo descargar la etiqueta de Hop (httpCode=%1)', $curlHttpCode)
+                        );
                     }
 
                     // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
@@ -248,14 +255,21 @@ class LabelGeneratorPlugin
 
                     if (!file_exists($filePath)) {
                         $this->_helper->log(__('No se pudo guardar la imagen en: ') . $filePath, true);
-                        continue;
+                        throw new \Magento\Framework\Exception\LocalizedException(
+                            __('No se pudo guardar la etiqueta descargada de Hop.')
+                        );
                     }
 
                     $finalSize = file_exists($filePath) ? filesize($filePath) : 'n/a';
                     $gis = @getimagesize($filePath);
                     $this->_helper->log('[DEBUG][beforeCombineLabelsPdf] savedFilePath=' . $filePath . ' fileSize=' . $finalSize . ' getimagesize=' . json_encode($gis));
 
-                    list($width, $height) = getimagesize($filePath);
+                    if ($gis === false) {
+                        throw new \Magento\Framework\Exception\LocalizedException(
+                            __('El contenido descargado de Hop no es una imagen válida.')
+                        );
+                    }
+                    list($width, $height) = $gis;
 
                     $pdf = new \Zend_Pdf();
                     $pdfPage = new \Zend_Pdf_Page($width, $height);
@@ -269,7 +283,7 @@ class LabelGeneratorPlugin
 
                 } catch (\Exception $e) {
                     $this->_helper->log(__('Error procesando la imagen: ') . $e->getMessage() . ' trace=' . $e->getTraceAsString(), true);
-                    continue;
+                    throw $e;
                 } finally {
                     if (file_exists($filePath)) {
                         unlink($filePath);

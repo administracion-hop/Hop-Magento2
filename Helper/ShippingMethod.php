@@ -115,8 +115,15 @@ class ShippingMethod extends AbstractHelper
     }
 
     /**
-     * Creates the hop_envios record for the order if it doesn't exist yet.
-     * The Hop API call is handled by SalesOrderShipmentSaveAfter observer.
+     * Creates the hop_envios record for the order if it doesn't exist yet and, when the order
+     * has no Hop shipment yet, dispatches it to Hop directly (no Magento shipment required).
+     *
+     * This is the "Hop-only" path used by the Send-to-Hop admin action and by
+     * SalesOrderSaveAfter: merchants who want the Hop shipment created without generating a
+     * Magento shipment. Orders that instead get a Magento shipment created (manually or via
+     * the GenarateShipment cron) are dispatched by SalesOrderShipmentSaveAfter instead, which
+     * also has the package/bulto data the multibulto API needs. Guarded by getInfoHop() so an
+     * order already dispatched through either path isn't sent to Hop twice.
      *
      * @param \Magento\Sales\Model\Order $order
      * @return bool
@@ -130,6 +137,24 @@ class ShippingMethod extends AbstractHelper
             $hopEnvios->setOrderId($order->getId());
             $hopEnvios->setIncrementId($order->getIncrementId());
             $this->hopEnviosRepository->save($hopEnvios);
+        }
+
+        if (!$hopEnvios->getInfoHop()) {
+            $this->webservice->setStoreId($order->getStoreId());
+            $result = $this->webservice->createShipping($order);
+
+            if (is_string($result) && $result !== '') {
+                $hopEnvios->setInfoHop($result);
+                $hopEnvios->setStatusShipment('completed');
+                $this->hopEnviosRepository->save($hopEnvios);
+            } else {
+                $error = (is_array($result) && isset($result['error']))
+                    ? $result['error']
+                    : __('No se pudo generar el envío en Hop.');
+                $order->setShippingDescription($error);
+                $order->getResource()->saveAttribute($order, 'shipping_description');
+                return false;
+            }
         }
 
         return true;

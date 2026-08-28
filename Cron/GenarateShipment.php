@@ -188,6 +188,7 @@ class GenarateShipment
             $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
             $this->logger->info(__('Shipment generated successfully for order ID: ') . $order->getId());
         } catch (\Exception $e) {
+            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PENDING);
             $this->logger->error(__('Error generando el envío para la orden ') . $order->getId() . ': ' . $e->getMessage());
         }
     }

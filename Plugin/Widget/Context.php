@@ -87,7 +87,7 @@ class Context
     {
         if($this->helperHop->isActive() && $subject->getRequest()->getFullActionName() == 'sales_order_view')
         {
-            $orderId    = $subject->getRequest()->getParam('order_id');
+            $orderId    = (int)$subject->getRequest()->getParam('order_id');
             $order      = $this->order->load($orderId);
             if ($order->getShippingMethod() === 'hop_hop')
             {

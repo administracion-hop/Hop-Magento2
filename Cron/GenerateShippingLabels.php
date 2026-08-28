@@ -64,6 +64,9 @@ class GenerateShippingLabels
             try {
                 $shipment = $this->shipmentRepository->get($shipmentId);
             } catch (\Exception $e) {
+                $this->logger->warning(
+                    __('Hop: no se pudo cargar shipment %1 para retry de label: %2', $shipmentId, $e->getMessage())
+                );
                 continue;
             }
 

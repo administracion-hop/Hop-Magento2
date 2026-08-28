@@ -102,13 +102,20 @@ class HopEnviosShipmentRepository
      * candidate set for the native shipping_label retry cron. Caller still has to check
      * each shipment's own shipping_label, since this table doesn't know about that column.
      *
+     * Bounded to the last $maxAgeMinutes: Hop's label normally becomes downloadable within
+     * ~1 minute of dispatch, so a record still failing well past that is a permanent failure
+     * (deleted object, dead URL), not a propagation delay — endless per-minute retries for it
+     * would just accumulate forever.
+     *
+     * @param int $maxAgeMinutes
      * @return HopEnviosShipment[]
      */
-    public function getCompletedWithLabel(): array
+    public function getCompletedWithLabel(int $maxAgeMinutes = 60): array
     {
         $collection = $this->collectionFactory->create();
         $collection->addFieldToFilter('status', 'completed');
         $collection->addFieldToFilter('label_url', ['notnull' => true]);
+        $collection->getSelect()->where('created_at >= (NOW() - INTERVAL ? MINUTE)', $maxAgeMinutes);
         return array_values($collection->getItems());
     }
 }

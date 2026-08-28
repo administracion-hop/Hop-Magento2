@@ -898,7 +898,6 @@ class Webservice
 
         $postFields = json_encode($params);
         $this->_helper->log($params, false, true);
-        $this->_helper->log('[DEBUG][multibulto] JSON payload: ' . $postFields);
 
         $url = "api.hopenvios.com.ar/api/v1/shipping";
         $responseJson = $this->curl('POST', $url, [], $postFields);
@@ -911,6 +910,20 @@ class Webservice
             $error = __('Error: respuesta multibulto no es array. Raw: ') . $responseJson;
             $this->_helper->log($error, true);
             $this->messageManager->addErrorMessage(__('Error en respuesta multibulto de Hop'));
+            return false;
+        }
+
+        // Hop can fail the whole request (auth, validation) instead of returning a per-bulto
+        // array — that shape has no numeric keys matching $shipments, so the loop below would
+        // silently skip every entry and report success. Catch it here first.
+        if (!empty($responseArray['error'])) {
+            $errorMsg = is_string($responseArray['message'] ?? null)
+                ? $responseArray['message']
+                : ($responseArray['error'] ?? 'unknown');
+            $this->_helper->log('[multibulto] request error: ' . $errorMsg, true);
+            $this->messageManager->addErrorMessage(
+                __('Error en respuesta multibulto de Hop: %1', $errorMsg)
+            );
             return false;
         }
 

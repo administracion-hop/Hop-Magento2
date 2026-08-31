@@ -625,9 +625,10 @@ class Webservice
             'origin_zipcode'  => $originZipCode,
             'destiny_zipcode' => $destinyZipCode,
             'shipping_type'   => $shippingType,
-            'weight'          => $weight,
             'seller_code'     => $sellerCode,
-            'package'         => ['value' => $value],
+            // El peso va anidado: la API sólo lee package[*] e ignora un 'weight' plano, con lo
+            // cual exigía size_category o las tres dimensiones para no responder 422.
+            'package'         => ['value' => $value, 'weight' => $weight],
         ];
         if ($width > 0 && $length > 0 && $height > 0) {
             $queryParams['package']['width']  = $width;

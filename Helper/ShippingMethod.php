@@ -126,9 +126,17 @@ class ShippingMethod extends AbstractHelper
      * order already dispatched through either path isn't sent to Hop twice.
      *
      * @param \Magento\Sales\Model\Order $order
+     * @param bool $dispatchNow Whether to call the Hop API right away. The Send-to-Hop button
+     *        passes true: the admin explicitly asked to dispatch, and no Magento shipment is
+     *        involved. SalesOrderSaveAfter passes false: it only records the order as pending so
+     *        GenarateShipment creates the Magento shipment, and SalesOrderShipmentSaveAfter — the
+     *        only path with the per-bulto data — does the dispatch. Dispatching here on a status
+     *        change would race that flow: Magento moves an order to processing as soon as the
+     *        first partial shipment is saved, so Hop would get an envío for the whole order while
+     *        the multibulto flow was still waiting for the remaining packages.
      * @return bool
      */
-    public function createShipmentData($order)
+    public function createShipmentData($order, $dispatchNow = true)
     {
         $hopEnvios = $this->hopEnviosRepository->getByOrderId($order->getId());
 
@@ -139,7 +147,7 @@ class ShippingMethod extends AbstractHelper
             $this->hopEnviosRepository->save($hopEnvios);
         }
 
-        if (!$hopEnvios->getInfoHop()) {
+        if ($dispatchNow && !$hopEnvios->getInfoHop()) {
             $this->webservice->setStoreId($order->getStoreId());
             $result = $this->webservice->createShipping($order);
 

@@ -59,7 +59,10 @@ class SalesOrderSaveAfter implements ObserverInterface
                         $orderStatus = $order->getStatus();
 
                         if (in_array($orderStatus, $statuses)) {
-                            $this->shippingMethodHelper->createShipmentData($order);
+                            // Sólo registrar la orden como pendiente. El despacho lo hace
+                            // GenarateShipment -> SalesOrderShipmentSaveAfter, que es el que
+                            // tiene los bultos. Ver createShipmentData().
+                            $this->shippingMethodHelper->createShipmentData($order, false);
                         }
                     }
                 }

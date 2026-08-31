@@ -5,7 +5,6 @@
             <hop>
                 <active>0</active>
                 <title>HOP</title>
-                <use_customer_taxvat>1</use_customer_taxvat>
                 <description>Recibí el pedido en el punto Hop mas cercano.</description>
                 <hop_free_shipping></hop_free_shipping>
                 <percentage_rate>1</percentage_rate>
@@ -49,6 +48,7 @@
         </carriers>
         <shipping>
             <hop>
+                <use_customer_taxvat>1</use_customer_taxvat>
                 <measure_attribute_alto>hop_alto</measure_attribute_alto>
                 <measure_attribute_largo>hop_largo</measure_attribute_largo>
                 <measure_attribute_ancho>hop_ancho</measure_attribute_ancho>

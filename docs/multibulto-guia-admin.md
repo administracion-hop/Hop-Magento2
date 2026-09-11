@@ -34,7 +34,7 @@ De ahí se derivan las dos consecuencias prácticas más importantes:
 
 ---
 
-## 2. Las cinco formas de despachar un pedido a Hop
+## 2. Las cuatro formas de despachar un pedido a Hop
 
 Todas conviven en la misma tienda. La diferencia está en **quién dispara el despacho** y
 en **cuántos bultos** termina teniendo el pedido.
@@ -44,10 +44,9 @@ en **cuántos bultos** termina teniendo el pedido.
 | 1 | Botón **Enviar** con todos los artículos | Vos, a mano | 1 | Sí, uno |
 | 2 | Botón **Enviar** varias veces, con artículos parciales | Vos, a mano | **N (multibulto)** | Sí, uno por bulto |
 | 3 | Botón **Enviar a HOP** | Vos, a mano | 1 | **No** |
-| 4 | Cambio de estado del pedido | Automático | 1 | **No** |
-| 5 | Tarea programada de despacho | Automático | 1 | Sí, uno |
+| 4 | Despacho automático al cambiar el estado del pedido | Automático | 1 | Sí, uno |
 
-**Solo la forma 2 genera multibulto.** Las otras cuatro siempre producen un único bulto.
+**Solo la forma 2 genera multibulto.** Las otras tres siempre producen un único bulto.
 
 ### Forma 1 — Un envío con todo (lo más común)
 
@@ -100,23 +99,26 @@ Después de usarlo:
 ### Forma 4 — Automático al cambiar el estado del pedido
 
 Si en la configuración del módulo hay estados cargados en **Estados para generación de
-etiqueta**, cada vez que un pedido Hop entra en uno de esos estados el módulo lo despacha
-solo a Hop, con el mismo efecto que el botón **Enviar a HOP**: un bulto, sin envío de
-Magento.
+etiqueta**, cada vez que un pedido Hop entra en uno de esos estados queda marcado como
+pendiente de despacho. A partir de ahí:
 
-> **Ojo con esto si trabajás con multibulto.** Si el estado que usás habitualmente
-> (por ejemplo *Processing*) está en esa lista, los pedidos se despachan en cuanto llegan
-> a ese estado y ya no podés dividirlos en bultos. Consultá con el equipo técnico qué
-> estados están configurados; ver [anexo](#anexo-a-configuración-que-afecta-al-multibulto).
+1. Una tarea programada corre **cada minuto** y le crea el envío de Magento, con **todos**
+   los artículos en un único envío.
+2. Al guardarse ese envío, el módulo avisa a Hop. El resultado es el mismo que la forma 1,
+   pero sin que tengas que apretar nada: un pedido, un envío, **un bulto**.
 
-### Forma 5 — Tarea programada de despacho
+Tiene un resguardo importante para no pisarte el trabajo: **si el pedido ya tiene al menos
+un envío creado, la tarea automática no interviene**. En cuanto confirmás tu primer envío
+parcial, el despacho automático se aparta y te deja terminar la división a mano.
 
-Hay una tarea automática que corre cada minuto y crea el envío de Magento de los pedidos
-Hop que quedaron pendientes de despacho, con todos los artículos en un único envío.
-
-Tiene un resguardo importante para no pisarte el trabajo: **si el pedido ya tiene al
-menos un envío creado, la tarea no interviene**. Es decir, si empezaste a dividir un
-pedido a mano, nadie va a crear un envío en competencia mientras terminás.
+> **Ojo con esto si trabajás con multibulto.** El resguardo protege el pedido *después* de
+> que creaste el primer envío, pero no antes. Si un pedido llega a un estado disparador y lo
+> dejás sin tocar, en el minuto siguiente la tarea le arma un envío único y el pedido queda
+> con un solo bulto, sin vuelta atrás. **Si vas a dividirlo, empezá la división apenas el
+> pedido llega a ese estado.**
+>
+> Consultá con el equipo técnico qué estados están configurados; ver
+> [anexo](#anexo-a-configuración-que-afecta-al-multibulto).
 
 ---
 
@@ -298,10 +300,12 @@ falta, escalalo.
 
 1. **Decidí la división antes de empezar.** Contá las cajas primero y creá un envío por
    caja. Una vez que confirmás el último, no hay vuelta atrás.
-2. **Si operás multibulto, revisá los estados automáticos.** Pedile al equipo técnico que
-   confirme qué estados están en *Estados para generación de etiqueta*: si el estado
-   habitual de tus pedidos está ahí, se despachan solos con un bulto y perdés la
-   posibilidad de dividirlos.
+2. **Si operás multibulto, no dejes el pedido esperando.** Pedile al equipo técnico que
+   confirme qué estados están en *Estados para generación de etiqueta*. Si el estado
+   habitual de tus pedidos está ahí, tenés aproximadamente un minuto desde que el pedido
+   llega a ese estado hasta que el despacho automático le arma un envío único. Creá el
+   primer envío parcial enseguida: con eso el automático se aparta y podés terminar la
+   división con calma.
 3. **No pelees con el minuto de espera.** Despachá y seguí con otra cosa; volvé en un par
    de minutos y la etiqueta va a estar. Clickear repetidamente no la apura.
 4. **Cargá bien alto, ancho, largo y peso de los productos.** Son los datos con los que se
@@ -347,6 +351,3 @@ Y estas son cosas que solo el equipo técnico puede verificar:
 - Que las **tareas programadas de Magento estén corriendo** — sin eso, las etiquetas no se
   generan solas ni funciona el despacho automático.
 - Que el módulo esté **actualizado** en el entorno (`setup:upgrade` ejecutado).
-- Para tiendas de **Perú**: conviene verificar con Hop que el ubigeo llegue correctamente
-  en los pedidos multibulto, ya que el dato se envía de forma distinta que en los pedidos
-  de un solo bulto.

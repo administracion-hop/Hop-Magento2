@@ -4,6 +4,7 @@
       <referenceContainer name="content">
          <block class="Hop\Envios\Block\Adminhtml\Order\View\HopSelectorJS" template="Hop_Envios::order/view/select-js.phtml" name="hop.view.select.js" />
          <block class="Hop\Envios\Block\Adminhtml\Order\View\SendToHopJS" template="Hop_Envios::order/view/send-js.phtml" name="hop.view.send.js" />
+         <block class="Hop\Envios\Block\Adminhtml\Order\View\LabelsJS" template="Hop_Envios::order/view/labels-js.phtml" name="hop.view.labels.js" />
       </referenceContainer>
       <referenceContainer name="order_additional_info">
         <block class="Hop\Envios\Block\Adminhtml\Order\View\ShippingInfo" name="hop.shipping.info" template="Hop_Envios::order/view/shipping-info.phtml"/>

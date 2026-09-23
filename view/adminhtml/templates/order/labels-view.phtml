@@ -1,0 +1,54 @@
+<?php
+/**
+ * @var \Hop\Envios\Block\Adminhtml\Order\HopLabelsView $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$shipments = $block->getShipmentsData();
+?>
+<div class="modal">
+    <h1><?= __('Etiquetas HOP') ?></h1>
+    <?php if (empty($shipments)): ?>
+        <p><?= __('No se encontraron etiquetas de Hop para esta orden.') ?></p>
+    <?php else: ?>
+        <div class="admin__data-grid-wrap" data-role="grid-wrapper" id="hop-labels-list">
+            <table class="data-grid data-grid-draggable" data-role="grid">
+                <thead>
+                    <tr>
+                        <th class="data-grid-th">
+                            <span class="data-grid-cell-content"><?= __('Envío') ?></span>
+                        </th>
+                        <th class="data-grid-th">
+                            <span class="data-grid-cell-content"><?= __('Tracking') ?></span>
+                        </th>
+                        <th class="data-grid-th">
+                            <span class="data-grid-cell-content"><?= __('Acciones') ?></span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($shipments as $shipment): ?>
+                        <tr class="data-row">
+                            <td><div class="data-grid-cell-content">
+                                <?= $escaper->escapeHtml($shipment['increment_id']) ?>
+                            </div></td>
+                            <td><div class="data-grid-cell-content">
+                                <?= $shipment['tracking_nro'] !== '' ? $escaper->escapeHtml($shipment['tracking_nro']) : '-' ?>
+                            </div></td>
+                            <td><div class="data-grid-cell-content">
+                                <a class="btn-select-hop" href="<?= $escaper->escapeUrl($shipment['download_url']) ?>" target="_blank" rel="noopener">
+                                    <?= __('Descargar etiqueta') ?>
+                                </a>
+                                <?php if (!empty($shipment['tracking_url'])): ?>
+                                    &nbsp;|&nbsp;
+                                    <a class="btn-select-hop" href="<?= $escaper->escapeUrl($shipment['tracking_url']) ?>" target="_blank" rel="noopener">
+                                        <?= __('Estado') ?>
+                                    </a>
+                                <?php endif; ?>
+                            </div></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>

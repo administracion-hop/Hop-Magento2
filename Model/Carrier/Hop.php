@@ -37,6 +37,7 @@ use Magento\Checkout\Model\Session;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\QuotePickupPointRepository;
+use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
 
 /**
@@ -140,7 +141,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      */
     protected $quotePickupPointRepository;
 
-
+    /**
+     * @var HopEnviosShipmentRepository
+     */
+    protected $hopEnviosShipmentRepository;
 
     /**
      * Hop constructor.
@@ -167,6 +171,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param HopEnviosRepository $hopEnviosRepository
      * @param State $appState
      * @param QuotePickupPointRepository $quotePickupPointRepository
+     * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      * @param array $data
      */
     public function __construct(
@@ -197,6 +202,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         OrderRepositoryInterface $orderRepository,
         HopEnviosRepository $hopEnviosRepository,
         QuotePickupPointRepository $quotePickupPointRepository,
+        HopEnviosShipmentRepository $hopEnviosShipmentRepository,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -214,6 +220,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->orderRepository = $orderRepository;
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
+        $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -557,33 +564,63 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $orderId = $shipment->getOrderId();
         $hopEnvio = $this->hopEnviosRepository->getByOrderId($orderId);
 
-        if (empty($hopEnvio->getInfoHop()) || !is_string($hopEnvio->getInfoHop())) {
-            $this->_helper->log(__('Error: El campo info_hop está vacío, no es un string válido, o no existe.'), true);
+        if (!$hopEnvio) {
+            $this->_helper->log(__('Error: No existe registro hop_envios para esta orden.'), true);
             throw new \Magento\Framework\Exception\LocalizedException(
                 __('Error: Respuesta Invalidad, No existen los datos.')
             );
         }
 
-        $infoHop = json_decode($hopEnvio->getInfoHop(), true);
-        if ($infoHop === null || !is_array($infoHop)) {
-            $this->_helper->log(__('Error: JSON inválido en info_hop.'), true);
-            throw new \Magento\Framework\Exception\LocalizedException(
-                __('Error: Respuesta Invalida, Formato invalido')
+        // Multibulto: check per-shipment record first
+        $hopEnviosShipment = $this->hopEnviosShipmentRepository->getByShipmentId((int)$shipment->getId());
+        if ($hopEnviosShipment) {
+            $trackingNumber = $hopEnviosShipment->getTrackingNro();
+            $labelUrl       = $hopEnviosShipment->getLabelUrl();
+            if (empty($trackingNumber) || empty($labelUrl)) {
+                $this->_helper->log(__('Error: tracking_nro o label_url vacíos en hop_envios_shipment.'), true);
+                throw new \Magento\Framework\Exception\LocalizedException(
+                    __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
+                );
+            }
+        } elseif (!empty($this->hopEnviosShipmentRepository->getByHopEnvioId((int)$hopEnvio->getEntityId()))) {
+            // Other shipments of this envio already have their own per-shipment record but this
+            // one doesn't — it appeared after the envio was already dispatched to Hop (see the
+            // "unsupported" marking in SalesOrderShipmentSaveAfter) and must not silently inherit
+            // another shipment's tracking/label via the info_hop fallback below.
+            $this->_helper->log(
+                __('Error: Este envío no tiene registro propio en hop_envios_shipment.'),
+                true
             );
-        }
-
-        if (empty($infoHop['tracking_nro']) || empty($infoHop['label_url'])) {
-            $this->_helper->log(__('Error: Los valores tracking_nro o label_url están vacíos o no existen.'), true);
             throw new \Magento\Framework\Exception\LocalizedException(
                 __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
             );
+        } else {
+            // Single-shipment flow: fall back to info_hop
+            $infoHop = json_decode($hopEnvio->getInfoHop(), true);
+            if ($infoHop === null || !is_array($infoHop)) {
+                $this->_helper->log(__('Error: JSON inválido en info_hop.'), true);
+                throw new \Magento\Framework\Exception\LocalizedException(
+                    __('Error: Respuesta Invalida, Formato invalido')
+                );
+            }
+            if (empty($infoHop['tracking_nro']) || empty($infoHop['label_url'])) {
+                $this->_helper->log(__('Error: Los valores tracking_nro o label_url están vacíos o no existen.'), true);
+                throw new \Magento\Framework\Exception\LocalizedException(
+                    __('Error: Los valores tracking_nro o label_url están vacíos o no existen.')
+                );
+            }
+            $trackingNumber = $infoHop['tracking_nro'];
+            $labelUrl       = $infoHop['label_url'];
         }
-
-        $trackingNumber = $infoHop['tracking_nro'];
-        $labelUrl = $infoHop['label_url'];
         try {
             $result = new \Magento\Framework\DataObject();
+            // Always set tracking number: Magento\Shipping\Model\Shipping\LabelGenerator::create()
+            // drops the whole label (tracking_number + label_content) when tracking_number is empty,
+            // even though the label itself is valid. Previously this was skipped when the shipment
+            // already had a Hop track (added by the observer) to avoid a duplicate track row, but that
+            // silently produced a 0-page PDF stored as the shipment's shipping label.
             $result->setTrackingNumber($trackingNumber);
+            // Store the label URL; LabelGeneratorPlugin handles the URL→PDF conversion.
             $result->setShippingLabelContent($labelUrl);
             return $result;
         } catch (\Exception $e) {
@@ -593,8 +630,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             );
         }
     }
-
-
 
     /**
      * Processing additional validation to check if carrier applicable.

@@ -14,6 +14,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Phrase;
 use Hop\Envios\Model\OrderPickupPointRepository;
 use Magento\Framework\HTTP\Client\CurlFactory;
+use Hop\Envios\Model\HopEnviosShipmentRepository;
 
 /**
  * Class Webservice
@@ -121,6 +122,11 @@ class Webservice
     private $httpClientFactory;
 
     /**
+     * @var HopEnviosShipmentRepository
+     */
+    protected $hopEnviosShipmentRepository;
+
+    /**
      * Webservice constructor.
      * @param HelperHop $helperHop
      * @param PointCollectionFactory $pointCollectionFactory
@@ -132,6 +138,7 @@ class Webservice
      * @param TokenResourceModel $tokenResourceModel
      * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param CurlFactory $httpClientFactory
+     * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      */
     public function __construct(
         HelperHop $helperHop,
@@ -143,7 +150,8 @@ class Webservice
         TokenFactory $tokenFactory,
         TokenResourceModel $tokenResourceModel,
         OrderPickupPointRepository $orderPickupPointRepository,
-        CurlFactory $httpClientFactory
+        CurlFactory $httpClientFactory,
+        HopEnviosShipmentRepository $hopEnviosShipmentRepository
     ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
@@ -155,6 +163,7 @@ class Webservice
         $this->tokenResourceModel = $tokenResourceModel;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->httpClientFactory = $httpClientFactory;
+        $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
     }
 
     /**
@@ -616,9 +625,10 @@ class Webservice
             'origin_zipcode'  => $originZipCode,
             'destiny_zipcode' => $destinyZipCode,
             'shipping_type'   => $shippingType,
-            'weight'          => $weight,
             'seller_code'     => $sellerCode,
-            'package'         => ['value' => $value],
+            // El peso va anidado: la API sólo lee package[*] e ignora un 'weight' plano, con lo
+            // cual exigía size_category o las tres dimensiones para no responder 422.
+            'package'         => ['value' => $value, 'weight' => $weight],
         ];
         if ($width > 0 && $length > 0 && $height > 0) {
             $queryParams['package']['width']  = $width;
@@ -798,6 +808,162 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * Create a multibulto shipping in Hop (package[] as array of bultos).
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @param \Magento\Sales\Model\Order\Shipment[] $shipments  indexed array, order matches package[] positions
+     * @param int $hopEnvioId  FK to hop_envios.entity_id
+     * @return bool  true on success, false on API error
+     */
+    public function createShippingMultibulto($order, array $shipments, int $hopEnvioId)
+    {
+        $this->ensureInitialized();
+
+        $sellerCode      = $this->_helper->getSellerCode($this->storeId);
+        $shippingType    = $this->_helper->getShippingType($this->storeId);
+        $labelType       = $this->_helper->getLabelType($this->storeId);
+        $labelSize       = $this->_helper->getLabelSize($this->storeId);
+        $daysOffset      = $this->_helper->getDaysOffset($this->storeId);
+        $validateClientId = $this->_helper->getValidateClientId($this->storeId);
+        $storageCode     = $this->_helper->getStorageCode($this->storeId);
+        $sizeCategory    = $this->_helper->getSizeCategory($this->storeId);
+
+        $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
+        if (!$hopData) {
+            $this->_helper->log(__('No Hop Data (multibulto)'), true);
+            return false;
+        }
+
+        $billingAddress  = $order->getBillingAddress();
+        $shippingAddress = $order->getShippingAddress();
+
+        $params = [];
+        $params['country'] = ($shippingAddress && $shippingAddress->getCountryId())
+            ? $shippingAddress->getCountryId()
+            : ($this->_helper->getStoreCountry() ?: 'AR');
+        $params['shipping_type']      = $shippingType;
+        $params['reference_id']       = $sellerCode . '-' . $order->getIncrementId();
+        $params['reference_2']        = '';
+        $params['reference_3']        = '';
+        $params['label_type']         = $labelType;
+        if ($labelType != \Hop\Envios\Model\Config\Source\TypeLabelOption::TYPE_LABEL_ZPL2 && $labelSize) {
+            $params['label_size'] = $labelSize;
+        }
+        $params['seller_code']        = $sellerCode;
+        $params['storage_code']       = $storageCode;
+        $params['days_offset']        = $daysOffset;
+        $params['validate_client_id'] = $validateClientId;
+        $params['pickup_point_id']    = $hopData->getPickupPointId() ?: 0;
+
+        $paramClient = [];
+        $paramClient['name']      = $order->getCustomerFirstname() . ' ' . $order->getCustomerLastname();
+        $paramClient['email']     = $order->getCustomerEmail();
+        $paramClient['id_type']   = 'D.N.I';
+        if ($this->_helper->useCustomerTaxvat($this->storeId)) {
+            $paramClient['id_number'] = $billingAddress->getVatId();
+        } else {
+            $paramClient['id_number'] = $order->getData($this->_helper->getCustomerDocumentAttribute($this->storeId));
+        }
+        $paramClient['telephone'] = $billingAddress->getTelephone() ?: '';
+        $params['client'] = $paramClient;
+
+        $paramSender = [];
+        $paramSender['name']      = $this->_helper->getStorename($this->storeId);
+        $paramSender['id_number'] = '';
+        $paramSender['phone']     = '';
+        $paramSender['mail']      = $this->_helper->getStoreEmail($this->storeId);
+        $params['sender'] = $paramSender;
+
+        // Build package array — one entry per Magento shipment (= one bulto).
+        // Set the order on each collection-loaded shipment so getOrderItem() can resolve correctly.
+        $params['package'] = [];
+        foreach ($shipments as $shipment) {
+            $shipment->setOrder($order);
+            $pkgData = $this->_helper->getPackageDataForShipment($shipment, $this->storeId);
+            $bultoDetails = [];
+            foreach (['length', 'height', 'width'] as $sizeField) {
+                if (!empty($pkgData[$sizeField]) && $pkgData[$sizeField] > 0) {
+                    $bultoDetails[$sizeField] = $pkgData[$sizeField];
+                }
+            }
+            if ($sizeCategory && (empty($bultoDetails['width']) || empty($bultoDetails['length']) || empty($bultoDetails['height']))) {
+                $bultoDetails['size_category'] = (int)$sizeCategory;
+            }
+            $bultoDetails['value']  = (string)$pkgData['value'];
+            $bultoDetails['weight'] = $pkgData['weight'];
+            $params['package'][] = ['details' => [$bultoDetails]];
+        }
+
+        $postFields = json_encode($params);
+        $this->_helper->log($params, false, true);
+
+        $url = "api.hopenvios.com.ar/api/v1/shipping";
+        $responseJson = $this->curl('POST', $url, [], $postFields);
+
+        $this->_helper->log('Request POST multibulto: ' . $url);
+        $this->_helper->log($responseJson);
+
+        $responseArray = json_decode($responseJson, true);
+        if (!is_array($responseArray)) {
+            $error = __('Error: respuesta multibulto no es array. Raw: ') . $responseJson;
+            $this->_helper->log($error, true);
+            $this->messageManager->addErrorMessage(__('Error en respuesta multibulto de Hop'));
+            return false;
+        }
+
+        // Hop can fail the whole request (auth, validation) instead of returning a per-bulto
+        // array — that shape has no numeric keys matching $shipments, so the loop below would
+        // silently skip every entry and report success. Catch it here first.
+        if (!empty($responseArray['error'])) {
+            $errorMsg = is_string($responseArray['message'] ?? null)
+                ? $responseArray['message']
+                : ($responseArray['error'] ?? 'unknown');
+            $this->_helper->log('[multibulto] request error: ' . $errorMsg, true);
+            $this->messageManager->addErrorMessage(
+                __('Error en respuesta multibulto de Hop: %1', $errorMsg)
+            );
+            return false;
+        }
+
+        $hasErrors = false;
+        foreach ($responseArray as $i => $bulto) {
+            if (!isset($shipments[$i])) {
+                continue;
+            }
+            if (!empty($bulto['error'])) {
+                $errorMsg = is_string($bulto['message'] ?? null)
+                    ? $bulto['message']
+                    : json_encode($bulto['message'] ?? 'unknown');
+                $this->_helper->log('[multibulto] bulto ' . $i . ' error: ' . $errorMsg, true);
+                $this->messageManager->addErrorMessage(
+                    __('Error en bulto %1 de Hop: %2', $i + 1, $errorMsg)
+                );
+                $this->hopEnviosShipmentRepository->saveForShipment(
+                    $hopEnvioId,
+                    (int)$shipments[$i]->getId(),
+                    $i,
+                    null,
+                    null,
+                    null,
+                    'failed'
+                );
+                $hasErrors = true;
+                continue;
+            }
+            $this->hopEnviosShipmentRepository->saveForShipment(
+                $hopEnvioId,
+                (int)$shipments[$i]->getId(),
+                $i,
+                $bulto['shipping_id'] ?? null,
+                $bulto['tracking_nro'] ?? null,
+                $bulto['label_url'] ?? null
+            );
+        }
+
+        return !$hasErrors;
     }
 
     /**

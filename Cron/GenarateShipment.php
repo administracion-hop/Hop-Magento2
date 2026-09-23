@@ -4,13 +4,12 @@ namespace Hop\Envios\Cron;
 
 use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Order\ShipmentFactory;
-use Magento\Sales\Model\Order\Shipment\TrackFactory;
 use Magento\Framework\DB\Transaction;
 use Psr\Log\LoggerInterface;
 use Magento\Shipping\Model\ShipmentNotifier;
-use Hop\Envios\Model\Carrier\Hop;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Model\HopEnviosRepository;
+use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 
 class GenarateShipment
 {
@@ -24,11 +23,6 @@ class GenarateShipment
      * @var ShipmentFactory
      */
     protected $shipmentFactory;
-
-    /**
-     * @var TrackFactory
-     */
-    protected $trackFactory;
 
     /**
      * @var Transaction
@@ -46,38 +40,35 @@ class GenarateShipment
     protected $shipmentNotifier;
 
     /**
-     * @var Hop
-     */
-    protected $hopCarrier;
-
-    /**
      * @var HopEnviosRepository
      */
     protected $hopEnviosRepository;
 
+    /**
+     * @var ShipmentCollectionFactory
+     */
+    protected $shipmentCollectionFactory;
+
     const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
-    const CARRIER_CODE_HOP = 'HOP';
 
     public function __construct(
         OrderFactory $orderFactory,
         ShipmentFactory $shipmentFactory,
-        TrackFactory $trackFactory,
         Transaction $transaction,
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
-        Hop $hopCarrier,
-        HopEnviosRepository $hopEnviosRepository
+        HopEnviosRepository $hopEnviosRepository,
+        ShipmentCollectionFactory $shipmentCollectionFactory
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
-        $this->trackFactory = $trackFactory;
         $this->transaction = $transaction;
         $this->logger = $logger;
         $this->shipmentNotifier = $shipmentNotifier;
-        $this->hopCarrier = $hopCarrier;
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->shipmentCollectionFactory = $shipmentCollectionFactory;
     }
 
     /**
@@ -86,24 +77,13 @@ class GenarateShipment
     public function execute()
     {
         try {
-
             /** @var \Hop\Envios\Model\ResourceModel\HopEnvios\Collection $pendingOrders */
             $pendingOrders = $this->getPendingOrders();
             $this->logger->info(__('Ordenes pendientes encontradas: ') . $pendingOrders->count());
 
             foreach ($pendingOrders as $pendingOrder) {
-                $info = $pendingOrder->getInfoHop();
-
-                if (!empty($info)) {
-                    $infoHop = json_decode($info, true);
-                    $trackingNro = !empty($infoHop['tracking_nro']) ? $infoHop['tracking_nro'] : '';
-                    $this->processOrder($pendingOrder, $trackingNro);
-                } else {
-                    $this->updateShipmentStatus($pendingOrder, self::SHIPMENT_STATUS_PENDING);
-                }
-
+                $this->processOrder($pendingOrder);
             }
-
         } catch (\Exception $e) {
             $this->logger->error(__('Error en el cron de envíos: ') . $e->getMessage());
         }
@@ -121,79 +101,95 @@ class GenarateShipment
 
     /**
      * Procesar cada orden pendiente.
+     * Saves the Magento shipment first; the SalesOrderShipmentSaveAfter observer
+     * then calls the Hop API synchronously and writes info_hop to DB.
+     *
+     * Only acts on orders with zero existing shipments, so the one shipment it creates
+     * always covers every shippable item at once and the order ends up fully dispatched
+     * in that same action. If a shipment already exists (e.g. an admin is manually
+     * splitting the order into several), this cron must never create a competing one —
+     * it backs off permanently for that order (status_shipment stays 'pending', but the
+     * shipment-count guard keeps skipping it on every future run too).
      *
      * @param \Hop\Envios\Model\HopEnvios $hopEnvio
-     * @param string $trackingNro
      */
-    protected function processOrder($hopEnvio, $trackingNro)
+    protected function processOrder($hopEnvio)
     {
         $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
 
-        if ($order->getId() && $order->canShip()) {
-            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PROCESING);
-
-            $items = $this->prepareItemsForShipment($order);
-
-            try {
-                $shipment = $this->createShipment($order, $items);
-
-                $packageData = [
-                    "1" => [
-                        "params" => [
-                            "container" => "",
-                            "weight" => "1",
-                            "customs_value" => "100",
-                            "length" => "",
-                            "width" => "",
-                            "height" => "",
-                            "weight_units" => "POUND",
-                            "dimension_units" => "INCH",
-                            "content_type" => "",
-                            "content_type_other" => ""
-                        ],
-                        "items" => []
-                    ]
-                ];
-
-                foreach ($order->getAllItems() as $item) {
-                    if ($item->getQtyShipped() > 0 && !$item->getIsVirtual()) {
-                        $packageData["1"]["items"][$item->getId()] = [
-                            "qty" => (string)$item->getQtyShipped(),
-                            "customs_value" => (string)$item->getPrice(),
-                            "price" => (string)$item->getPrice(),
-                            "name" => $item->getName(),
-                            "weight" => (string)$item->getWeight(),
-                            "product_id" => (string)$item->getProductId(),
-                            "order_item_id" => (string)$item->getId()
-                        ];
-                    }
-                }
-
-                $shipment->setData('packages', $packageData);
-
-
-                $track = $this->createTracking($shipment, $trackingNro);
-                $this->shipmentNotifier->notify($shipment);
-                $this->transaction->addObject($shipment)
-                    ->addObject($order->save())
-                    ->save();
-
-                $shipmentRequest = new \Magento\Framework\DataObject();
-                $shipmentRequest->setData('order_shipment', $shipment);
-
-                $this->updateOrderStatus($order);
-
-                $labelResponse = $this->hopCarrier->_doShipmentRequest($shipmentRequest);
-                $this->handleLabelResponse($labelResponse, $shipment, $order);
-
-                $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
-
-                $this->logger->info(__('Shipment generated successfully for order ID: ') . $order->getId());
-            } catch (\Exception $e) {
-                $this->logger->error(__('Error generando el envío para la orden ') . $order->getId() . ': ' . $e->getMessage());
-            }
-        } else {
+        if (!$order->getId() || !$order->canShip()) {
             $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
+            return;
+        }
+
+        $existingShipments = $this->shipmentCollectionFactory->create()
+            ->addFieldToFilter('order_id', $order->getId())
+            ->getSize();
+        if ($existingShipments > 0) {
+            $this->logger->info(
+                __('Orden %1 ya tiene envíos existentes (probablemente despacho manual en curso); cron no interviene.', $order->getId())
+            );
+            return;
+        }
+
+        $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PROCESING);
+        $items = $this->prepareItemsForShipment($order);
+
+        try {
+            $shipment = $this->createShipment($order, $items);
+
+            $packageData = [
+                "1" => [
+                    "params" => [
+                        "container" => "",
+                        "weight" => "1",
+                        "customs_value" => "100",
+                        "length" => "",
+                        "width" => "",
+                        "height" => "",
+                        "weight_units" => "POUND",
+                        "dimension_units" => "INCH",
+                        "content_type" => "",
+                        "content_type_other" => ""
+                    ],
+                    "items" => []
+                ]
+            ];
+
+            foreach ($order->getAllItems() as $item) {
+                if ($item->getQtyShipped() > 0 && !$item->getIsVirtual()) {
+                    $packageData["1"]["items"][$item->getId()] = [
+                        "qty" => (string)$item->getQtyShipped(),
+                        "customs_value" => (string)$item->getPrice(),
+                        "price" => (string)$item->getPrice(),
+                        "name" => $item->getName(),
+                        "weight" => (string)$item->getWeight(),
+                        "product_id" => (string)$item->getProductId(),
+                        "order_item_id" => (string)$item->getId()
+                    ];
+                }
+            }
+
+            $shipment->setData('packages', $packageData);
+
+            // Save shipment — fires sales_order_shipment_save_after synchronously.
+            // The observer calls the Hop API and writes info_hop (or hop_envios_shipment).
+            $this->transaction->addObject($shipment)
+                ->addObject($order->save())
+                ->save();
+
+            $this->updateOrderStatus($order);
+            $order->save();
+
+            // Tracking + label already written above by SalesOrderShipmentSaveAfter,
+            // fired synchronously by the transaction save. Just notify the customer.
+            $this->shipmentNotifier->notify($shipment);
+
+            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
+            $this->logger->info(__('Shipment generated successfully for order ID: ') . $order->getId());
+        } catch (\Exception $e) {
+            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PENDING);
+            $this->logger->error(__('Error generando el envío para la orden ') . $order->getId() . ': ' . $e->getMessage());
         }
     }
 
@@ -228,53 +224,6 @@ class GenarateShipment
         $shipment->getOrder()->setCustomerNoteNotify(true);
 
         return $shipment;
-    }
-
-    /**
-     * Crear un tracking para el envío.
-     *
-     * @param \Magento\Sales\Model\Order\Shipment $shipment
-     * @param string $trackingNumber
-     * @return \Magento\Sales\Model\Order\Shipment\Track
-     */
-    protected function createTracking($shipment, $trackingNumber)
-    {
-        $track = $this->trackFactory->create();
-        $track->setCarrierCode('hop')
-            ->setTitle(self::CARRIER_CODE_HOP);
-        if ($trackingNumber) {
-            $track->setTrackNumber($trackingNumber);
-        }
-        $shipment->addTrack($track);
-
-        return $track;
-    }
-
-    /**
-     * Manejar la respuesta de la etiqueta de envío.
-     *
-     * @param \Magento\Framework\DataObject|null $labelResponse
-     * @param \Magento\Sales\Model\Order\Shipment $shipment
-     * @param \Magento\Sales\Model\Order $order
-     */
-    protected function handleLabelResponse($labelResponse, $shipment, $order)
-    {
-        if ($labelResponse) {
-            $trackingNumber = $labelResponse->getTrackingNumber();
-            $labelUrl = $labelResponse->getShippingLabelContent();
-
-            if ($trackingNumber && $labelUrl) {
-                $shipment->setShippingLabel($labelUrl);
-                $this->transaction->addObject($shipment)
-                    ->addObject($order->save())
-                    ->save();
-                $this->logger->info('Shipping label generated successfully for order ID: ' . $order->getId());
-            } else {
-                $this->logger->error('Error: No tracking number or label URL found.');
-            }
-        } else {
-            $this->logger->error('Error: Failed to generate shipping label.');
-        }
     }
 
     /**

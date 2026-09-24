@@ -4,12 +4,13 @@ namespace Hop\Envios\Cron;
 
 use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Order\ShipmentFactory;
-use Magento\Framework\DB\Transaction;
+use Magento\Framework\DB\TransactionFactory;
 use Psr\Log\LoggerInterface;
 use Magento\Shipping\Model\ShipmentNotifier;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
+use Hop\Envios\Helper\ShippingMethod;
 
 class GenarateShipment
 {
@@ -25,9 +26,9 @@ class GenarateShipment
     protected $shipmentFactory;
 
     /**
-     * @var Transaction
+     * @var TransactionFactory
      */
-    protected $transaction;
+    protected $transactionFactory;
 
     /**
      * @var LoggerInterface
@@ -49,26 +50,35 @@ class GenarateShipment
      */
     protected $shipmentCollectionFactory;
 
+    /**
+     * @var ShippingMethod
+     */
+    protected $shippingMethodHelper;
+
     const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
+    /** Hop rechazó el despacho. Con next_retry_at se reintenta solo; sin él, espera revisión manual. */
+    const SHIPMENT_STATUS_FAILED = 'failed';
 
     public function __construct(
         OrderFactory $orderFactory,
         ShipmentFactory $shipmentFactory,
-        Transaction $transaction,
+        TransactionFactory $transactionFactory,
         LoggerInterface $logger,
         ShipmentNotifier $shipmentNotifier,
         HopEnviosRepository $hopEnviosRepository,
-        ShipmentCollectionFactory $shipmentCollectionFactory
+        ShipmentCollectionFactory $shipmentCollectionFactory,
+        ShippingMethod $shippingMethodHelper
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
-        $this->transaction = $transaction;
+        $this->transactionFactory = $transactionFactory;
         $this->logger = $logger;
         $this->shipmentNotifier = $shipmentNotifier;
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->shipmentCollectionFactory = $shipmentCollectionFactory;
+        $this->shippingMethodHelper = $shippingMethodHelper;
     }
 
     /**
@@ -84,6 +94,11 @@ class GenarateShipment
             foreach ($pendingOrders as $pendingOrder) {
                 $this->processOrder($pendingOrder);
             }
+
+            $failedOrders = $this->hopEnviosRepository->getRetryableFailed();
+            foreach ($failedOrders as $failedOrder) {
+                $this->retryOrder($failedOrder);
+            }
         } catch (\Exception $e) {
             $this->logger->error(__('Error en el cron de envíos: ') . $e->getMessage());
         }
@@ -97,6 +112,39 @@ class GenarateShipment
     protected function getPendingOrders()
     {
         return $this->hopEnviosRepository->getCollectionByStatusShipment(self::SHIPMENT_STATUS_PENDING);
+    }
+
+    /**
+     * Reintento automático de un despacho fallido cuyo next_retry_at ya venció.
+     *
+     * Antes de intentar se vacía next_retry_at: si el intento vuelve a fallar, markFailed()
+     * agenda el siguiente escalón; si no llega a despachar nada (pedido cancelado, bultos ya
+     * procesados), queda failed sin reintento y a la vista para revisión manual en vez de
+     * reintentarse cada minuto.
+     *
+     * @param \Hop\Envios\Model\HopEnvios $hopEnvio
+     */
+    protected function retryOrder($hopEnvio)
+    {
+        $hopEnvio->setNextRetryAt(null);
+        $this->hopEnviosRepository->save($hopEnvio);
+
+        $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
+        $this->logger->info(__('Reintento %1 de despacho a Hop para la orden %2', (int)$hopEnvio->getAttempts() + 1, $hopEnvio->getOrderId()));
+
+        try {
+            $hasShipments = $order->getId() && $this->shipmentCollectionFactory->create()
+                ->addFieldToFilter('order_id', $order->getId())
+                ->getSize() > 0;
+            if ($hasShipments) {
+                $this->shippingMethodHelper->retryDispatch($order);
+            } else {
+                // Sin envío de Magento todavía: mismo camino que una orden pendiente.
+                $this->processOrder($hopEnvio);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error(__('Error reintentando el despacho de la orden ') . $hopEnvio->getOrderId() . ': ' . $e->getMessage());
+        }
     }
 
     /**
@@ -174,7 +222,9 @@ class GenarateShipment
 
             // Save shipment — fires sales_order_shipment_save_after synchronously.
             // The observer calls the Hop API and writes info_hop (or hop_envios_shipment).
-            $this->transaction->addObject($shipment)
+            // Transacción nueva por orden: la compartida acumulaba los objetos de las órdenes
+            // anteriores y los volvía a guardar, re-disparando su despacho a Hop.
+            $this->transactionFactory->create()->addObject($shipment)
                 ->addObject($order->save())
                 ->save();
 
@@ -185,10 +235,20 @@ class GenarateShipment
             // fired synchronously by the transaction save. Just notify the customer.
             $this->shipmentNotifier->notify($shipment);
 
+            // El observer ya dejó su resultado en hop_envios (otra instancia): releer para no
+            // pisar un failed con completed ni borrar last_error con datos viejos.
+            $hopEnvio = $this->hopEnviosRepository->getByOrderId((int)$order->getId()) ?: $hopEnvio;
+            if ($hopEnvio->getStatusShipment() === self::SHIPMENT_STATUS_FAILED) {
+                $this->logger->error(__('Hop rechazó el despacho de la orden %1: %2', $order->getId(), $hopEnvio->getLastError()));
+                return;
+            }
             $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_COMPLETED);
             $this->logger->info(__('Shipment generated successfully for order ID: ') . $order->getId());
         } catch (\Exception $e) {
-            $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PENDING);
+            $hopEnvio = $this->hopEnviosRepository->getByOrderId((int)$order->getId()) ?: $hopEnvio;
+            if ($hopEnvio->getStatusShipment() !== self::SHIPMENT_STATUS_FAILED) {
+                $this->updateShipmentStatus($hopEnvio, self::SHIPMENT_STATUS_PENDING);
+            }
             $this->logger->error(__('Error generando el envío para la orden ') . $order->getId() . ': ' . $e->getMessage());
         }
     }

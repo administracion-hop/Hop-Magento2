@@ -4,11 +4,12 @@
  * @var \Magento\Framework\Escaper $escaper
  */
 $info = $block->getSelectedPickupPointData();
+$dispatch = $block->getDispatchInfo();
 $order = $block->getOrder();
 
 ?>
 
-<?php if (!empty($info)): ?>
+<?php if (!empty($info) || !empty($dispatch)): ?>
 <div class="admin__page-section-item order-shipping-custom-info">
     <div class="admin__page-section-item-title">
         <span class="title"><?= __('Información Hop Envíos') ?></span>
@@ -17,6 +18,46 @@ $order = $block->getOrder();
         <div class="admin__table-wrapper">
             <table class="admin__table-secondary">
                 <tbody>
+                    <?php if (!empty($dispatch)): ?>
+                    <tr>
+                        <th><?= __('Estado del despacho') ?></th>
+                        <td>
+                            <span class="hop-dispatch-status hop-dispatch-status--<?= $escaper->escapeHtmlAttr($dispatch['status']) ?>">
+                                <?= $escaper->escapeHtml($dispatch['status_label']) ?>
+                            </span>
+                            <?php if ($dispatch['is_failed']): ?>
+                                <div class="hop-dispatch-retry">
+                                    <?php if ($dispatch['next_retry_at']): ?>
+                                        <?= $escaper->escapeHtml(__('Intento %1 de %2. Próximo reintento automático: %3.', $dispatch['attempts'], $dispatch['max_attempts'], $dispatch['next_retry_at'])) ?>
+                                    <?php elseif ($dispatch['needs_fix']): ?>
+                                        <?= $escaper->escapeHtml(__('No se reintenta solo: Hop va a rechazarlo igual hasta que se corrija. Corregilo y usá "Enviar a HOP".')) ?>
+                                    <?php else: ?>
+                                        <?= $escaper->escapeHtml(__('Intento %1 de %2. Sin más reintentos automáticos: corregí el problema y usá "Enviar a HOP".', $dispatch['attempts'], $dispatch['max_attempts'])) ?>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php if ($dispatch['is_failed'] && !empty($dispatch['last_error'])): ?>
+                    <tr>
+                        <th><?= __('Motivo del rechazo') ?></th>
+                        <td><?= $escaper->escapeHtml($dispatch['last_error']) ?></td>
+                    </tr>
+                    <tr>
+                        <th><?= __('Cómo resolverlo') ?></th>
+                        <td class="hop-dispatch-cta">
+                            <?php if ($dispatch['instruction']): ?>
+                                <?= $escaper->escapeHtml($dispatch['instruction']) ?>
+                                <?php if ($dispatch['config_url']): ?>
+                                    <br><a href="<?= $escaper->escapeUrl($dispatch['config_url']) ?>" target="_blank"><?= __('Abrir configuración de Hop') ?></a>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <?= __('Revisá el motivo de arriba, corregilo y apretá "Enviar a HOP" para reintentar. Si no está claro qué lo causa, consultá a soporte de Hop con este mensaje.') ?>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php endif; ?>
                     <?php if (!empty($info['pickup_point_id'])): ?>
                     <tr>
                         <th><?= __('Punto seleccionado actualmente') ?></th>
@@ -50,6 +91,11 @@ $order = $block->getOrder();
 .shipping-cost-breakdown div {
     margin-bottom: 2px;
 }
+.hop-dispatch-status { font-weight: 600; }
+.hop-dispatch-status--failed { color: #e22626; }
+.hop-dispatch-status--completed { color: #185b00; }
+.hop-dispatch-retry { margin-top: 4px; color: #666; }
+.hop-dispatch-cta { background: #fffbbb; padding: 8px; }
 .order-shipping-custom-info {
     margin-top: 20px;
     border-top: 1px solid #e3e3e3;

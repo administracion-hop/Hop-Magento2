@@ -40,7 +40,11 @@
             "order_id": true,
             "increment_id": true,
             "info_hop": true,
-            "status_shipment": true
+            "status_shipment": true,
+            "last_error": true,
+            "last_error_code": true,
+            "attempts": true,
+            "next_retry_at": true
         },
         "constraint": {
             "PRIMARY": true

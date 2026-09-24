@@ -70,7 +70,7 @@ class Send extends \Magento\Backend\App\Action
             }
 
 
-            if ($this->shippingMethodHelper->createShipmentData($order)){
+            if ($this->shippingMethodHelper->retryDispatch($order)) {
                 $this->messageManager->addSuccessMessage(
                     __('Orden enviada a Hop correctamente.')
                 );

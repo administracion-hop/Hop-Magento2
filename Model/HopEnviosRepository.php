@@ -5,6 +5,7 @@ namespace Hop\Envios\Model;
 use Hop\Envios\Model\ResourceModel\HopEnvios\CollectionFactory;
 use Hop\Envios\Model\HopEnviosFactory;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
+use Hop\Envios\Cron\GenarateShipment;
 
 class HopEnviosRepository
 {
@@ -64,6 +65,60 @@ class HopEnviosRepository
         $collection = $this->collectionFactory->create();
         $collection->addFieldToFilter('status_shipment', $statusShipment);
         return $collection;
+    }
+
+    /**
+     * Fallidos cuyo próximo reintento ya venció.
+     *
+     * @return \Hop\Envios\Model\ResourceModel\HopEnvios\Collection
+     */
+    public function getRetryableFailed()
+    {
+        $collection = $this->collectionFactory->create();
+        $collection->addFieldToFilter('status_shipment', GenarateShipment::SHIPMENT_STATUS_FAILED);
+        $collection->addFieldToFilter('next_retry_at', ['lteq' => gmdate('Y-m-d H:i:s')]);
+        return $collection;
+    }
+
+    /**
+     * Registra un despacho fallido y, si es un error transitorio, agenda el próximo reintento
+     * (ver DispatchError::retryDelayMinutes). Si no, queda en failed con next_retry_at NULL:
+     * no se reintenta solo y queda para revisión manual (botón "Enviar a HOP").
+     *
+     * @param HopEnvios $hopEnvios
+     * @param string $error
+     * @param int|null $httpStatus
+     * @return void
+     */
+    public function markFailed(HopEnvios $hopEnvios, $error, $httpStatus = null)
+    {
+        $attempts = (int)$hopEnvios->getAttempts() + 1;
+        $code = DispatchError::classify((string)$error);
+        $delay = DispatchError::retryDelayMinutes($attempts, $httpStatus, $code);
+
+        $hopEnvios->setStatusShipment(GenarateShipment::SHIPMENT_STATUS_FAILED);
+        $hopEnvios->setLastError((string)$error);
+        $hopEnvios->setLastErrorCode($code);
+        $hopEnvios->setAttempts($attempts);
+        $hopEnvios->setNextRetryAt($delay ? gmdate('Y-m-d H:i:s', time() + $delay * 60) : null);
+        $this->save($hopEnvios);
+    }
+
+    /**
+     * @param HopEnvios $hopEnvios
+     * @param string|null $infoHop
+     * @return void
+     */
+    public function markCompleted(HopEnvios $hopEnvios, $infoHop = null)
+    {
+        if ($infoHop !== null) {
+            $hopEnvios->setInfoHop($infoHop);
+        }
+        $hopEnvios->setStatusShipment(GenarateShipment::SHIPMENT_STATUS_COMPLETED);
+        $hopEnvios->setLastError(null);
+        $hopEnvios->setLastErrorCode(null);
+        $hopEnvios->setNextRetryAt(null);
+        $this->save($hopEnvios);
     }
 
     /**

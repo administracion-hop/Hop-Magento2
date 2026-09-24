@@ -6,6 +6,9 @@ use Magento\Backend\Block\Template\Context;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Framework\App\RequestInterface;
 use Hop\Envios\Model\OrderPickupPointRepository;
+use Hop\Envios\Model\HopEnviosRepository;
+use Hop\Envios\Model\DispatchError;
+use Hop\Envios\Cron\GenarateShipment;
 
 class ShippingInfo extends Template
 {
@@ -30,10 +33,16 @@ class ShippingInfo extends Template
     protected $orderPickupPointRepository;
 
     /**
+     * @var HopEnviosRepository
+     */
+    protected $hopEnviosRepository;
+
+    /**
      * @param Context $context
      * @param OrderRepositoryInterface $orderRepository
      * @param RequestInterface $request
      * @param OrderPickupPointRepository $orderPickupPointRepository
+     * @param HopEnviosRepository $hopEnviosRepository
      * @param array $data
      */
     public function __construct(
@@ -41,8 +50,10 @@ class ShippingInfo extends Template
         OrderRepositoryInterface $orderRepository,
         RequestInterface $request,
         OrderPickupPointRepository $orderPickupPointRepository,
+        HopEnviosRepository $hopEnviosRepository,
         array $data = []
     ) {
+        $this->hopEnviosRepository = $hopEnviosRepository;
         $this->orderRepository = $orderRepository;
         $this->request = $request;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
@@ -89,6 +100,46 @@ class ShippingInfo extends Template
             'original_shipping_description' => $selectedPickupPoint->getData('original_shipping_description'),
         ];
         return array_filter($info);
+    }
+
+    /**
+     * Estado del despacho a Hop para mostrar en el pedido.
+     *
+     * @return array
+     */
+    public function getDispatchInfo()
+    {
+        $order = $this->getOrder();
+        $hopEnvios = $order ? $this->hopEnviosRepository->getByOrderId((int)$order->getId()) : null;
+        if (!$hopEnvios) {
+            return [];
+        }
+
+        $status = (string)$hopEnvios->getStatusShipment();
+        $labels = [
+            GenarateShipment::SHIPMENT_STATUS_PENDING => __('Pendiente de despacho'),
+            GenarateShipment::SHIPMENT_STATUS_PROCESING => __('Procesando'),
+            GenarateShipment::SHIPMENT_STATUS_COMPLETED => __('Despachado a Hop'),
+            GenarateShipment::SHIPMENT_STATUS_FAILED => __('Error al despachar'),
+        ];
+        $instruction = DispatchError::getInstruction($hopEnvios->getLastErrorCode());
+
+        return [
+            'status' => $status,
+            'status_label' => $labels[$status] ?? $status,
+            'is_failed' => $status === GenarateShipment::SHIPMENT_STATUS_FAILED,
+            'last_error' => $hopEnvios->getLastError(),
+            'attempts' => (int)$hopEnvios->getAttempts(),
+            'max_attempts' => count(DispatchError::RETRY_DELAYS_MINUTES) + 1,
+            'needs_fix' => $instruction !== null,
+            'next_retry_at' => $hopEnvios->getNextRetryAt()
+                ? $this->formatDate($hopEnvios->getNextRetryAt(), \IntlDateFormatter::MEDIUM, true)
+                : null,
+            'instruction' => $instruction ? __($instruction[0]) : null,
+            'config_url' => ($instruction && $instruction[1])
+                ? $this->getUrl('adminhtml/system_config/edit', ['section' => 'shipping']) . '#shipping_hop-link'
+                : null,
+        ];
     }
 
 

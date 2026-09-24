@@ -131,7 +131,6 @@ class ShippingInfo extends Template
             'last_error' => $hopEnvios->getLastError(),
             'attempts' => (int)$hopEnvios->getAttempts(),
             'max_attempts' => count(DispatchError::RETRY_DELAYS_MINUTES) + 1,
-            'needs_fix' => $instruction !== null,
             'next_retry_at' => $hopEnvios->getNextRetryAt()
                 ? $this->formatDate($hopEnvios->getNextRetryAt(), \IntlDateFormatter::MEDIUM, true)
                 : null,

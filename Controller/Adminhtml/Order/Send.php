@@ -70,6 +70,15 @@ class Send extends \Magento\Backend\App\Action
             }
 
 
+            // Con envíos parciales el despacho lo hace el observer al completar el último envío
+            // (es el único que conoce los bultos); acá no hay nada que reintentar todavía.
+            if ($order->hasShipments() && $order->canShip()) {
+                $this->messageManager->addErrorMessage(
+                    __('El pedido tiene productos sin enviar en Magento. Terminá de crear los envíos: al completar el último se despacha a Hop.')
+                );
+                return $this->redirectBack($orderId);
+            }
+
             if ($this->shippingMethodHelper->retryDispatch($order)) {
                 $this->messageManager->addSuccessMessage(
                     __('Orden enviada a Hop correctamente.')

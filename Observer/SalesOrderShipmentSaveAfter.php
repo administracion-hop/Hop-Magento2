@@ -161,6 +161,28 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 return null;
             }
 
+            // Ya despachado por el camino directo (createShipmentData, sin envío de Magento): no
+            // volver a llamar a Hop — respondería "reference id ya está en uso" y, si la
+            // recuperación no coincide, marcaría failed un pedido que sí está despachado. Se le
+            // asigna al envío el tracking que ya existe.
+            if (empty($existingRecords) && $hopEnvio->getInfoHop()) {
+                $infoHop = json_decode($hopEnvio->getInfoHop(), true) ?: [];
+                $this->hopEnviosShipmentRepository->saveForShipment(
+                    $hopEnvioId,
+                    (int)$shipment->getId(),
+                    0,
+                    $infoHop['shipping_id'] ?? null,
+                    $infoHop['tracking_nro'] ?? null,
+                    $infoHop['label_url'] ?? null
+                );
+                if (!empty($infoHop['tracking_nro'])) {
+                    $this->addTrackToShipment($shipment, $infoHop['tracking_nro']);
+                }
+                $this->nativeLabelGenerator->generate($shipment);
+                $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId() . ' ya despachada por Enviar a HOP: se reusa su tracking');
+                return null;
+            }
+
             $this->webservice->setStoreId($storeId);
 
             // Hop creates one "envio" per order reference_id at dispatch time and exposes no

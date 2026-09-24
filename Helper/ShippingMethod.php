@@ -170,7 +170,6 @@ class ShippingMethod extends AbstractHelper
 
             if (is_string($result) && $result !== '') {
                 $this->hopEnviosRepository->markCompleted($hopEnvios, $result);
-                $this->restoreShippingDescription($order);
             } else {
                 // El error va a hop_envios, no a shipping_description: esa la ve el comprador.
                 $error = (is_array($result) && isset($result['error']))
@@ -199,32 +198,6 @@ class ShippingMethod extends AbstractHelper
             return $this->createShipmentData($order, true);
         }
 
-        $ok = $this->shipmentDispatcher->dispatch(end($shipments)) === true;
-        if ($ok) {
-            $this->restoreShippingDescription($order);
-        }
-        return $ok;
-    }
-
-    /**
-     * Hasta esta versión el error de Hop se escribía en shipping_description, y el comprador
-     * lo veía en vez de su punto de retiro. Si quedó así, vuelve la descripción original.
-     *
-     * @param Order $order
-     * @return void
-     */
-    protected function restoreShippingDescription($order)
-    {
-        $current = (string)$order->getShippingDescription();
-        $isLegacyError = strpos($current, 'Hubo un error al enviar su pedido a Hop') === 0
-            || strpos($current, 'No se pudo generar el envío en Hop') === 0;
-        if (!$isLegacyError) {
-            return;
-        }
-        $pickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
-        if ($pickupPoint && $pickupPoint->getOriginalShippingDescription()) {
-            $order->setShippingDescription($pickupPoint->getOriginalShippingDescription());
-            $order->getResource()->saveAttribute($order, 'shipping_description');
-        }
+        return $this->shipmentDispatcher->dispatch(end($shipments)) === true;
     }
 }

@@ -29,8 +29,8 @@ $order = $block->getOrder();
                                 <div class="hop-dispatch-retry">
                                     <?php if ($dispatch['next_retry_at']): ?>
                                         <?= $escaper->escapeHtml(__('Intento %1 de %2. Próximo reintento automático: %3.', $dispatch['attempts'], $dispatch['max_attempts'], $dispatch['next_retry_at'])) ?>
-                                    <?php elseif ($dispatch['needs_fix']): ?>
-                                        <?= $escaper->escapeHtml(__('No se reintenta solo: Hop va a rechazarlo igual hasta que se corrija. Corregilo y usá "Enviar a HOP".')) ?>
+                                    <?php elseif ($dispatch['attempts'] < $dispatch['max_attempts']): ?>
+                                        <?= $escaper->escapeHtml(__('No se reintenta solo: hay que corregir el problema y usar "Enviar a HOP".')) ?>
                                     <?php else: ?>
                                         <?= $escaper->escapeHtml(__('Intento %1 de %2. Sin más reintentos automáticos: corregí el problema y usá "Enviar a HOP".', $dispatch['attempts'], $dispatch['max_attempts'])) ?>
                                     <?php endif; ?>

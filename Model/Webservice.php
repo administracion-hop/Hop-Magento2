@@ -677,10 +677,6 @@ class Webservice
     }
 
     /**
-     * @param $order
-     * @return bool|string
-     */
-    /**
      * @return int|null
      */
     public function getLastStatus()
@@ -688,6 +684,10 @@ class Webservice
         return $this->lastStatus;
     }
 
+    /**
+     * @param $order
+     * @return bool|string
+     */
     public function createShipping($order)
     {
         $this->ensureInitialized();

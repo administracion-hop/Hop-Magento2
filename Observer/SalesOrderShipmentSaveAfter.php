@@ -4,6 +4,7 @@ namespace Hop\Envios\Observer;
 
 use Hop\Envios\Cron\GenarateShipment;
 use Hop\Envios\Helper\Data;
+use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Hop\Envios\Model\Shipping\NativeLabelGenerator;
@@ -253,11 +254,16 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     }
                     return true;
                 }
+                // Si Hop respondió bulto por bulto, los aceptados ya están creados y todos los bultos
+                // quedaron con registro en hop_envios_shipment: un reintento no tiene qué mandar (y
+                // Hop no admite sumar bultos), así que no se ofrece reintentar.
+                $partial = !empty($this->hopEnviosShipmentRepository->getByHopEnvioId($hopEnvioId));
                 $this->helper->log('Hop API error (multibulto) order: ' . $order->getId(), true);
                 $this->hopEnviosRepository->markFailed(
                     $hopEnvio,
                     $this->webservice->getLastMultibultoError() ?: __('No se pudo generar el envío multibulto en Hop.'),
-                    $this->webservice->getLastStatus()
+                    $this->webservice->getLastStatus(),
+                    $partial ? DispatchError::CODE_MULTIBULTO_PARTIAL : null
                 );
                 return false;
             }

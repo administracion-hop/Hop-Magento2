@@ -25,6 +25,11 @@ class DispatchError
     const CODE_NO_PICKUP_POINT = 'no_pickup_point';
     const CODE_PICKUP_DISABLED = 'pickup_disabled';
     const CODE_CONFIG_MISSING = 'config_missing';
+    /**
+     * Hop rechazó bultos de un multibulto después de crear el envío con los demás. No sale de
+     * PATTERNS: lo asigna SalesOrderShipmentSaveAfter, y no se puede reintentar (ver isRetryable).
+     */
+    const CODE_MULTIBULTO_PARTIAL = 'multibulto_partial';
 
     /**
      * Espera antes de cada reintento automático de errores transitorios (5XX / sin
@@ -59,7 +64,7 @@ class DispatchError
     /** código => [instrucción, ¿lleva link a la config de Hop?] */
     const INSTRUCTIONS = [
         self::CODE_ORIGIN_ZIP => [
-            'Configurá el código postal de origen en Tiendas → Configuración → Métodos de envío → Hop → "Código postal de origen" y después reintentá.',
+            'Configurá el "Código postal de origen" en la configuración de Hop (Configuración de webservices HOP) y después reintentá.',
             true,
         ],
         self::CODE_REFERENCE_IN_USE => [
@@ -94,6 +99,10 @@ class DispatchError
             'Falta un dato obligatorio en la configuración de Hop: código de vendedor (lo da Hop con las credenciales), código de almacenamiento (DEPOSITO), tipo de envío o días de preparación. Completalo y reintentá.',
             true,
         ],
+        self::CODE_MULTIBULTO_PARTIAL => [
+            'Hop rechazó uno o más bultos de este pedido. Los bultos aceptados ya están creados en Hop (sus etiquetas están en "Etiquetas HOP") y Hop no admite sumar bultos a un envío ya creado, así que no se puede reintentar desde Magento. Resolvé los bultos rechazados con Hop por fuera de Magento.',
+            false,
+        ],
     ];
 
     /**
@@ -120,19 +129,31 @@ class DispatchError
     }
 
     /**
+     * Si el despacho se puede volver a intentar (solo o con "Enviar a HOP").
+     *
+     * @param string|null $code
+     * @return bool
+     */
+    public static function isRetryable($code)
+    {
+        return $code !== self::CODE_MULTIBULTO_PARTIAL;
+    }
+
+    /**
      * Minutos hasta el próximo reintento automático, o null si no hay que reintentar solo.
-     * Hop pide reintentar sólo errores del servidor (5XX) y frenar ante un 429. Un 4XX o un
-     * error conocido son datos a corregir: reintentar da el mismo rechazo hasta que alguien
-     * los arregle, así que quedan para revisión manual.
+     * Hop pide reintentar sólo errores del servidor (5XX) y frenar ante un 429. Cualquier otra
+     * respuesta (4XX, o un 2XX/3XX sin envío) o un error conocido son datos a corregir:
+     * reintentar da el mismo rechazo hasta que alguien los arregle, así que quedan para
+     * revisión manual.
      *
      * @param int $attempts intentos fallidos contando el actual
-     * @param int|null $httpStatus null/0 = sin respuesta (red, timeout)
+     * @param int|null $httpStatus null/0 = sin respuesta (red, timeout) o excepción antes de llegar a Hop
      * @param string|null $code
      * @return int|null
      */
     public static function retryDelayMinutes($attempts, $httpStatus, $code)
     {
-        if ($code || ($httpStatus >= 400 && $httpStatus < 500)) {
+        if ($code || ($httpStatus && $httpStatus < 500)) {
             return null;
         }
         return self::RETRY_DELAYS_MINUTES[$attempts - 1] ?? null;

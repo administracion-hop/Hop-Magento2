@@ -88,12 +88,13 @@ class HopEnviosRepository
      * @param HopEnvios $hopEnvios
      * @param string $error
      * @param int|null $httpStatus
+     * @param string|null $code clave de DispatchError ya conocida; si no, se deduce del texto
      * @return void
      */
-    public function markFailed(HopEnvios $hopEnvios, $error, $httpStatus = null)
+    public function markFailed(HopEnvios $hopEnvios, $error, $httpStatus = null, $code = null)
     {
         $attempts = (int)$hopEnvios->getAttempts() + 1;
-        $code = DispatchError::classify((string)$error);
+        $code = $code ?: DispatchError::classify((string)$error);
         $delay = DispatchError::retryDelayMinutes($attempts, $httpStatus, $code);
 
         $hopEnvios->setStatusShipment(GenarateShipment::SHIPMENT_STATUS_FAILED);

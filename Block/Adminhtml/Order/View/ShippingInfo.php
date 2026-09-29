@@ -123,11 +123,17 @@ class ShippingInfo extends Template
             GenarateShipment::SHIPMENT_STATUS_FAILED => __('Error al despachar'),
         ];
         $instruction = DispatchError::getInstruction($hopEnvios->getLastErrorCode());
+        $isFailed = $status === GenarateShipment::SHIPMENT_STATUS_FAILED;
+        $canRetry = DispatchError::isRetryable($hopEnvios->getLastErrorCode());
+        if ($isFailed && !$canRetry) {
+            $labels[$status] = __('Despacho parcial: Hop rechazó bultos');
+        }
 
         return [
             'status' => $status,
             'status_label' => $labels[$status] ?? $status,
-            'is_failed' => $status === GenarateShipment::SHIPMENT_STATUS_FAILED,
+            'is_failed' => $isFailed,
+            'can_retry' => $canRetry,
             'last_error' => $hopEnvios->getLastError(),
             'attempts' => (int)$hopEnvios->getAttempts(),
             'max_attempts' => count(DispatchError::RETRY_DELAYS_MINUTES) + 1,

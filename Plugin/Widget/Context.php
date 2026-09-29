@@ -4,6 +4,7 @@ namespace Hop\Envios\Plugin\Widget;
 use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
+use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Magento\Framework\UrlInterface;
@@ -95,8 +96,13 @@ class Context
                 // Multibulto orders (2+ shipments) never populate the order-level info_hop
                 // field — each shipment's tracking/label lives in its own hop_envios_shipment
                 // row instead. status_shipment is the only order-level signal that's reliable
-                // for both the single-shipment and multibulto paths.
-                $isDispatched = $hopEnvios && $hopEnvios->getStatusShipment() === 'completed';
+                // for both the single-shipment and multibulto paths. A multibulto with rejected
+                // bultos stays failed but is already created in Hop: show its labels instead of
+                // "Cambiar punto" / "Enviar a HOP", which can't do anything for it.
+                $isDispatched = $hopEnvios && (
+                    $hopEnvios->getStatusShipment() === 'completed'
+                    || !DispatchError::isRetryable($hopEnvios->getLastErrorCode())
+                );
 
                 if ($isDispatched) {
                     $records = $this->hopEnviosShipmentRepository->getByHopEnvioId((int)$hopEnvios->getEntityId());

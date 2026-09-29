@@ -2,7 +2,9 @@
 
 namespace Hop\Envios\Observer;
 
+use Hop\Envios\Cron\GenarateShipment;
 use Hop\Envios\Helper\Data;
+use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Hop\Envios\Model\Shipping\NativeLabelGenerator;
@@ -79,14 +81,25 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
+        $shipment = $observer->getEvent()->getShipment();
+        if ($shipment) {
+            $this->dispatch($shipment);
+        }
+    }
+
+    /**
+     * Despacha a Hop el pedido del envío. Público para que el reintento (cron / botón
+     * "Enviar a HOP") pueda repetir este camino sobre un envío de Magento ya creado.
+     *
+     * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @return bool|null true = despachado, false = Hop rechazó (queda failed), null = no aplicaba
+     */
+    public function dispatch($shipment)
+    {
         try {
-            $shipment = $observer->getEvent()->getShipment();
-            if (!$shipment) {
-                return;
-            }
             $order = $shipment->getOrder();
             if (!$order || !$order->getId()) {
-                return;
+                return null;
             }
 
             $storeId = $order->getStoreId();
@@ -95,11 +108,11 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
 
             if (!$this->helper->isActive($storeId)) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: isActive=false', true);
-                return;
+                return null;
             }
             if ($order->getShippingMethod() !== 'hop_hop') {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: shippingMethod=' . $order->getShippingMethod(), true);
-                return;
+                return null;
             }
 
             $this->removeDuplicateHopTracks($shipment);
@@ -107,7 +120,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             // Only proceed when all items are now shipped
             if ($order->canShip()) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: canShip=true (items still pending)', true);
-                return;
+                return null;
             }
 
             $hopEnvio = $this->hopEnviosRepository->getByOrderId((int)$order->getId());
@@ -146,7 +159,29 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
 
             if (empty($unprocessed)) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: shipment already processed for this Hop envio');
-                return;
+                return null;
+            }
+
+            // Ya despachado por el camino directo (createShipmentData, sin envío de Magento): no
+            // volver a llamar a Hop — respondería "reference id ya está en uso" y, si la
+            // recuperación no coincide, marcaría failed un pedido que sí está despachado. Se le
+            // asigna al envío el tracking que ya existe.
+            if (empty($existingRecords) && $hopEnvio->getInfoHop()) {
+                $infoHop = json_decode($hopEnvio->getInfoHop(), true) ?: [];
+                $this->hopEnviosShipmentRepository->saveForShipment(
+                    $hopEnvioId,
+                    (int)$shipment->getId(),
+                    0,
+                    $infoHop['shipping_id'] ?? null,
+                    $infoHop['tracking_nro'] ?? null,
+                    $infoHop['label_url'] ?? null
+                );
+                if (!empty($infoHop['tracking_nro'])) {
+                    $this->addTrackToShipment($shipment, $infoHop['tracking_nro']);
+                }
+                $this->nativeLabelGenerator->generate($shipment);
+                $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId() . ' ya despachada por Enviar a HOP: se reusa su tracking');
+                return null;
             }
 
             $this->webservice->setStoreId($storeId);
@@ -174,15 +209,13 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                         'unsupported'
                     );
                 }
-                return;
+                return null;
             }
 
             if (count($shipments) === 1) {
                 $result = $this->webservice->createShipping($order);
                 if (is_string($result) && $result !== '') {
-                    $hopEnvio->setInfoHop($result);
-                    $hopEnvio->setStatusShipment('completed');
-                    $this->hopEnviosRepository->save($hopEnvio);
+                    $this->hopEnviosRepository->markCompleted($hopEnvio, $result);
                     $infoHop = json_decode($result, true);
                     $this->hopEnviosShipmentRepository->saveForShipment(
                         $hopEnvioId,
@@ -196,9 +229,14 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                         $this->addTrackToShipment($shipment, $infoHop['tracking_nro']);
                     }
                     $this->nativeLabelGenerator->generate($shipment);
-                } elseif (is_array($result) && isset($result['error'])) {
-                    $this->helper->log('Hop API error (single): ' . $result['error'], true);
+                    return true;
                 }
+                $error = (is_array($result) && isset($result['error']))
+                    ? $result['error']
+                    : __('No se pudo generar el envío en Hop: el pedido no tiene punto de retiro (No Hop Data).');
+                $this->helper->log('Hop API error (single): ' . $error, true);
+                $this->hopEnviosRepository->markFailed($hopEnvio, $error, $this->webservice->getLastStatus());
+                return false;
             } else {
                 $ok = $this->webservice->createShippingMultibulto(
                     $order,
@@ -206,8 +244,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     (int)$hopEnvio->getEntityId()
                 );
                 if ($ok) {
-                    $hopEnvio->setStatusShipment('completed');
-                    $this->hopEnviosRepository->save($hopEnvio);
+                    $this->hopEnviosRepository->markCompleted($hopEnvio);
                     foreach ($shipments as $s) {
                         $hopShipment = $this->hopEnviosShipmentRepository->getByShipmentId((int)$s->getId());
                         if ($hopShipment && $hopShipment->getTrackingNro()) {
@@ -215,13 +252,30 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                         }
                         $this->nativeLabelGenerator->generate($s);
                     }
-                } else {
-                    $this->helper->log('Hop API error (multibulto) order: ' . $order->getId(), true);
+                    return true;
                 }
+                // Si Hop respondió bulto por bulto, los aceptados ya están creados y todos los bultos
+                // quedaron con registro en hop_envios_shipment: un reintento no tiene qué mandar (y
+                // Hop no admite sumar bultos), así que no se ofrece reintentar.
+                $partial = !empty($this->hopEnviosShipmentRepository->getByHopEnvioId($hopEnvioId));
+                $this->helper->log('Hop API error (multibulto) order: ' . $order->getId(), true);
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    $this->webservice->getLastMultibultoError() ?: __('No se pudo generar el envío multibulto en Hop.'),
+                    $this->webservice->getLastStatus(),
+                    $partial ? DispatchError::CODE_MULTIBULTO_PARTIAL : null
+                );
+                return false;
             }
         } catch (\Exception $e) {
             $this->helper->log('SalesOrderShipmentSaveAfter: ' . $e->getMessage(), true);
+            // Sólo si Hop no llegó a aceptarlo: un fallo posterior (ej. la etiqueta) no deshace el despacho.
+            if (isset($hopEnvio) && $hopEnvio->getStatusShipment() !== GenarateShipment::SHIPMENT_STATUS_COMPLETED) {
+                $this->hopEnviosRepository->markFailed($hopEnvio, $e->getMessage());
+                return false;
+            }
         }
+        return null;
     }
 
     /**

@@ -11,6 +11,8 @@ use Hop\Envios\Model\QuotePickupPointRepository;
 use Hop\Envios\Model\OrderPickupPointRepository;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\Webservice;
+use Hop\Envios\Observer\SalesOrderShipmentSaveAfter;
+use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 
 class ShippingMethod extends AbstractHelper
 {
@@ -45,6 +47,15 @@ class ShippingMethod extends AbstractHelper
      */
     protected $webservice;
 
+    /**
+     * @var SalesOrderShipmentSaveAfter
+     */
+    protected $shipmentDispatcher;
+
+    /**
+     * @var ShipmentCollectionFactory
+     */
+    protected $shipmentCollectionFactory;
 
     /**
      * @param Context $context
@@ -54,6 +65,8 @@ class ShippingMethod extends AbstractHelper
      * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param HopEnviosRepository $hopEnviosRepository
      * @param Webservice $webservice
+     * @param SalesOrderShipmentSaveAfter $shipmentDispatcher
+     * @param ShipmentCollectionFactory $shipmentCollectionFactory
      */
     public function __construct(
         Context $context,
@@ -62,7 +75,9 @@ class ShippingMethod extends AbstractHelper
         QuotePickupPointRepository $quotePickupPointRepository,
         OrderPickupPointRepository $orderPickupPointRepository,
         HopEnviosRepository $hopEnviosRepository,
-        Webservice $webservice
+        Webservice $webservice,
+        SalesOrderShipmentSaveAfter $shipmentDispatcher,
+        ShipmentCollectionFactory $shipmentCollectionFactory
     ) {
         parent::__construct($context);
         $this->_orderCollectionFactory = $orderCollectionFactory;
@@ -71,6 +86,8 @@ class ShippingMethod extends AbstractHelper
         $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->webservice = $webservice;
+        $this->shipmentDispatcher = $shipmentDispatcher;
+        $this->shipmentCollectionFactory = $shipmentCollectionFactory;
     }
 
     /**
@@ -152,19 +169,35 @@ class ShippingMethod extends AbstractHelper
             $result = $this->webservice->createShipping($order);
 
             if (is_string($result) && $result !== '') {
-                $hopEnvios->setInfoHop($result);
-                $hopEnvios->setStatusShipment('completed');
-                $this->hopEnviosRepository->save($hopEnvios);
+                $this->hopEnviosRepository->markCompleted($hopEnvios, $result);
             } else {
+                // El error va a hop_envios, no a shipping_description: esa la ve el comprador.
                 $error = (is_array($result) && isset($result['error']))
                     ? $result['error']
-                    : __('No se pudo generar el envío en Hop.');
-                $order->setShippingDescription($error);
-                $order->getResource()->saveAttribute($order, 'shipping_description');
+                    : __('No se pudo generar el envío en Hop: el pedido no tiene punto de retiro (No Hop Data).');
+                $this->hopEnviosRepository->markFailed($hopEnvios, $error, $this->webservice->getLastStatus());
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * "Reintentar ahora" (botón Enviar a HOP y cron): si el pedido ya tiene envío de Magento
+     * el despacho es el de SalesOrderShipmentSaveAfter (el único con los bultos); si no, el
+     * despacho directo de createShipmentData().
+     *
+     * @param Order $order
+     * @return bool
+     */
+    public function retryDispatch($order)
+    {
+        $shipments = $this->shipmentCollectionFactory->create()->setOrderFilter($order)->getItems();
+        if (empty($shipments)) {
+            return $this->createShipmentData($order, true);
+        }
+
+        return $this->shipmentDispatcher->dispatch(end($shipments)) === true;
     }
 }

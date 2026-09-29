@@ -127,6 +127,18 @@ class Webservice
     protected $hopEnviosShipmentRepository;
 
     /**
+     * @var string|null
+     */
+    protected $lastMultibultoError = null;
+
+    /**
+     * HTTP status de la última llamada a la API (0 = no hubo respuesta).
+     *
+     * @var int|null
+     */
+    protected $lastStatus = null;
+
+    /**
      * Webservice constructor.
      * @param HelperHop $helperHop
      * @param PointCollectionFactory $pointCollectionFactory
@@ -245,8 +257,11 @@ class Webservice
                 }
 
                 $retry = false;
+                $this->lastStatus = (int)$client->getStatus();
+                $this->_helper->log('HTTP status: ' . $this->lastStatus);
                 $response = $client->getBody();
             } catch (\Exception $e) {
+                $this->lastStatus = 0;
                 $error = 'Se produjo un error: ' . $e->getMessage();
                 $this->_helper->log($error, true);
                 $this->messageManager->addErrorMessage($error);
@@ -662,12 +677,21 @@ class Webservice
     }
 
     /**
+     * @return int|null
+     */
+    public function getLastStatus()
+    {
+        return $this->lastStatus;
+    }
+
+    /**
      * @param $order
      * @return bool|string
      */
     public function createShipping($order)
     {
         $this->ensureInitialized();
+        $this->lastStatus = null;
         $sellerCode = $this->_helper->getSellerCode($this->storeId);
         $shippingType = $this->_helper->getShippingType($this->storeId);
         $labelType = $this->_helper->getLabelType($this->storeId);
@@ -768,9 +792,8 @@ class Webservice
             return $responseJson;
         } else {
             // If the error is "reference_id already in use", try to find the existing shipment
-            if (!empty($responseObject->error) &&
-                strpos($responseObject->error, 'El elemento reference id ya est') !== false
-            ) {
+            // Hop lo devuelve en message / errors.reference_id, no en error: buscar en toda la respuesta.
+            if (strpos((string)json_encode($responseObject, JSON_UNESCAPED_UNICODE), 'El elemento reference id ya est') !== false) {
                 $found = $this->findShipmentByReferenceId(
                     $params['reference_id'],
                     $order->getCustomerEmail(),
@@ -784,21 +807,18 @@ class Webservice
             $error = __('Hubo un error al enviar su pedido a Hop: ');
             $error_list = [];
             if ($responseObject instanceof \stdClass) {
-                $keys = get_object_vars($responseObject);
-                foreach ($keys as $key) {
-                    if (is_array($key)) {
-                        foreach ($key as $message) {
-                            if (is_string($message)) {
-                                $error_list[] = $message . ". ";
-                            }
-                        }
-                    }
-                }
-                if (!empty($responseObject->error)) {
-                    $error_list[] = $responseObject->error . ". ";
+                // Hop usa varias formas ({"campo": [..]}, {message, errors: {campo: [..]}}, {error}):
+                // juntar todos los textos, sin repetir (message suele duplicar errors).
+                $leaves = iterator_to_array(new \RecursiveIteratorIterator(
+                    new \RecursiveArrayIterator(json_decode(json_encode($responseObject), true))
+                ), false);
+                foreach (array_unique(array_filter($leaves, 'is_string')) as $message) {
+                    $error_list[] = rtrim($message, '.') . ". ";
                 }
             } else if (is_string($responseObject)) {
                 $error_list[] = $responseObject . ".";
+            } else if ($responseJson === false) {
+                $error_list[] = __('Sin respuesta de la API de Hop (error de conexión o timeout).');
             }
             $error .= implode(" ", $error_list);
             $this->_helper->log('Error:', true);
@@ -808,6 +828,16 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * Mensaje del último fallo de createShippingMultibulto(), que sólo devuelve bool.
+     *
+     * @return string|null
+     */
+    public function getLastMultibultoError()
+    {
+        return $this->lastMultibultoError;
     }
 
     /**
@@ -821,6 +851,8 @@ class Webservice
     public function createShippingMultibulto($order, array $shipments, int $hopEnvioId)
     {
         $this->ensureInitialized();
+        $this->lastMultibultoError = null;
+        $this->lastStatus = null;
 
         $sellerCode      = $this->_helper->getSellerCode($this->storeId);
         $shippingType    = $this->_helper->getShippingType($this->storeId);
@@ -834,6 +866,7 @@ class Webservice
         $hopData = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         if (!$hopData) {
             $this->_helper->log(__('No Hop Data (multibulto)'), true);
+            $this->lastMultibultoError = 'No Hop Data (multibulto)';
             return false;
         }
 
@@ -911,20 +944,27 @@ class Webservice
             $error = __('Error: respuesta multibulto no es array. Raw: ') . $responseJson;
             $this->_helper->log($error, true);
             $this->messageManager->addErrorMessage(__('Error en respuesta multibulto de Hop'));
+            $this->lastMultibultoError = (string)$error;
             return false;
         }
 
         // Hop can fail the whole request (auth, validation) instead of returning a per-bulto
         // array — that shape has no numeric keys matching $shipments, so the loop below would
         // silently skip every entry and report success. Catch it here first.
-        if (!empty($responseArray['error'])) {
+        // Same for validation errors ({"package.0.size_category": ["..."]}): no 'error' key
+        // and no bulto at index 0, so they'd also pass as success.
+        if (!empty($responseArray['error']) || !array_key_exists(0, $responseArray)) {
             $errorMsg = is_string($responseArray['message'] ?? null)
                 ? $responseArray['message']
-                : ($responseArray['error'] ?? 'unknown');
+                : ($responseArray['error'] ?? implode('. ', array_filter(
+                    iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($responseArray)), false),
+                    'is_string'
+                )) ?: 'unknown');
             $this->_helper->log('[multibulto] request error: ' . $errorMsg, true);
             $this->messageManager->addErrorMessage(
                 __('Error en respuesta multibulto de Hop: %1', $errorMsg)
             );
+            $this->lastMultibultoError = (string)__('Error en respuesta multibulto de Hop: %1', $errorMsg);
             return false;
         }
 
@@ -941,6 +981,7 @@ class Webservice
                 $this->messageManager->addErrorMessage(
                     __('Error en bulto %1 de Hop: %2', $i + 1, $errorMsg)
                 );
+                $this->lastMultibultoError = (string)__('Error en bulto %1 de Hop: %2', $i + 1, $errorMsg);
                 $this->hopEnviosShipmentRepository->saveForShipment(
                     $hopEnvioId,
                     (int)$shipments[$i]->getId(),

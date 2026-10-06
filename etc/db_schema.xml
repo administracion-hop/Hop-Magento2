@@ -33,6 +33,10 @@
         <column xsi:type="text" name="increment_id" nullable="false" />
         <column xsi:type="text" name="info_hop" nullable="true" />
         <column xsi:type="varchar" name="status_shipment" length="255"  nullable="true" default="pending" comment="Shipment status" />
+        <column xsi:type="text" name="last_error" nullable="true" comment="Último error devuelto por Hop" />
+        <column xsi:type="varchar" name="last_error_code" length="64" nullable="true" comment="Clave normalizada del error (ver DispatchError)" />
+        <column xsi:type="smallint" name="attempts" unsigned="true" nullable="false" default="0" comment="Intentos fallidos de despacho" />
+        <column xsi:type="timestamp" name="next_retry_at" nullable="true" comment="Próximo reintento automático; NULL = no reintentar" />
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="entity_id"/>
         </constraint>

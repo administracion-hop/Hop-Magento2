@@ -3,6 +3,7 @@
 namespace Hop\Envios\Plugin;
 
 use Hop\Envios\Helper\Data;
+use Hop\Envios\Model\LastPickupPoint;
 use Hop\Envios\Model\QuotePickupPointRepository;
 use Magento\Checkout\Model\Session as CheckoutSession;
 
@@ -32,19 +33,27 @@ class DefaultConfigProvider
     protected $quotePickupPointRepository;
 
     /**
+     * @var LastPickupPoint
+     */
+    protected $lastPickupPoint;
+
+    /**
      * DefaultConfigProvider constructor.
      * @param Data $helper
      * @param CheckoutSession $checkoutSession
      * @param QuotePickupPointRepository $quotePickupPointRepository
+     * @param LastPickupPoint $lastPickupPoint
      */
     public function __construct(
         Data $helper,
         CheckoutSession $checkoutSession,
-        QuotePickupPointRepository $quotePickupPointRepository
+        QuotePickupPointRepository $quotePickupPointRepository,
+        LastPickupPoint $lastPickupPoint
     ) {
         $this->_helper = $helper;
         $this->checkoutSession = $checkoutSession;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
+        $this->lastPickupPoint = $lastPickupPoint;
     }
 
     /**
@@ -66,7 +75,8 @@ class DefaultConfigProvider
         try {
             $quote = $this->checkoutSession->getQuote();
             if ($quote && $quote->getId()) {
-                $hopData = $this->getHopDataFromSelectedPickupPoint((int)$quote->getId());
+                $hopData = $this->getHopDataFromSelectedPickupPoint((int)$quote->getId())
+                    ?? $this->lastPickupPoint->getForQuote($quote);
                 if ($hopData) {
                     $config['quoteData']['hop_data'] = json_encode($hopData);
                 }

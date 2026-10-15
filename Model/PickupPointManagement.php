@@ -50,6 +50,11 @@ class PickupPointManagement implements PickupPointManagementInterface
     protected $helper;
 
     /**
+     * @var LastPickupPoint
+     */
+    protected $lastPickupPoint;
+
+    /**
      * PickupPointManagement constructor.
      *
      * @param Session $checkoutSession
@@ -58,6 +63,7 @@ class PickupPointManagement implements PickupPointManagementInterface
      * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param HopHelper $helper
+     * @param LastPickupPoint $lastPickupPoint
      */
     public function __construct(
         Session $checkoutSession,
@@ -65,7 +71,8 @@ class PickupPointManagement implements PickupPointManagementInterface
         Webservice $webservice,
         QuotePickupPointRepository $quotePickupPointRepository,
         CartRepositoryInterface $quoteRepository,
-        HopHelper $helper
+        HopHelper $helper,
+        LastPickupPoint $lastPickupPoint
     ) {
         $this->checkoutSession = $checkoutSession;
         $this->request = $request;
@@ -73,6 +80,7 @@ class PickupPointManagement implements PickupPointManagementInterface
         $this->quotePickupPointRepository = $quotePickupPointRepository;
         $this->quoteRepository = $quoteRepository;
         $this->helper = $helper;
+        $this->lastPickupPoint = $lastPickupPoint;
     }
 
     /**
@@ -247,6 +255,19 @@ class PickupPointManagement implements PickupPointManagementInterface
                 'hopPointPostcode'    => $hopData['hopPointPostcode'] ?? '',
                 'hopPointDescription' => $hopData['hopPointDescription'] ?? ''
             ]);
+        }
+
+        // Fallback: the customer's last Hop point, so the preselection survives the
+        // frontend clearing hop_data (e.g. Amasty loading the address without zip first).
+        if ($quote && $quote->getId()) {
+            try {
+                $lastPoint = $this->lastPickupPoint->getForQuote($quote);
+                if ($lastPoint) {
+                    return json_encode($lastPoint);
+                }
+            } catch (\Exception $e) {
+                // Preselection is a convenience; never break the endpoint over it
+            }
         }
 
         return json_encode(null);

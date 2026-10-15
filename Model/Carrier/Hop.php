@@ -38,6 +38,7 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\QuotePickupPointRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
+use Hop\Envios\Model\LastPickupPoint;
 use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
 
 /**
@@ -142,6 +143,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected $quotePickupPointRepository;
 
     /**
+     * @var LastPickupPoint
+     */
+    protected $lastPickupPoint;
+
+    /**
      * @var HopEnviosShipmentRepository
      */
     protected $hopEnviosShipmentRepository;
@@ -172,6 +178,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param State $appState
      * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
+     * @param LastPickupPoint $lastPickupPoint
      * @param array $data
      */
     public function __construct(
@@ -203,6 +210,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         HopEnviosRepository $hopEnviosRepository,
         QuotePickupPointRepository $quotePickupPointRepository,
         HopEnviosShipmentRepository $hopEnviosShipmentRepository,
+        LastPickupPoint $lastPickupPoint,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateFactory;
@@ -221,6 +229,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->quotePickupPointRepository = $quotePickupPointRepository;
         $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
+        $this->lastPickupPoint = $lastPickupPoint;
         parent::__construct(
             $scopeConfig,
             $rateErrorFactory,
@@ -370,6 +379,23 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             }
         }
 
+        // Preselect the customer's last Hop point. It only reaches the quote (and the order)
+        // through the save block below, i.e. when its zip code matches the destination.
+        if ((!is_array($hopData) || empty($hopData['hopPointId'])) && $quote->getId()) {
+            try {
+                $hopData = $this->lastPickupPoint->getForQuote($quote) ?? $hopData;
+            } catch (\Exception $e) {
+                $helper->log($e->getMessage(), true);
+            }
+        }
+
+        // Drop a point from another zip code BEFORE quoting, so its price is never charged.
+        $zipCodeFromHopData = !empty($hopData['hopPointPostcode']) ? $hopData['hopPointPostcode'] : null;
+        if ($destZipCode != $zipCodeFromHopData){
+            $this->cleanQuoteData();
+            $hopData = null;
+        }
+
         $showMethod = $this->getConfigData('showmethod');
 
         $hopAltoTotal = 0;
@@ -501,12 +527,6 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
             $adjustedShippingCost = max(0, $adjustedShippingCost);
             $method->setPrice($adjustedShippingCost);
             $method->setCost($adjustedShippingCost);
-        }
-
-        $zipCodeFromHopData = !empty($hopData['hopPointPostcode']) ? $hopData['hopPointPostcode'] : null;
-        if ($destZipCode != $zipCodeFromHopData){
-            $this->cleanQuoteData();
-            $hopData = null;
         }
 
         if (!empty($hopData['hopPointDescription']) || (!empty($hopData['hopPointName']) && !empty($hopData['hopPointAddress']) && !empty($hopData['hopPointId']))) {

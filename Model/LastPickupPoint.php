@@ -71,7 +71,7 @@ class LastPickupPoint
 
     /**
      * Checks the point is still offered, against the cache refreshed by Cron/LoadPoints.
-     * ponytail: the cache can lag up to an hour behind Hop; good enough for a preselection.
+     * The cache can lag up to an hour behind Hop; good enough for a preselection.
      */
     private function isPointListed(string $pickupPointId, string $zipCode, int $storeId): bool
     {

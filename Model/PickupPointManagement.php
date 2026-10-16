@@ -257,8 +257,9 @@ class PickupPointManagement implements PickupPointManagementInterface
             ]);
         }
 
-        // Fallback: the customer's last Hop point, so the preselection survives the
-        // frontend clearing hop_data (e.g. Amasty loading the address without zip first).
+        // Fallback: the customer's last Hop point. This is the only path that brings it to the
+        // frontend (not the checkout config), because hop.js only accepts it when its zip code
+        // matches the address; in Peru with ubigeo mapping it can't compare, so it never applies.
         if ($quote && $quote->getId()) {
             try {
                 $lastPoint = $this->lastPickupPoint->getForQuote($quote);

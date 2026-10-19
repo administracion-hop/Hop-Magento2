@@ -57,6 +57,11 @@ class LastPickupPoint
         }
 
         $pickupPointId = (string)$lastPoint->getPickupPointId();
+        // Changing the point from the admin only updates pickup_point_id; the original_* columns
+        // still describe the old point, so the text shown would not match the shipment's point.
+        if ($pickupPointId !== (string)$lastPoint->getOriginalPickupPointId()) {
+            return null;
+        }
         $zipCode = (string)$lastPoint->getOriginalZipCode();
         if (!$this->isPointListed($pickupPointId, $zipCode, (int)$quote->getStoreId())) {
             return null;

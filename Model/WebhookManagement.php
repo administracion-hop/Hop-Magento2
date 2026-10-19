@@ -65,11 +65,6 @@ class WebhookManagement implements WebhookManagementInterface
         $data = $this->request->getBodyParams();
 
         try {
-            $allowNotifications = $this->helperData->getAllowNotifications();
-            if (!$allowNotifications) {
-                throw new \Exception('Webhook notifications are disabled in Magento configuration');
-            }
-
             if (empty($data)) {
                 throw new \Exception('Webhook data cannot be empty');
             }
@@ -79,12 +74,25 @@ class WebhookManagement implements WebhookManagementInterface
             }
 
             $sellerCodeFromData = !empty($data['seller_code']) ? $data['seller_code'] : '';
-            $sellerCodeFromMagento = $this->helperData->getSellerCode();
+
+            // La config es por website: se evalúa en el store de la orden, no en el de la request REST
+            $order = $this->statusManager->getOrderByReferenceId($data['reference_id'], $sellerCodeFromData ?: null);
+            if (!$order) {
+                throw new \Exception('Order not found');
+            }
+            $storeId = $order->getStoreId();
+
+            $allowNotifications = $this->helperData->getAllowNotifications($storeId);
+            if (!$allowNotifications) {
+                throw new \Exception('Webhook notifications are disabled in Magento configuration');
+            }
+
+            $sellerCodeFromMagento = $this->helperData->getSellerCode($storeId);
             if ($sellerCodeFromData !== $sellerCodeFromMagento) {
                 throw new \Exception('Seller code does not match the configured value');
             }
 
-            $this->processData($data);
+            $this->processData($data, $order);
 
             $response->setSuccess(true);
             $response->setMessage('Webhook notification processed successfully');
@@ -101,9 +109,10 @@ class WebhookManagement implements WebhookManagementInterface
      * Process the webhook data
      *
      * @param array $data
+     * @param \Magento\Sales\Model\Order $order
      * @return void
      */
-    protected function processData($data)
+    protected function processData($data, $order)
     {
         $this->logger->info('Webhook received: ' . json_encode($data));
 
@@ -111,7 +120,6 @@ class WebhookManagement implements WebhookManagementInterface
             return;
         }
 
-        $referenceId = $data['reference_id'];
         $code = str_replace('-', "_", $data['tracking']['last_status']['code']);
         $trackingNum = !empty($data['tracking_nro']) ? $data['tracking_nro'] : '';
         $comment = $trackingNum ? __('Novedad de seguimiento: %1', $trackingNum) : __('Novedad de seguimiento');
@@ -121,6 +129,6 @@ class WebhookManagement implements WebhookManagementInterface
         if (!empty($data['tracking']['last_status']['description'])){
             $comment .= ' | ' . __('Descripción: %1', $data['tracking']['last_status']['description']);
         }
-        $this->statusManager->processOrder($referenceId, $code, $comment);
+        $this->statusManager->processOrder($order, $code, $comment);
     }
 }

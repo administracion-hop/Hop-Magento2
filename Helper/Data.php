@@ -219,7 +219,7 @@ class Data extends AbstractHelper
      */
     public function getAllowNotifications($storeId = null)
     {
-        return (bool)$this->getConfigValue('shipping/hop/allow_notifications', $storeId);
+        return (bool)$this->getConfigValue('carriers/hop/statuses/allow_notifications', $storeId);
     }
 
     /**

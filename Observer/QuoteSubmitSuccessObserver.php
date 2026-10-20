@@ -56,6 +56,12 @@ class QuoteSubmitSuccessObserver implements ObserverInterface
             return;
         }
 
+        // The quote can hold a point the customer never used (preselected last point, or a
+        // point chosen before switching method): only Hop orders get a pickup point.
+        if ($order->getShippingMethod() !== 'hop_hop') {
+            return;
+        }
+
         $quoteId = (int)($quote ? $quote->getId() : $order->getQuoteId());
         if (!$quoteId) {
             return;

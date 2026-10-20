@@ -8,7 +8,7 @@ use Magento\Quote\Model\Quote;
 
 /**
  * Pickup point of the customer's last Hop order, used to preselect it in checkout.
- * Shared by the checkout config, the selected-point endpoint and the carrier fallback.
+ * Shared by the selected-point endpoint and the carrier fallback.
  */
 class LastPickupPoint
 {

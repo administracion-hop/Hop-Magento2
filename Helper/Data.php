@@ -416,6 +416,25 @@ class Data extends AbstractHelper
     }
 
     /**
+     * Whether the customer's postcode can be compared against a pickup point's zip code.
+     * Mirrors isPostcodeValidationApplicable() in view/frontend/web/js/view/hop.js: in Peru,
+     * unless the ubigeo is read straight from the postcode field, the address postcode has
+     * nothing to do with the point's zip code.
+     *
+     * @param string|null $countryId
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isPostcodeValidationApplicable($countryId, $storeId = null)
+    {
+        if ($countryId !== 'PE') {
+            return true;
+        }
+        return $this->getUbigeoSource($storeId) === UbigeoSourceOption::FIELD
+            && $this->getUbigeoField($storeId) === 'postcode';
+    }
+
+    /**
      * @param int|null $storeId
      * @return string
      */

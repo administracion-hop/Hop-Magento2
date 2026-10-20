@@ -381,7 +381,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
 
         // Preselect the customer's last Hop point. It only reaches the quote (and the order)
         // through the save block below, i.e. when its zip code matches the destination.
-        if ((!is_array($hopData) || empty($hopData['hopPointId'])) && $quote->getId()) {
+        // Skipped where hop.js can't validate it against the postcode (Peru ubigeo mapping):
+        // the quote would hold a point the checkout doesn't show as selected.
+        if ((!is_array($hopData) || empty($hopData['hopPointId'])) && $quote->getId()
+            && $helper->isPostcodeValidationApplicable($request->getDestCountryId(), $storeId)
+        ) {
             try {
                 $hopData = $this->lastPickupPoint->getForQuote($quote) ?? $hopData;
             } catch (\Exception $e) {

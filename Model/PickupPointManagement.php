@@ -259,7 +259,8 @@ class PickupPointManagement implements PickupPointManagementInterface
 
         // Fallback: the customer's last Hop point. This is the only path that brings it to the
         // frontend (not the checkout config), because hop.js only accepts it when its zip code
-        // matches the address; in Peru with ubigeo mapping it can't compare, so it never applies.
+        // matches the address; in Peru with ubigeo mapping it can't compare, so it never applies
+        // (the carrier skips it there too, see HopHelper::isPostcodeValidationApplicable).
         if ($quote && $quote->getId()) {
             try {
                 $lastPoint = $this->lastPickupPoint->getForQuote($quote);

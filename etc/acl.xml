@@ -5,6 +5,8 @@
             <resource id="Magento_Backend::admin">
                 <resource id="Hop_Envios::main" title="Hop Envios" sortOrder="100">
                     <resource id="Hop_Envios::webhook_notifications" title="Webhook Notifications" sortOrder="10" />
+                    <resource id="Hop_Envios::order_dispatch" title="Despachar pedidos a Hop" sortOrder="20" />
+                    <resource id="Hop_Envios::label_download" title="Descargar etiquetas Hop" sortOrder="30" />
                 </resource>
             </resource>
         </resources>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Columna y acciones masivas de Hop sobre la grilla de pedidos. Magento mergea este archivo
+  ~ con el del core: para sumar otra columna o acción Hop alcanza con agregarla acá (y, si es
+  ~ columna, al db_schema y al agregador de etc/di.xml).
+-->
+<listing xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
+    <listingToolbar name="listing_top">
+        <massaction name="listing_massaction">
+            <action name="hop_dispatch" class="Hop\Envios\Ui\Component\MassAction\AclAction">
+                <argument name="data" xsi:type="array">
+                    <item name="config" xsi:type="array">
+                        <item name="aclResource" xsi:type="string">Hop_Envios::order_dispatch</item>
+                    </item>
+                </argument>
+                <settings>
+                    <confirm>
+                        <message translate="true">¿Despachar a Hop los pedidos seleccionados?</message>
+                        <title translate="true">Despachar a Hop</title>
+                    </confirm>
+                    <url path="hop/order/massDispatch"/>
+                    <type>hop_dispatch</type>
+                    <label translate="true">Despachar a Hop</label>
+                </settings>
+            </action>
+            <action name="hop_labels" class="Hop\Envios\Ui\Component\MassAction\AclAction">
+                <argument name="data" xsi:type="array">
+                    <item name="config" xsi:type="array">
+                        <item name="aclResource" xsi:type="string">Hop_Envios::label_download</item>
+                    </item>
+                </argument>
+                <settings>
+                    <url path="hop/order/massLabels"/>
+                    <type>hop_labels</type>
+                    <label translate="true">Descargar etiquetas Hop</label>
+                </settings>
+            </action>
+        </massaction>
+    </listingToolbar>
+    <columns name="sales_order_columns">
+        <column name="hop_dispatch_status" component="Magento_Ui/js/grid/columns/select" sortOrder="75">
+            <settings>
+                <options class="Hop\Envios\Model\Config\Source\HopDispatchStatus"/>
+                <filter>select</filter>
+                <dataType>select</dataType>
+                <label translate="true">Despacho Hop</label>
+            </settings>
+        </column>
+    </columns>
+</listing>

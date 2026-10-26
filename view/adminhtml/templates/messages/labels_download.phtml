@@ -6,6 +6,6 @@
  * @var \Magento\Framework\Escaper $escaper
  */
 ?>
-<?= $escaper->escapeHtml(__('PDF armado con las etiquetas de %1 pedido(s).', (int)$block->getData('count'))) ?>
-<a href="<?= $escaper->escapeUrl($block->getData('url')) ?>"><?= $escaper->escapeHtml(__('Descargar etiquetas')) ?></a>
-<?= $escaper->escapeHtml(__('Revisá abajo los pedidos que quedaron afuera.')) ?>
+<?= $escaper->escapeHtml(__('Las etiquetas de %1 pedido(s) están listas:', (int)$block->getData('count'))) ?>
+ <a href="<?= $escaper->escapeUrl($block->getData('url')) ?>"><?= $escaper->escapeHtml(__('Descargar etiquetas')) ?></a>.
+ <?= $escaper->escapeHtml(__('Los pedidos que quedaron afuera figuran en los otros avisos.')) ?>

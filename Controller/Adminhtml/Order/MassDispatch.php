@@ -6,6 +6,7 @@ namespace Hop\Envios\Controller\Adminhtml\Order;
 
 use Hop\Envios\Helper\ShippingMethod;
 use Hop\Envios\Logger\LoggerInterface;
+use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
@@ -189,6 +190,12 @@ class MassDispatch extends Action implements HttpPostActionInterface
 
         if ($hopEnvios && $hopEnvios->getStatusShipment() === 'completed') {
             return (string)__('ya despachado');
+        }
+
+        // Multibulto con bultos rechazados: el envío ya existe en Hop y no admite sumar bultos,
+        // así que reintentar no manda nada. Mismo criterio que oculta "Enviar a HOP" en el pedido.
+        if ($hopEnvios && !DispatchError::isRetryable($hopEnvios->getLastErrorCode())) {
+            return (string)__('ya creado en Hop con bultos rechazados');
         }
 
         // Con envíos parciales el despacho lo hace SalesOrderShipmentSaveAfter al completar el

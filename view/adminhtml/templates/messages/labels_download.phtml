@@ -1,0 +1,11 @@
+<?php
+/**
+ * Aviso de MassLabels cuando el PDF quedó guardado porque hubo pedidos afuera.
+ *
+ * @var \Magento\Framework\View\Element\Template $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+?>
+<?= $escaper->escapeHtml(__('PDF armado con las etiquetas de %1 pedido(s).', (int)$block->getData('count'))) ?>
+<a href="<?= $escaper->escapeUrl($block->getData('url')) ?>"><?= $escaper->escapeHtml(__('Descargar etiquetas')) ?></a>
+<?= $escaper->escapeHtml(__('Revisá abajo los pedidos que quedaron afuera.')) ?>

@@ -12,6 +12,7 @@ use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\Response\Http\FileFactory;
 use Magento\Framework\Controller\ResultFactory;
+use Magento\Framework\Filesystem;
 use Magento\Sales\Model\ResourceModel\Order\Grid\Collection as OrderGridCollection;
 use Magento\Sales\Model\ResourceModel\Order\Grid\CollectionFactory as OrderGridCollectionFactory;
 use Magento\Ui\Api\BookmarkManagementInterface;
@@ -71,6 +72,11 @@ class MassLabels extends Action implements HttpPostActionInterface
     private LoggerInterface $logger;
 
     /**
+     * @var Filesystem
+     */
+    private Filesystem $filesystem;
+
+    /**
      * @param Context $context
      * @param Filter $filter
      * @param OrderGridCollectionFactory $gridCollectionFactory La grilla, para respetar su orden y sus filtros
@@ -78,6 +84,7 @@ class MassLabels extends Action implements HttpPostActionInterface
      * @param FileFactory $fileFactory
      * @param BookmarkManagementInterface $bookmarkManagement
      * @param LoggerInterface $logger
+     * @param Filesystem $filesystem
      */
     public function __construct(
         Context $context,
@@ -86,7 +93,8 @@ class MassLabels extends Action implements HttpPostActionInterface
         LabelPdf $labelPdf,
         FileFactory $fileFactory,
         BookmarkManagementInterface $bookmarkManagement,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        Filesystem $filesystem
     ) {
         parent::__construct($context);
         $this->filter = $filter;
@@ -95,6 +103,7 @@ class MassLabels extends Action implements HttpPostActionInterface
         $this->fileFactory = $fileFactory;
         $this->bookmarkManagement = $bookmarkManagement;
         $this->logger = $logger;
+        $this->filesystem = $filesystem;
     }
 
     /**
@@ -125,6 +134,7 @@ class MassLabels extends Action implements HttpPostActionInterface
         }
 
         $pdfs = [];
+        $included = [];
         $withoutLabel = [];
         $failed = [];
 
@@ -158,6 +168,7 @@ class MassLabels extends Action implements HttpPostActionInterface
 
             if ($pending !== null) {
                 $pdfs = array_merge($pdfs, $pending);
+                $included[] = $increment;
             }
         }
 
@@ -167,6 +178,38 @@ class MassLabels extends Action implements HttpPostActionInterface
             );
             return $resultRedirect;
         }
+
+        try {
+            $pdf = $this->labelPdf->merge($pdfs);
+
+            if (!$withoutLabel && !$failed) {
+                return $this->fileFactory->create(
+                    'etiquetas-hop-' . date('Ymd-His') . '.pdf',
+                    $pdf,
+                    DirectoryList::VAR_DIR,
+                    'application/pdf'
+                );
+            }
+
+            // Con pedidos afuera no se descarga directo: la descarga no recarga la grilla y los
+            // avisos de qué quedó afuera recién se verían en la próxima navegación, cuando el PDF
+            // ya se imprimió como si estuviera completo. Se guarda y se ofrece junto a los avisos.
+            $this->filesystem->getDirectoryWrite(DirectoryList::VAR_DIR)->writeFile(
+                MassLabelsDownload::pendingPath((int)$this->_auth->getUser()->getId()),
+                $pdf
+            );
+        } catch (\Exception $e) {
+            $this->logger->error('Error armando el PDF de etiquetas Hop', ['error' => $e->getMessage()]);
+            $this->messageManager->addErrorMessage(
+                __('Se produjo un error al armar el PDF de etiquetas: %1', $e->getMessage())
+            );
+            return $resultRedirect;
+        }
+
+        $this->messageManager->addComplexSuccessMessage('hopLabelsDownload', [
+            'url' => $this->getUrl('hop/order/massLabelsDownload'),
+            'count' => count($included)
+        ]);
 
         if ($withoutLabel) {
             $this->messageManager->addNoticeMessage(
@@ -188,20 +231,7 @@ class MassLabels extends Action implements HttpPostActionInterface
             );
         }
 
-        try {
-            return $this->fileFactory->create(
-                'etiquetas-hop-' . date('Ymd-His') . '.pdf',
-                $this->labelPdf->merge($pdfs),
-                DirectoryList::VAR_DIR,
-                'application/pdf'
-            );
-        } catch (\Exception $e) {
-            $this->logger->error('Error armando el PDF de etiquetas Hop', ['error' => $e->getMessage()]);
-            $this->messageManager->addErrorMessage(
-                __('Se produjo un error al armar el PDF de etiquetas: %1', $e->getMessage())
-            );
-            return $resultRedirect;
-        }
+        return $resultRedirect;
     }
 
     /**

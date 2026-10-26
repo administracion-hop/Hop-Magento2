@@ -121,6 +121,11 @@ class MassDispatch extends Action implements HttpPostActionInterface
         $skipped = [];
         $failed = [];
 
+        // Webservice informa cada fallo con su propio mensaje, sin número de pedido: en un lote
+        // son líneas sueltas que repiten lo que ya dice el resumen (el mismo texto queda en
+        // last_error). Se apartan los mensajes previos, se descartan los del lote y se devuelven.
+        $previousMessages = $this->messageManager->getMessages(true)->getItems();
+
         /** @var Order $order */
         foreach ($collection as $order) {
             $increment = (string)$order->getIncrementId();
@@ -147,6 +152,11 @@ class MassDispatch extends Action implements HttpPostActionInterface
                 ]);
                 $failed[] = $increment . ' (' . $e->getMessage() . ')';
             }
+        }
+
+        $this->messageManager->getMessages(true);
+        if ($previousMessages) {
+            $this->messageManager->addMessages($previousMessages);
         }
 
         if ($dispatched) {

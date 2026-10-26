@@ -63,11 +63,15 @@ class BackfillHopDispatchStatus implements DataPatchInterface
     }
 
     /**
+     * BackfillStatusShipmentCompleted corrige status_shipment con un UPDATE directo, sin refrescar
+     * la grilla: si corriera después (los patches se aplican en orden alfabético), los pedidos
+     * que marca como completed quedarían "No despachado".
+     *
      * @return array
      */
     public static function getDependencies()
     {
-        return [];
+        return [BackfillStatusShipmentCompleted::class];
     }
 
     /**

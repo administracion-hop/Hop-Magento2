@@ -39,6 +39,7 @@ use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\QuotePickupPointRepository;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
+use Hop\Envios\Model\Shipping\HopPriceCalculator;
 
 /**
  * Class Hop
@@ -147,6 +148,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected $hopEnviosShipmentRepository;
 
     /**
+     * @var HopPriceCalculator
+     */
+    protected $priceCalculator;
+
+    /**
      * Hop constructor.
      * @param ScopeConfigInterface $scopeConfig
      * @param ErrorFactory $rateErrorFactory
@@ -172,6 +178,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
      * @param State $appState
      * @param QuotePickupPointRepository $quotePickupPointRepository
      * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
+     * @param HopPriceCalculator $priceCalculator
      * @param array $data
      */
     public function __construct(
@@ -203,8 +210,10 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         HopEnviosRepository $hopEnviosRepository,
         QuotePickupPointRepository $quotePickupPointRepository,
         HopEnviosShipmentRepository $hopEnviosShipmentRepository,
+        HopPriceCalculator $priceCalculator,
         array $data = []
     ) {
+        $this->priceCalculator = $priceCalculator;
         $this->_rateResultFactory = $rateFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         $this->_helper            = $hopHelper;
@@ -472,33 +481,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
                 return $error;
             }
 
-            $percentageRate = $this->getConfigData('percentage_rate');
-            $fixedValue = $this->getConfigData('fixed_value');
-
-            if (!empty($percentageRate)) {
-
-                $adjustedShippingCost = ($percentageRate == 1) ? $costoEnvio : $costoEnvio * $percentageRate;
-
-                if (!empty($fixedValue)) {
-                    if ($fixedValue >= 0) {
-                        $adjustedShippingCost += $fixedValue;
-                    } else {
-                        $adjustedShippingCost -= abs($fixedValue);
-                    }
-                }
-            } else {
-                $adjustedShippingCost = $costoEnvio;
-
-                if (!empty($fixedValue)) {
-                    if ($fixedValue >= 0) {
-                        $adjustedShippingCost += $fixedValue;
-                    } else {
-                        $adjustedShippingCost -= abs($fixedValue);
-                    }
-                }
-            }
-
-            $adjustedShippingCost = max(0, $adjustedShippingCost);
+            $adjustedShippingCost = $this->priceCalculator->adjust((float)$costoEnvio, $storeId);
             $method->setPrice($adjustedShippingCost);
             $method->setCost($adjustedShippingCost);
         }

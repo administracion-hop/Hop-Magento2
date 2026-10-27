@@ -22,6 +22,12 @@ use Magento\Framework\Setup\Patch\DataPatchInterface;
 class BackfillHopDispatchStatus implements DataPatchInterface
 {
     /**
+     * Pedidos por tanda. Un UPDATE con join sobre sales_order_grid entera deja la tabla
+     * bloqueada todo lo que dure; en tandas el lock es corto aunque el total tarde lo mismo.
+     */
+    private const BATCH_SIZE = 5000;
+
+    /**
      * @var ModuleDataSetupInterface
      */
     private ModuleDataSetupInterface $moduleDataSetup;
@@ -49,15 +55,23 @@ class BackfillHopDispatchStatus implements DataPatchInterface
     public function apply()
     {
         $connection = $this->moduleDataSetup->getConnection();
+        $gridTable = $connection->quoteIdentifier($this->moduleDataSetup->getTable('sales_order_grid'));
 
-        $connection->query(sprintf(
+        $sql = sprintf(
             'UPDATE %s AS grid'
             . ' INNER JOIN %s AS sales_order ON sales_order.entity_id = grid.entity_id'
-            . ' SET grid.hop_dispatch_status = %s',
-            $connection->quoteIdentifier($this->moduleDataSetup->getTable('sales_order_grid')),
+            . ' SET grid.hop_dispatch_status = %s'
+            . ' WHERE grid.entity_id > ? AND grid.entity_id <= ?',
+            $gridTable,
             $connection->quoteIdentifier($this->moduleDataSetup->getTable('sales_order')),
             (string)$this->dispatchStatus
-        ));
+        );
+
+        $maxId = (int)$connection->fetchOne('SELECT MAX(entity_id) FROM ' . $gridTable);
+
+        for ($from = 0; $from < $maxId; $from += self::BATCH_SIZE) {
+            $connection->query($sql, [$from, $from + self::BATCH_SIZE]);
+        }
 
         return $this;
     }

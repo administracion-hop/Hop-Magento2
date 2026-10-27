@@ -166,6 +166,10 @@ class LabelPdf
      * Baja la etiqueta y la devuelve siempre como PDF. Lo que no sea PDF ni imagen (ZPL,
      * por ejemplo) no se puede meter en un PDF unificado: tira excepción y el caller informa.
      *
+     * Verifica acá que Zend_Pdf pueda abrirlo, aunque merge() lo vuelva a parsear. El tipo MIME
+     * no alcanza: un PDF corrupto o cifrado pasa el finfo y recién revienta al unir, cuando ya
+     * no se puede saber de qué pedido era y se cae el lote entero.
+     *
      * @param string $url
      * @return string Contenido PDF
      * @throws \Exception
@@ -180,11 +184,14 @@ class LabelPdf
             );
         }
 
+        Zend_Pdf::parse($file['content']);
+
         return $file['content'];
     }
 
     /**
-     * Une varios PDFs en uno solo, respetando el orden recibido.
+     * Une varios PDFs en uno solo, respetando el orden recibido. Con uno solo devuelve el
+     * archivo tal cual vino, sin pasarlo por un render de Zend.
      *
      * @param string[] $pdfContents
      * @return string

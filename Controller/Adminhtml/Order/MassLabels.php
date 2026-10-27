@@ -172,9 +172,30 @@ class MassLabels extends Action implements HttpPostActionInterface
             }
         }
 
+        // Sin PDF no hay nada que ofrecer, pero el motivo importa: "ninguno tiene etiqueta" cuando
+        // en realidad todas estaban ilegibles manda a revisar los pedidos equivocados.
         if (!$pdfs) {
+            if ($failed && $withoutLabel) {
+                $this->messageManager->addNoticeMessage(
+                    __(
+                        '%1 pedido(s) sin etiqueta Hop, omitidos: %2',
+                        count($withoutLabel),
+                        implode(', ', $withoutLabel)
+                    )
+                );
+            }
+
             $this->messageManager->addErrorMessage(
-                __('Ninguno de los pedidos seleccionados tiene etiqueta Hop para descargar.')
+                $failed
+                    ? __(
+                        'No se generó ningún PDF: %1 pedido(s) con etiqueta ilegible: %2',
+                        count($failed),
+                        implode(', ', $failed)
+                    )
+                    : __(
+                        'Ninguno de los pedidos seleccionados tiene etiqueta Hop para descargar: %1',
+                        implode(', ', $withoutLabel)
+                    )
             );
             return $resultRedirect;
         }

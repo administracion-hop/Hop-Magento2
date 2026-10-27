@@ -42,4 +42,22 @@
     <type name="Magento\Customer\ViewModel\Address">
         <plugin name="hop_envios_address_validation" type="Hop\Envios\Plugin\Customer\ViewModel\AddressPlugin" sortOrder="10"/>
     </type>
+
+    <!-- Columna "Despacho Hop" en sales_order_grid: se suma al agregador por merge de di.xml,
+         sin sobrescribir el virtualType del core. Para agregar otra columna Hop alcanza con
+         sumar un <item> acá (y la columna al db_schema + al ui_component). -->
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid">
+        <arguments>
+            <argument name="columns" xsi:type="array">
+                <item name="hop_dispatch_status" xsi:type="object">Hop\Envios\Model\OrderGrid\DispatchStatusExpression</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <!-- Cualquier cambio en hop_envios (despacho individual, masivo, cron o webhook) refresca
+         la fila de la grilla: un solo punto para todos los callers. -->
+    <type name="Hop\Envios\Model\HopEnviosRepository">
+        <arguments>
+            <argument name="orderGrid" xsi:type="object">Magento\Sales\Model\ResourceModel\Order\Grid</argument>
+        </arguments>
+    </type>
 </config>

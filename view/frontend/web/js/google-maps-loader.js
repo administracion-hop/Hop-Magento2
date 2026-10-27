@@ -10,7 +10,10 @@ define(['jquery'],function ($)
             google_maps_loaded_def.resolve(google.maps);
         };
 
-        var apiKey =  window.checkoutConfig.hop.api_key;
+        // Checkout: checkoutConfig. Elsewhere (pickup point change in My Orders): window.hopConfig,
+        // set by the page's component before it requires the map.
+        var hopConfig = (window.checkoutConfig && window.checkoutConfig.hop) || window.hopConfig || {};
+        var apiKey = hopConfig.api_key;
         var url = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&callback=google_maps_loaded';
 
         require([url], function () {}, function (err) {

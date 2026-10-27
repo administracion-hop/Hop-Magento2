@@ -1,0 +1,44 @@
+<?php
+/** @var \Hop\Envios\Block\Order\ChangePoint $block */
+/** @var \Magento\Framework\Escaper $escaper */
+$order = $block->getOrder();
+if (!$order) {
+    return;
+}
+?>
+<div class="hop-change-point" id="hop-change-point">
+    <p class="hop-change-point-intro">
+        <?= $escaper->escapeHtml(__('Pedido #%1. Elegí el nuevo punto HOP donde querés retirar tu compra.', $order->getIncrementId())) ?>
+    </p>
+    <p class="hop-change-point-current">
+        <strong><?= $escaper->escapeHtml(__('Punto actual:')) ?></strong>
+        <?= $escaper->escapeHtml($order->getShippingDescription()) ?>
+    </p>
+    <div class="hop-change-point-message" aria-live="polite"></div>
+    <div class="hop-change-point-selector">
+        <div id="selector-maps-hop">
+            <div id="selector-sucursal">
+                <div class="input-buscador-hop">
+                    <input type="text" name="buscador" id="buscador-hop"
+                           placeholder="<?= $escaper->escapeHtmlAttr(__('Buscá por calle o barrio')) ?>"/>
+                </div>
+            </div>
+            <div id="points-maps-hop"></div>
+        </div>
+        <div id="google-maps-hop"></div>
+    </div>
+    <div class="actions-toolbar">
+        <div class="secondary">
+            <a class="action back" href="<?= $escaper->escapeUrl($block->getOrderViewUrl()) ?>">
+                <span><?= $escaper->escapeHtml(__('Volver al pedido')) ?></span>
+            </a>
+        </div>
+    </div>
+</div>
+<script type="text/x-magento-init">
+    {
+        "#hop-change-point": {
+            "Hop_Envios/js/view/change-point": <?= /* @noEscape */ $block->getJsConfig() ?>
+        }
+    }
+</script>

@@ -283,7 +283,7 @@ class ChangeServiceTest extends TestCase
         $this->priceRule->method('isFreeShipping')->willReturn(false);
         $this->priceCalculator->method('quote')->willReturn(5198.96);
         $this->priceRule->method('matchesChargedAmount')->willReturn(true);
-        $this->dispatchStatus->method('isDispatched')->with(self::ORDER_ID)->willReturn(true);
+        $this->dispatchStatus->method('hasDispatchStarted')->with(self::ORDER_ID)->willReturn(true);
         $this->expectNothingSaved();
 
         $this->assertSame(ChangeService::CODE_DISPATCHED, $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID)['code']);

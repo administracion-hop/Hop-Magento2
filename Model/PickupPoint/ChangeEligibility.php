@@ -47,7 +47,7 @@ class ChangeEligibility
         if (in_array($order->getState(), [Order::STATE_CANCELED, Order::STATE_CLOSED], true)) {
             return self::CLOSED_STATE;
         }
-        if ($this->dispatchStatus->isDispatched((int)$order->getId())) {
+        if ($this->dispatchStatus->hasDispatchStarted((int)$order->getId())) {
             return self::DISPATCHED;
         }
         return self::OK;

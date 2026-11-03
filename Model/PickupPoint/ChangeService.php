@@ -175,9 +175,9 @@ class ChangeService
             }
         }
 
-        // The label may have been generated while the buyer was choosing (the dispatch cron
-        // runs every minute): check again right before writing.
-        if ($this->dispatchStatus->isDispatched((int)$order->getId())) {
+        // The cron (every minute) or an admin may have started the dispatch while the buyer was
+        // choosing and Hop was quoting: check again right before writing.
+        if ($this->dispatchStatus->hasDispatchStarted((int)$order->getId())) {
             return $this->result(self::CODE_DISPATCHED);
         }
 

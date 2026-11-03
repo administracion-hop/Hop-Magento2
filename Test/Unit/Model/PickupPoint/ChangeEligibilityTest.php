@@ -52,7 +52,7 @@ class ChangeEligibilityTest extends TestCase
 
     public function testEligibleOrder(): void
     {
-        $this->dispatchStatus->method('isDispatched')->with(100)->willReturn(false);
+        $this->dispatchStatus->method('hasDispatchStarted')->with(100)->willReturn(false);
 
         $this->assertSame(ChangeEligibility::OK, $this->eligibility->check($this->order(), self::CUSTOMER_ID));
         $this->assertTrue($this->eligibility->canChange($this->order(), self::CUSTOMER_ID));
@@ -116,7 +116,7 @@ class ChangeEligibilityTest extends TestCase
      */
     public function testHoldedAndPaymentReviewAreAllowed(string $state): void
     {
-        $this->dispatchStatus->method('isDispatched')->willReturn(false);
+        $this->dispatchStatus->method('hasDispatchStarted')->willReturn(false);
 
         $this->assertSame(
             ChangeEligibility::OK,
@@ -131,7 +131,7 @@ class ChangeEligibilityTest extends TestCase
 
     public function testDispatchedOrder(): void
     {
-        $this->dispatchStatus->method('isDispatched')->willReturn(true);
+        $this->dispatchStatus->method('hasDispatchStarted')->willReturn(true);
 
         $this->assertSame(ChangeEligibility::DISPATCHED, $this->eligibility->check($this->order(), self::CUSTOMER_ID));
     }

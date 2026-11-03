@@ -5,6 +5,7 @@ namespace Hop\Envios\Model\PickupPoint;
 use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnvios;
 use Hop\Envios\Model\HopEnviosRepository;
+use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 
 /**
  * Whether an order was already dispatched to Hop, i.e. its pickup point can no longer change.
@@ -15,17 +16,53 @@ use Hop\Envios\Model\HopEnviosRepository;
 class DispatchStatus
 {
     /**
+     * Set by the dispatch cron right before it creates the Magento shipment and calls Hop.
+     */
+    const STATUS_PROCESSING = 'processing';
+
+    /**
      * @var HopEnviosRepository
      */
     protected $hopEnviosRepository;
 
     /**
+     * @var ShipmentCollectionFactory
+     */
+    protected $shipmentCollectionFactory;
+
+    /**
      * @param HopEnviosRepository $hopEnviosRepository
+     * @param ShipmentCollectionFactory $shipmentCollectionFactory
      */
     public function __construct(
-        HopEnviosRepository $hopEnviosRepository
+        HopEnviosRepository $hopEnviosRepository,
+        ShipmentCollectionFactory $shipmentCollectionFactory
     ) {
         $this->hopEnviosRepository = $hopEnviosRepository;
+        $this->shipmentCollectionFactory = $shipmentCollectionFactory;
+    }
+
+    /**
+     * Stricter cut-off for the buyer: besides an order already dispatched, blocks an order the
+     * cron is dispatching right now (status "processing", the Hop call may already be in flight)
+     * and an order with a Magento shipment (an admin is dispatching it by hand). The admin keeps
+     * using isDispatched(), since an admin may still need to fix the point in those cases.
+     *
+     * @param int $orderId
+     * @return bool
+     */
+    public function hasDispatchStarted(int $orderId): bool
+    {
+        $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
+        if ($this->isRecordDispatched($hopEnvios)) {
+            return true;
+        }
+        if ($hopEnvios && $hopEnvios->getStatusShipment() === self::STATUS_PROCESSING) {
+            return true;
+        }
+        return $this->shipmentCollectionFactory->create()
+            ->addFieldToFilter('order_id', $orderId)
+            ->getSize() > 0;
     }
 
     /**

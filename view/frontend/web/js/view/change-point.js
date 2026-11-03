@@ -87,6 +87,11 @@ define(
             function renderList(items) {
                 var listado = '';
 
+                // The renderer module loads after the points arrive: until then there is nothing
+                // to draw (the buyer may already be typing in the search box).
+                if (!renderPoint) {
+                    return;
+                }
                 if (!items.length) {
                     $list.html('<div class="point"><p>' + $t('No se encuentran puntos HOP') + '</p></div>');
                     return;
@@ -214,7 +219,7 @@ define(
             $.ajax(config.pointsUrl, {method: 'GET', dataType: 'json'}).done(function (response) {
                 if (!response.success) {
                     locked = true;
-                    showMessage('error', $t('No encontramos el pedido.'));
+                    showMessage('error', response.message || $t('No encontramos el pedido.'));
                     $list.removeClass('loading-hop');
                     return;
                 }

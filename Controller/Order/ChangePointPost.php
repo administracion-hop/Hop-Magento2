@@ -19,6 +19,16 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
     const SESSION_ATTEMPTS_KEY = 'hop_change_point_attempts';
 
     /**
+     * Results that went as far as quoting Hop, the only ones that spend an attempt. Rejections
+     * decided before the quote (same point, a point Hop doesn't offer, already dispatched...) don't.
+     */
+    const QUOTED_CODES = [
+        ChangeService::CODE_OK,
+        ChangeService::CODE_PRICE_MISMATCH,
+        ChangeService::CODE_QUOTE_ERROR,
+    ];
+
+    /**
      * @return \Magento\Framework\Controller\Result\Json
      */
     public function execute()
@@ -40,7 +50,8 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
             ]);
         }
 
-        if (!$this->registerAttempt((int)$order->getId())) {
+        $orderId = (int)$order->getId();
+        if ($this->getAttempts($orderId) >= self::MAX_ATTEMPTS) {
             return $this->json([
                 'success' => false,
                 'code' => 'too_many_attempts',
@@ -53,6 +64,9 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
             trim((string)$this->request->getParam('point_id')),
             $this->getCustomerId()
         );
+        if (in_array($result['code'], self::QUOTED_CODES, true)) {
+            $this->registerAttempt($orderId);
+        }
 
         if ($result['code'] === ChangeService::CODE_OK) {
             $this->messageManager->addSuccessMessage($result['message']);
@@ -63,17 +77,22 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
 
     /**
      * @param int $orderId
-     * @return bool false once the order reached MAX_ATTEMPTS in this session
+     * @return int attempts that quoted Hop for this order in this session
      */
-    private function registerAttempt(int $orderId): bool
+    private function getAttempts(int $orderId): int
     {
         $attempts = (array)$this->customerSession->getData(self::SESSION_ATTEMPTS_KEY);
-        $count = (int)($attempts[$orderId] ?? 0);
-        if ($count >= self::MAX_ATTEMPTS) {
-            return false;
-        }
-        $attempts[$orderId] = $count + 1;
+        return (int)($attempts[$orderId] ?? 0);
+    }
+
+    /**
+     * @param int $orderId
+     * @return void
+     */
+    private function registerAttempt(int $orderId): void
+    {
+        $attempts = (array)$this->customerSession->getData(self::SESSION_ATTEMPTS_KEY);
+        $attempts[$orderId] = (int)($attempts[$orderId] ?? 0) + 1;
         $this->customerSession->setData(self::SESSION_ATTEMPTS_KEY, $attempts);
-        return true;
     }
 }

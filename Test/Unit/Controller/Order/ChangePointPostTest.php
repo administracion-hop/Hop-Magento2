@@ -168,4 +168,49 @@ class ChangePointPostTest extends TestCase
 
         $this->assertSame('too_many_attempts', $this->response['code']);
     }
+
+    /**
+     * @dataProvider unquotedCodes
+     */
+    public function testRejectionsBeforeQuotingDontSpendAttempts(string $code): void
+    {
+        $this->customerSession->method('isLoggedIn')->willReturn(true);
+        $this->orderRepository->method('get')->willReturn($this->order());
+        $this->orderAuthorization->method('canView')->willReturn(true);
+        $this->changeService->expects($this->exactly(ChangePointPost::MAX_ATTEMPTS + 1))
+            ->method('change')
+            ->willReturn(['code' => $code, 'message' => '']);
+
+        for ($i = 0; $i <= ChangePointPost::MAX_ATTEMPTS; $i++) {
+            $this->controller->execute();
+        }
+
+        $this->assertSame($code, $this->response['code']);
+    }
+
+    public static function unquotedCodes(): array
+    {
+        return [
+            [ChangeService::CODE_SAME_POINT],
+            [ChangeService::CODE_INVALID_POINT],
+            [ChangeService::CODE_DISPATCHED],
+            [ChangeService::CODE_NOT_ELIGIBLE],
+        ];
+    }
+
+    public function testQuoteErrorsSpendAttempts(): void
+    {
+        $this->customerSession->method('isLoggedIn')->willReturn(true);
+        $this->orderRepository->method('get')->willReturn($this->order());
+        $this->orderAuthorization->method('canView')->willReturn(true);
+        $this->changeService->expects($this->exactly(ChangePointPost::MAX_ATTEMPTS))
+            ->method('change')
+            ->willReturn(['code' => ChangeService::CODE_QUOTE_ERROR, 'message' => '']);
+
+        for ($i = 0; $i <= ChangePointPost::MAX_ATTEMPTS; $i++) {
+            $this->controller->execute();
+        }
+
+        $this->assertSame('too_many_attempts', $this->response['code']);
+    }
 }

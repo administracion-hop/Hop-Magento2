@@ -163,13 +163,13 @@ class ChangeService
             if ($quotedPrice === null) {
                 return $this->result(self::CODE_QUOTE_ERROR);
             }
-            if (!$this->priceRule->matchesChargedAmount($quotedPrice, $order)) {
+            if (!$this->priceRule->matchesTariff($quotedPrice, $order)) {
                 $this->helper->log(sprintf(
-                    'Cambio de punto rechazado (pedido %s, punto %s): cotización %s, cobrado %s',
+                    'Cambio de punto rechazado (pedido %s, punto %s): cotización %s, tarifa del checkout %s',
                     $order->getIncrementId(),
                     $point['id'],
                     $quotedPrice,
-                    $this->priceRule->getChargedAmount($order)
+                    $this->priceRule->getTariffAmount($order)
                 ));
                 return $this->result(self::CODE_PRICE_MISMATCH);
             }

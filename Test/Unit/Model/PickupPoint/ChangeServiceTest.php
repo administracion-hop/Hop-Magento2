@@ -156,7 +156,7 @@ class ChangeServiceTest extends TestCase
             ->method('quote')
             ->with(['weight' => 300], '1414', self::NEW_POINT, 1)
             ->willReturn(5198.96);
-        $this->priceRule->method('matchesChargedAmount')->with(5198.96)->willReturn(true);
+        $this->priceRule->method('matchesTariff')->with(5198.96)->willReturn(true);
         $freshOrder = $this->expectSuccessfulSave();
 
         $this->shippingMethod->expects($this->once())
@@ -190,7 +190,7 @@ class ChangeServiceTest extends TestCase
     {
         $this->priceRule->method('isFreeShipping')->willReturn(false);
         $this->priceCalculator->expects($this->once())->method('quote')->willReturn(6000.0);
-        $this->priceRule->method('matchesChargedAmount')->willReturn(false);
+        $this->priceRule->method('matchesTariff')->willReturn(false);
         $this->expectNothingSaved();
 
         $result = $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID);
@@ -282,7 +282,7 @@ class ChangeServiceTest extends TestCase
     {
         $this->priceRule->method('isFreeShipping')->willReturn(false);
         $this->priceCalculator->method('quote')->willReturn(5198.96);
-        $this->priceRule->method('matchesChargedAmount')->willReturn(true);
+        $this->priceRule->method('matchesTariff')->willReturn(true);
         $this->dispatchStatus->method('hasDispatchStarted')->with(self::ORDER_ID)->willReturn(true);
         $this->expectNothingSaved();
 

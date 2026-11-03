@@ -3,18 +3,51 @@
 namespace Hop\Envios\Model\PickupPoint;
 
 use Magento\Sales\Model\Order;
+use Magento\Tax\Model\Config as TaxConfig;
 
 /**
- * A buyer can only move an order to a pickup point that costs exactly what they were charged
- * for shipping, unless shipping was free.
+ * A buyer can only move an order to a pickup point whose Hop tariff is exactly the one quoted
+ * at checkout, unless shipping was free. A partial shipping discount (coupon) does not count:
+ * the new quote is compared against the tariff before the discount, and the buyer keeps the
+ * discount they got (PO decision 2026-11-03).
  */
 class ChangePriceRule
 {
     const FREESHIPPING_METHOD = 'freeshipping_freeshipping';
 
     /**
-     * Shipping as charged in the checkout: base currency, after discounts, without tax — the
-     * same terms the carrier quotes in.
+     * @var TaxConfig
+     */
+    protected $taxConfig;
+
+    /**
+     * @param TaxConfig $taxConfig
+     */
+    public function __construct(
+        TaxConfig $taxConfig
+    ) {
+        $this->taxConfig = $taxConfig;
+    }
+
+    /**
+     * Hop tariff as quoted at checkout, in base currency and before discounts, in the same
+     * terms the carrier price was entered: Magento takes the carrier price as tax-inclusive
+     * when "Shipping Prices include tax" is on for the store, and stores it in
+     * base_shipping_incl_tax; otherwise it is base_shipping_amount.
+     *
+     * @param Order $order
+     * @return float
+     */
+    public function getTariffAmount(Order $order): float
+    {
+        $amount = $this->taxConfig->shippingPriceIncludesTax($order->getStoreId())
+            ? $order->getBaseShippingInclTax()
+            : $order->getBaseShippingAmount();
+        return round((float)$amount, 2);
+    }
+
+    /**
+     * Shipping as charged in the checkout: base currency, after discounts, without tax.
      *
      * @param Order $order
      * @return float
@@ -45,8 +78,8 @@ class ChangePriceRule
      * @param Order $order
      * @return bool
      */
-    public function matchesChargedAmount(float $quotedPrice, Order $order): bool
+    public function matchesTariff(float $quotedPrice, Order $order): bool
     {
-        return round($quotedPrice, 2) === $this->getChargedAmount($order);
+        return round($quotedPrice, 2) === $this->getTariffAmount($order);
     }
 }

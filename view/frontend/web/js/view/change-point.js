@@ -25,6 +25,31 @@ define(
             var map = null;
             var activeInfoWindow = null;
             var locked = false;
+            // A confirmation is in flight: nothing can be chosen until it answers, or the buyer
+            // could fire a second change and end up on a point other than the one shown.
+            var busy = false;
+
+            /**
+             * @return {boolean} whether the "Elegir" buttons must be disabled right now
+             */
+            function isBlocked() {
+                return locked || busy;
+            }
+
+            /**
+             * Point ids come from Hop's JSON (any type) and from data-* attributes (always
+             * strings): compare them as trimmed, case-insensitive strings. Empty never matches.
+             *
+             * @param {*} a
+             * @param {*} b
+             * @return {boolean}
+             */
+            function sameId(a, b) {
+                var normalize = function (id) {
+                    return id === null || id === undefined ? '' : String(id).trim().toLowerCase();
+                };
+                return normalize(a) !== '' && normalize(a) === normalize(b);
+            }
 
             // google-maps-loader reads the API key from here outside the checkout.
             window.hopConfig = {
@@ -39,9 +64,10 @@ define(
                 );
             }
 
-            function setBusy(busy) {
+            function setBusy(value) {
+                busy = value;
                 $list.toggleClass('loading-hop', busy);
-                $list.find('.btn-select-hop').prop('disabled', busy);
+                $list.find('.btn-select-hop').prop('disabled', isBlocked());
                 markCurrentPoint();
             }
 
@@ -53,7 +79,7 @@ define(
                     return;
                 }
                 $list.find('.btn-select-hop').filter(function () {
-                    return $(this).attr('data-id') === currentPointId;
+                    return sameId($(this).attr('data-id'), currentPointId);
                 }).prop('disabled', true).text($t('Punto actual'))
                     .closest('.point').addClass('point-selected point-current');
             }
@@ -72,7 +98,7 @@ define(
                 markCurrentPoint();
                 // The current point first, so the buyer sees where the order is today.
                 $list.find('.point-current').prependTo($list);
-                if (locked) {
+                if (isBlocked()) {
                     $list.find('.btn-select-hop').prop('disabled', true);
                 }
             }
@@ -90,7 +116,7 @@ define(
                         title: value.full_address,
                         icon: config.iconUrl
                     });
-                    var isCurrent = value.id === currentPointId;
+                    var isCurrent = sameId(value.id, currentPointId);
                     var infowindow = new google.maps.InfoWindow({
                         content: $('<div>', {'class': 'infowindow-hop'})
                             .append($('<strong>').text(value.reference_name))
@@ -105,11 +131,13 @@ define(
                         if (activeInfoWindow) {
                             activeInfoWindow.close();
                         }
+                        // The popup is built once: refresh its button for the current state.
+                        $(infowindow.getContent()).find('button').prop('disabled', isCurrent || isBlocked());
                         infowindow.open(map, marker);
                         activeInfoWindow = infowindow;
                         $list.find('.point').removeClass('point-selected');
                         $list.find('.btn-select-hop').filter(function () {
-                            return $(this).attr('data-id') === value.id;
+                            return sameId($(this).attr('data-id'), value.id);
                         }).closest('.point').addClass('point-selected').prependTo($list);
                         $list.animate({scrollTop: 0}, 'slow');
                     });
@@ -125,7 +153,7 @@ define(
             }
 
             function choose(pointId) {
-                if (locked || !pointId || pointId === currentPointId) {
+                if (isBlocked() || !pointId || sameId(pointId, currentPointId)) {
                     return;
                 }
 

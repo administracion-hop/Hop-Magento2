@@ -197,6 +197,7 @@ class ChangeServiceTest extends TestCase
 
         $this->assertSame(ChangeService::CODE_PRICE_MISMATCH, $result['code']);
         $this->assertStringContainsString('otro costo de envío', $result['message']);
+        $this->assertTrue($result['quoted']);
     }
 
     public function testQuoteErrorIsRejectedAndNothingChanges(): void
@@ -215,7 +216,10 @@ class ChangeServiceTest extends TestCase
         $this->shippingMethod->expects($this->once())->method('addHopData');
         $this->expectSuccessfulSave();
 
-        $this->assertSame(ChangeService::CODE_OK, $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID)['code']);
+        $result = $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID);
+
+        $this->assertSame(ChangeService::CODE_OK, $result['code']);
+        $this->assertFalse($result['quoted'], 'a free-shipping change must not spend an attempt');
     }
 
     public function testSamePointIsRejectedWithoutQuoting(): void
@@ -223,7 +227,10 @@ class ChangeServiceTest extends TestCase
         $this->priceCalculator->expects($this->never())->method('quote');
         $this->expectNothingSaved();
 
-        $this->assertSame(ChangeService::CODE_SAME_POINT, $this->service->change($this->order, self::CURRENT_POINT, self::CUSTOMER_ID)['code']);
+        $result = $this->service->change($this->order, self::CURRENT_POINT, self::CUSTOMER_ID);
+
+        $this->assertSame(ChangeService::CODE_SAME_POINT, $result['code']);
+        $this->assertFalse($result['quoted']);
     }
 
     public function testPointNotOfferedByHopIsRejected(): void
@@ -286,7 +293,10 @@ class ChangeServiceTest extends TestCase
         $this->dispatchStatus->method('hasDispatchStarted')->with(self::ORDER_ID)->willReturn(true);
         $this->expectNothingSaved();
 
-        $this->assertSame(ChangeService::CODE_DISPATCHED, $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID)['code']);
+        $result = $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID);
+
+        $this->assertSame(ChangeService::CODE_DISPATCHED, $result['code']);
+        $this->assertTrue($result['quoted'], 'Hop was quoted before the re-check, so it spends an attempt');
     }
 
     public function testCurrentPointId(): void

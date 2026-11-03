@@ -159,7 +159,7 @@ class ChangePointPostTest extends TestCase
         $this->orderAuthorization->method('canView')->willReturn(true);
         $this->changeService->expects($this->exactly(ChangePointPost::MAX_ATTEMPTS))
             ->method('change')
-            ->willReturn(['code' => ChangeService::CODE_PRICE_MISMATCH, 'message' => '']);
+            ->willReturn(['code' => ChangeService::CODE_PRICE_MISMATCH, 'message' => '', 'quoted' => true]);
 
         for ($i = 0; $i < ChangePointPost::MAX_ATTEMPTS; $i++) {
             $this->controller->execute();
@@ -179,7 +179,7 @@ class ChangePointPostTest extends TestCase
         $this->orderAuthorization->method('canView')->willReturn(true);
         $this->changeService->expects($this->exactly(ChangePointPost::MAX_ATTEMPTS + 1))
             ->method('change')
-            ->willReturn(['code' => $code, 'message' => '']);
+            ->willReturn(['code' => $code, 'message' => '', 'quoted' => false]);
 
         for ($i = 0; $i <= ChangePointPost::MAX_ATTEMPTS; $i++) {
             $this->controller->execute();
@@ -195,6 +195,7 @@ class ChangePointPostTest extends TestCase
             [ChangeService::CODE_INVALID_POINT],
             [ChangeService::CODE_DISPATCHED],
             [ChangeService::CODE_NOT_ELIGIBLE],
+            'envío gratis: confirma sin cotizar' => [ChangeService::CODE_OK],
         ];
     }
 
@@ -205,7 +206,7 @@ class ChangePointPostTest extends TestCase
         $this->orderAuthorization->method('canView')->willReturn(true);
         $this->changeService->expects($this->exactly(ChangePointPost::MAX_ATTEMPTS))
             ->method('change')
-            ->willReturn(['code' => ChangeService::CODE_QUOTE_ERROR, 'message' => '']);
+            ->willReturn(['code' => ChangeService::CODE_QUOTE_ERROR, 'message' => '', 'quoted' => true]);
 
         for ($i = 0; $i <= ChangePointPost::MAX_ATTEMPTS; $i++) {
             $this->controller->execute();

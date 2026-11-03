@@ -12,21 +12,13 @@ use Magento\Framework\App\Action\HttpPostActionInterface;
 class ChangePointPost extends AbstractChangePoint implements HttpPostActionInterface
 {
     /**
-     * Each confirmation may quote Hop once: cap them per order and session.
+     * Each confirmation may quote Hop once: cap them per order and session. Only confirmations
+     * that actually quoted Hop spend an attempt (the service says so): rejections decided
+     * before quoting and free-shipping changes, which never quote, don't.
      */
     const MAX_ATTEMPTS = 10;
 
     const SESSION_ATTEMPTS_KEY = 'hop_change_point_attempts';
-
-    /**
-     * Results that went as far as quoting Hop, the only ones that spend an attempt. Rejections
-     * decided before the quote (same point, a point Hop doesn't offer, already dispatched...) don't.
-     */
-    const QUOTED_CODES = [
-        ChangeService::CODE_OK,
-        ChangeService::CODE_PRICE_MISMATCH,
-        ChangeService::CODE_QUOTE_ERROR,
-    ];
 
     /**
      * @return \Magento\Framework\Controller\Result\Json
@@ -64,7 +56,7 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
             trim((string)$this->request->getParam('point_id')),
             $this->getCustomerId()
         );
-        if (in_array($result['code'], self::QUOTED_CODES, true)) {
+        if (!empty($result['quoted'])) {
             $this->registerAttempt($orderId);
         }
 
@@ -72,7 +64,11 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
             $this->messageManager->addSuccessMessage($result['message']);
         }
 
-        return $this->json(['success' => $result['code'] === ChangeService::CODE_OK] + $result);
+        return $this->json([
+            'success' => $result['code'] === ChangeService::CODE_OK,
+            'code' => $result['code'],
+            'message' => $result['message'],
+        ]);
     }
 
     /**

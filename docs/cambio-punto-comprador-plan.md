@@ -73,7 +73,8 @@ Es la fase más delicada, porque un cambio en el carrier rompe la cotización de
 
 - `etc/frontend/routes.xml`, que hoy no existe (frontName `hop`, por ejemplo).
 - `Order/ChangePoint` (GET): página dentro de «Mis pedidos». El login lo exige `Customer\Controller\AccountInterface`. La pertenencia la valida `OrderViewAuthorization`, que da el mismo 404 para pedido ajeno o inexistente.
-- `Order/Points` (GET, JSON): puntos para el CP o ubigeo del pedido, sin aceptar un CP del cliente. Reutiliza `Webservice::getPickupPoints` y no cotiza.
+- `Order/Points` (GET, JSON): puntos para el CP o ubigeo del pedido, sin aceptar un CP del cliente. Reutiliza `Webservice::getPickupPoints` y no cotiza. Si el pedido no es elegible responde sin puntos: pedido ajeno o inexistente → «No encontramos el pedido.»; pedido propio despachado → «ya fue despachado»; otro motivo → «no permite cambiar el punto» (revisión del 2026-11-03).
+- Límite de 10 confirmaciones por pedido y sesión. Solo gastan intento las que realmente cotizaron con Hop (el servicio lo informa): los rechazos previos a la cotización y los cambios con envío gratis no cuentan.
 - `Order/ChangePointPost` (POST con `form_key`, JSON). Valida en este orden:
     1. Login.
     2. Pertenencia.

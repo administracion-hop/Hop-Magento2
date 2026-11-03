@@ -128,10 +128,11 @@ class ChangeService
      * @param Order $order
      * @param string $pointId
      * @param int $customerId
-     * @return array ['code' => string, 'message' => string]
+     * @return array ['code' => string, 'message' => string, 'quoted' => bool whether Hop was quoted]
      */
     public function change(Order $order, string $pointId, int $customerId): array
     {
+        $quoted = false;
         $eligibility = $this->eligibility->check($order, $customerId);
         if ($eligibility === ChangeEligibility::NOT_OWNER) {
             return $this->result(self::CODE_NOT_FOUND);
@@ -160,8 +161,9 @@ class ChangeService
                 (string)$point['id'],
                 $order->getStoreId()
             );
+            $quoted = true;
             if ($quotedPrice === null) {
-                return $this->result(self::CODE_QUOTE_ERROR);
+                return $this->result(self::CODE_QUOTE_ERROR, $quoted);
             }
             if (!$this->priceRule->matchesTariff($quotedPrice, $order)) {
                 $this->helper->log(sprintf(
@@ -171,21 +173,21 @@ class ChangeService
                     $quotedPrice,
                     $this->priceRule->getTariffAmount($order)
                 ));
-                return $this->result(self::CODE_PRICE_MISMATCH);
+                return $this->result(self::CODE_PRICE_MISMATCH, $quoted);
             }
         }
 
         // The cron (every minute) or an admin may have started the dispatch while the buyer was
         // choosing and Hop was quoting: check again right before writing.
         if ($this->dispatchStatus->hasDispatchStarted((int)$order->getId())) {
-            return $this->result(self::CODE_DISPATCHED);
+            return $this->result(self::CODE_DISPATCHED, $quoted);
         }
 
         $previousDescription = (string)$order->getShippingDescription();
         $this->shippingMethod->addHopData((int)$order->getId(), $this->buildHopData($point));
         $this->addHistoryComment((int)$order->getId(), $previousDescription, $currentPointId, $point);
 
-        return $this->result(self::CODE_OK);
+        return $this->result(self::CODE_OK, $quoted);
     }
 
     /**
@@ -225,9 +227,21 @@ class ChangeService
 
     /**
      * @param string $code
+     * @param bool $quoted
      * @return array
      */
-    protected function result(string $code): array
+    protected function result(string $code, bool $quoted = false): array
+    {
+        return ['code' => $code, 'message' => $this->getMessage($code), 'quoted' => $quoted];
+    }
+
+    /**
+     * Message the buyer sees for a result code, also used by the points listing.
+     *
+     * @param string $code One of the CODE_* constants
+     * @return string
+     */
+    public function getMessage(string $code): string
     {
         $messages = [
             self::CODE_OK => __('Listo, cambiamos el punto de retiro de tu pedido.'),
@@ -240,7 +254,7 @@ class ChangeService
             self::CODE_QUOTE_ERROR => __('No pudimos confirmar el cambio en este momento. Intentá de nuevo más tarde o contactá a atención al cliente.'),
         ];
 
-        return ['code' => $code, 'message' => (string)$messages[$code]];
+        return (string)$messages[$code];
     }
 
     /**

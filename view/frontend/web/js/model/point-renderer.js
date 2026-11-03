@@ -4,8 +4,8 @@
  * Renders one Hop pickup point of the points list (#points-maps-hop). Shared by the checkout
  * modal (view/hop.js) and the buyer's pickup point change in My Orders (view/change-point.js).
  *
- * Moved verbatim from view/hop.js (generarContenidoLista): the markup and data-* attributes
- * are what both selectors read when a point is chosen.
+ * Moved from view/hop.js (generarContenidoLista): the markup and data-* attributes are what
+ * both selectors read when a point is chosen. Hop data is HTML-escaped (code review 2026-11-03).
  */
 define(
     [
@@ -15,6 +15,23 @@ define(
     ],
     function ($, _, GoogleMaps) {
         'use strict';
+
+        /**
+         * Hop data goes into HTML text and attributes: escape it so a name or address with
+         * <, >, & or quotes can neither break the markup nor inject script. Same output as
+         * before for ordinary text, and the data-* attributes still read back the raw value.
+         *
+         * @param {*} text
+         * @return {string}
+         */
+        function esc(text) {
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
 
         return function generarContenidoLista(value, listado) {
             var html_horarios = '';
@@ -32,7 +49,7 @@ define(
                 var hourFrom = val['hour_from'].slice(0, -3);
                 var hourTo = val['hour_to'].slice(0, -3);
 
-                html_horarios += '<p>' + val['day_description'] + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+                html_horarios += '<p>' + esc(val['day_description']) + ' de ' + esc(hourFrom) + ' a ' + esc(hourTo) + '</p>';
 
                 if(i === 0){
                     horarios += val['day_description'] + ', ' + hourFrom + ' a ' + hourTo;
@@ -70,7 +87,7 @@ define(
                 var hourFrom = primerDia.hour_from.slice(0, -3);
                 var hourTo = primerDia.hour_to.slice(0, -3);
 
-                html_horarios = '<p>'+ primerDia.day_description + ' a ' + ultimoDia.day_description + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+                html_horarios = '<p>'+ esc(primerDia.day_description) + ' a ' + esc(ultimoDia.day_description) + ' de ' + esc(hourFrom) + ' a ' + esc(hourTo) + '</p>';
                 horarios = primerDia.day_description + ' a ' + ultimoDia.day_description + ' de ' + hourFrom + ' a ' + hourTo + '. ';
 
                 $(diasDistintos).each(function (i, val)
@@ -78,44 +95,44 @@ define(
                     var hourFrom = val.hour_from.slice(0, -3);
                     var hourTo = val.hour_to.slice(0, -3);
 
-                    html_horarios += '<p>'+ val.day_description + ' de ' + hourFrom + ' a ' + hourTo + '</p>';
+                    html_horarios += '<p>'+ esc(val.day_description) + ' de ' + esc(hourFrom) + ' a ' + esc(hourTo) + '</p>';
                     horarios += val.day_description + ' de ' + hourFrom + ' a ' + hourTo;
                 });
             }
 
             $('#horarios-punto-hop div').html(html_horarios);
-            listado = listado + '<div class="point '+ value.id + '">';
-            listado = listado + '<a href="#"><p class="title-sucursal-hop"><strong>' + value.reference_name + '</strong></p></a>';
-            listado = listado + '<p class="direccion-sucursal-hop">' + value.full_address + ', ' + value.city + ', ' + value.state + '</p>';
+            listado = listado + '<div class="point '+ esc(value.id) + '">';
+            listado = listado + '<a href="#"><p class="title-sucursal-hop"><strong>' + esc(value.reference_name) + '</strong></p></a>';
+            listado = listado + '<p class="direccion-sucursal-hop">' + esc(value.full_address) + ', ' + esc(value.city) + ', ' + esc(value.state) + '</p>';
             if (GoogleMaps.existLatLngCustomer()) {
                 var latLngCustomer = GoogleMaps.getLatLngCustomer();
                 listado = listado + '<a class="como-llegar" href="javascript:void(0)"'
-                    + ' onclick="window.open(\'https://www.google.com.ar/maps/dir/' + latLngCustomer.lat + ',' + latLngCustomer.lng + '/' + value.lat + ',' + value.lng + '/\', \'_blank\');" '
-                    + ' data-referencename="' + value.reference_name + '" '
-                    + ' data-schedules="' + horarios + '" '
-                    + ' data-seller="' + value.seller + '" '
-                    + ' data-postcode="' + value.zip_code + '"'
-                    + ' data-id="' + value.id + '"'
-                    + ' data-name="' + value.name + '"'
-                    + ' data-address="' + value.full_address + '"'
-                    + ' data-providercode="' + value.provider_code + '"'
-                    + ' data-distributorid="' + value.distributor_id + '"'
-                    + ' data-agencycode="' + value.agency_code + '"'
+                    + ' onclick="window.open(\'https://www.google.com.ar/maps/dir/' + parseFloat(latLngCustomer.lat) + ',' + parseFloat(latLngCustomer.lng) + '/' + parseFloat(value.lat) + ',' + parseFloat(value.lng) + '/\', \'_blank\');" '
+                    + ' data-referencename="' + esc(value.reference_name) + '" '
+                    + ' data-schedules="' + esc(horarios) + '" '
+                    + ' data-seller="' + esc(value.seller) + '" '
+                    + ' data-postcode="' + esc(value.zip_code) + '"'
+                    + ' data-id="' + esc(value.id) + '"'
+                    + ' data-name="' + esc(value.name) + '"'
+                    + ' data-address="' + esc(value.full_address) + '"'
+                    + ' data-providercode="' + esc(value.provider_code) + '"'
+                    + ' data-distributorid="' + esc(value.distributor_id) + '"'
+                    + ' data-agencycode="' + esc(value.agency_code) + '"'
                     + ' >Como llegar</a>';
             }
             listado = listado + '<p><div class="horarios"><div class="dias">' + html_horarios + '</div></div></p>';
             // listado = listado + '<p><a href="javascript:void(0)" onclick="var w = window.open(\'\',\'popupWindow\',\'width=300,height=300,top=100%,left=100%,scrollbars=yes\');w.document.title = \'Horarios\';var $w = jQuery(w.document.body);$w.html(jQuery(this).parent().parent().find(\'.horarios\').html())">Horarios</a></p>';
             listado = listado + '<button class="btn-select-hop"'
-                + ' data-referencename="' + value.reference_name + '" '
-                + ' data-schedules="' + horarios + '" '
-                + ' data-seller="' + value.seller + '" '
-                + ' data-postcode="' + value.zip_code + '"'
-                + ' data-id="' + value.id + '"'
-                + ' data-name="' + value.name + '"'
-                + ' data-address="' + value.full_address + '"'
-                + ' data-providercode="' + value.provider_code + '"'
-                + ' data-distributorid="' + value.distributor_id + '"'
-                + ' data-agencycode="' + value.agency_code + '"'
+                + ' data-referencename="' + esc(value.reference_name) + '" '
+                + ' data-schedules="' + esc(horarios) + '" '
+                + ' data-seller="' + esc(value.seller) + '" '
+                + ' data-postcode="' + esc(value.zip_code) + '"'
+                + ' data-id="' + esc(value.id) + '"'
+                + ' data-name="' + esc(value.name) + '"'
+                + ' data-address="' + esc(value.full_address) + '"'
+                + ' data-providercode="' + esc(value.provider_code) + '"'
+                + ' data-distributorid="' + esc(value.distributor_id) + '"'
+                + ' data-agencycode="' + esc(value.agency_code) + '"'
                 + ' >Elegir</button>';
             listado = listado + '</div>';
             return listado;

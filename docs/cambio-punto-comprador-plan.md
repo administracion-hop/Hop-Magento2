@@ -13,7 +13,7 @@ Reglas de negocio:
 
 - Solo clientes registrados, sobre sus propios pedidos.
 - Solo antes del despacho a Hop, con la misma condición de corte que el admin.
-- El nuevo punto se acepta si su cotización es igual al envío cobrado neto de descuentos, redondeado a 2 decimales.
+- El nuevo punto se acepta si su cotización es igual a la tarifa de Hop del checkout antes de descuentos, redondeada a 2 decimales. El comprador conserva el descuento que tuvo.
 - Una sola cotización, después de elegir el punto. El mapa no cotiza ni filtra.
 - Envío gratis (método freeshipping o envío neto 0 por regla de carrito): se acepta cualquier punto sin cotizar.
 - Persistencia con `Helper/ShippingMethod.php::addHopData()`, igual que el admin.
@@ -38,7 +38,7 @@ Nacho respondió el 23/10/2026: cinco de las seis preguntas quedaron cerradas y 
 | --- | --- | --- | --- |
 | 1 | Si el pedido salió gratis por el umbral propio de Hop (`hop_free_shipping`), ¿cuenta como envío gratis? | Sí | Todo envío neto 0 se acepta sin cotizar: freeshipping de Magento, regla de carrito o umbral de Hop. |
 | 2 | Si la tarifa de Hop o las medidas cambiaron desde la compra, ¿se puede cambiar el punto? | No | Se mantiene la regla: la cotización actual se compara contra lo cobrado y, si difiere, se rechaza. No se recotiza el punto original. |
-| 3 | ¿Qué monto se compara? | Tal como se cobró en el checkout | Se compara contra el envío cobrado en el pedido, neto de descuentos, con el mismo criterio de impuestos y moneda con que el carrier lo cotizó (`base_shipping_amount - base_shipping_discount_amount`). |
+| 3 | ¿Qué monto se compara? | Tal como se cobró en el checkout. Ajuste del 2026-11-03: contra la tarifa antes del descuento | Se compara contra la tarifa de Hop del pedido antes de descuentos (`base_shipping_amount`, o `base_shipping_incl_tax` si la tienda tiene «Shipping Prices include tax»), con el mismo criterio de impuestos y moneda con que el carrier la cotizó. Comparar neto de descuentos rechazaba siempre los pedidos con cupón parcial sobre el envío; Nacho aprobó el cambio. |
 | 4 | ¿El comentario del historial es visible para el comprador? | Pendiente: Nacho preguntó «¿qué comentario?» | Es el comentario que exige el criterio de aceptación: punto anterior, punto nuevo y que lo cambió el comprador. Hasta que responda, queda interno. |
 | 5 | ¿Se notifica por mail? | No | Sin notificaciones. |
 | 6 | ¿Los pedidos en *holded* o *payment_review* pueden cambiar de punto? | Sí | Solo se excluyen `canceled` y `closed`. |
@@ -54,6 +54,7 @@ Un servicio, por ejemplo `Model/PickupPoint/ChangeEligibility`, decide si un ped
 - Método de envío `hop_hop`.
 - Estado distinto de `canceled` y `closed`.
 - No despachado, con la lógica `isDispatched` extraída del plugin. El plugin del admin pasa a usar este servicio sin cambiar su comportamiento.
+- Para el comprador el corte es más estricto (corrección de la revisión de código del 2026-11-03): tampoco se permite si el cron ya está despachando (`status_shipment = processing`) o si el pedido ya tiene un envío de Magento.
 - Pedido del cliente logueado.
 
 Lo consumen el bloque que muestra el link y el controlador que confirma. Riesgo: tocar el plugin del admin; se cubre con un test de regresión.
@@ -151,7 +152,9 @@ El tamaño «Mediano» es correcto; la carga y el riesgo se concentran en las fa
 | Regresión en la cotización del checkout al extraer el cálculo del carrier | Test que compare precios antes y después del refactor, más QA manual del checkout en AR y PE |
 | Regresión en el selector del checkout al extraer el render de `hop.js` | QA manual del checkout con y sin Amasty OSC |
 | Tarifa o medidas cambiadas desde la compra: ningún punto coincide | Decidido: se rechaza el cambio y el comprador ve el mensaje de otro costo (fase 0, respuesta 2) |
-| Carrera con el cron de despacho (corre cada minuto) | Revalidar elegibilidad en el POST justo antes de guardar |
+| Carrera con el cron de despacho (corre cada minuto) | Revalidar elegibilidad en el POST justo antes de guardar, bloqueando también los pedidos que el cron está despachando (`processing`) o que ya tienen envío de Magento |
+| **Riesgo conocido y aceptado (2026-11-03):** margen de milisegundos entre que el cron lee el pedido y lo marca `processing`. Si el comprador confirma justo ahí, Hop recibe el punto anterior y Magento muestra el nuevo. Lo mismo con un envío manual del admin en ese instante | No se cierra en esta tarea: requiere bloqueos en base de datos dentro del cron de despacho y del observer de envíos, con riesgo de frenar todos los despachos. Se detecta por el comentario interno del pedido (punto anterior y nuevo) y soporte lo corrige con Hop. Si llega a ocurrir, abrir una tarea aparte |
+| Hop no responde: las llamadas a Hop no tienen tiempo de espera propio y usan los 300 segundos por defecto de Magento | Problema general del módulo, ya existía (checkout, lista de puntos, despacho). En el cambio de punto, pasado ese tiempo se rechaza con el mensaje genérico y el pedido no cambia. Se deja anotado; si se quiere acortar, tarea aparte sobre `Webservice` |
 | Inyección de texto en `shipping_description` | Datos del punto tomados de la lista de Hop en servidor |
 
 Próximos pasos:

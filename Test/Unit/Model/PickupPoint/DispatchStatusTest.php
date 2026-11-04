@@ -75,14 +75,14 @@ class DispatchStatusTest extends TestCase
         );
         $this->shipmentCount = 1;
 
-        $this->assertFalse($this->dispatchStatus->isDispatched(10));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 
     public function testOrderWithoutHopRecordIsNotDispatched(): void
     {
         $this->repository->method('getByOrderId')->with(10)->willReturn(null);
 
-        $this->assertFalse($this->dispatchStatus->isDispatched(10));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 
     public function testPendingOrderIsNotDispatched(): void
@@ -91,7 +91,7 @@ class DispatchStatusTest extends TestCase
             new DataObject(['status_shipment' => 'pending', 'last_error_code' => null])
         );
 
-        $this->assertFalse($this->dispatchStatus->isDispatched(10));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 
     public function testCompletedOrderIsDispatched(): void
@@ -100,7 +100,7 @@ class DispatchStatusTest extends TestCase
             new DataObject(['status_shipment' => 'completed', 'last_error_code' => null])
         );
 
-        $this->assertTrue($this->dispatchStatus->isDispatched(10));
+        $this->assertTrue($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 
     public function testRetryableFailureIsNotDispatched(): void
@@ -109,7 +109,7 @@ class DispatchStatusTest extends TestCase
             new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_ORIGIN_ZIP])
         );
 
-        $this->assertFalse($this->dispatchStatus->isDispatched(10));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 
     public function testPartialMultibultoIsDispatched(): void
@@ -118,6 +118,6 @@ class DispatchStatusTest extends TestCase
             new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_MULTIBULTO_PARTIAL])
         );
 
-        $this->assertTrue($this->dispatchStatus->isDispatched(10));
+        $this->assertTrue($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
     }
 }

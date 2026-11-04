@@ -8,7 +8,7 @@ use Hop\Envios\Model\OrderPickupPointRepository;
 use Hop\Envios\Model\Shipping\HopPriceCalculator;
 use Hop\Envios\Model\Shipping\OrderPackageBuilder;
 use Hop\Envios\Model\Webservice;
-use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Sales\Api\OrderStatusHistoryRepositoryInterface;
 use Magento\Sales\Model\Order;
 
 /**
@@ -76,9 +76,9 @@ class ChangeService
     protected $scheduleFormatter;
 
     /**
-     * @var OrderRepositoryInterface
+     * @var OrderStatusHistoryRepositoryInterface
      */
-    protected $orderRepository;
+    protected $historyRepository;
 
     /**
      * @var HopHelper
@@ -95,7 +95,7 @@ class ChangeService
      * @param Webservice $webservice
      * @param ShippingMethod $shippingMethod
      * @param ScheduleFormatter $scheduleFormatter
-     * @param OrderRepositoryInterface $orderRepository
+     * @param OrderStatusHistoryRepositoryInterface $historyRepository
      * @param HopHelper $helper
      */
     public function __construct(
@@ -108,7 +108,7 @@ class ChangeService
         Webservice $webservice,
         ShippingMethod $shippingMethod,
         ScheduleFormatter $scheduleFormatter,
-        OrderRepositoryInterface $orderRepository,
+        OrderStatusHistoryRepositoryInterface $historyRepository,
         HopHelper $helper
     ) {
         $this->eligibility = $eligibility;
@@ -120,7 +120,7 @@ class ChangeService
         $this->webservice = $webservice;
         $this->shippingMethod = $shippingMethod;
         $this->scheduleFormatter = $scheduleFormatter;
-        $this->orderRepository = $orderRepository;
+        $this->historyRepository = $historyRepository;
         $this->helper = $helper;
     }
 
@@ -298,8 +298,9 @@ class ChangeService
     }
 
     /**
-     * addHopData() saved its own copy of the order: reload it, so the comment is not saved
-     * over the new shipping description with a stale one.
+     * Saves only the comment row: addHopData() already saved the order, and saving it again
+     * would run every order-save observer (Hop dispatch included) a second time. The order is
+     * read again just for its new shipping description.
      *
      * @param int $orderId
      * @param string $previousDescription
@@ -310,7 +311,7 @@ class ChangeService
     protected function addHistoryComment(int $orderId, string $previousDescription, ?string $previousPointId, array $newPoint)
     {
         $order = $this->shippingMethod->getOrder($orderId);
-        $order->addCommentToStatusHistory(
+        $history = $order->addCommentToStatusHistory(
             __(
                 'Punto Hop cambiado por el comprador desde Mis pedidos. Anterior: %1 (ID %2). Nuevo: %3 (ID %4).',
                 $previousDescription ?: '-',
@@ -321,6 +322,6 @@ class ChangeService
             false,
             false
         );
-        $this->orderRepository->save($order);
+        $this->historyRepository->save($history);
     }
 }

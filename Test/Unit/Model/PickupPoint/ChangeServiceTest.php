@@ -14,7 +14,8 @@ use Hop\Envios\Model\Shipping\HopPriceCalculator;
 use Hop\Envios\Model\Shipping\OrderPackageBuilder;
 use Hop\Envios\Model\Webservice;
 use Magento\Framework\DataObject;
-use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Sales\Api\Data\OrderStatusHistoryInterface;
+use Magento\Sales\Api\OrderStatusHistoryRepositoryInterface;
 use Magento\Sales\Model\Order;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -50,8 +51,8 @@ class ChangeServiceTest extends TestCase
     /** @var ShippingMethod|MockObject */
     private $shippingMethod;
 
-    /** @var OrderRepositoryInterface|MockObject */
-    private $orderRepository;
+    /** @var OrderStatusHistoryRepositoryInterface|MockObject */
+    private $historyRepository;
 
     /** @var Order|MockObject */
     private $order;
@@ -79,7 +80,7 @@ class ChangeServiceTest extends TestCase
             $this->point(self::NEW_POINT, 'Punto nuevo'),
         ]])));
         $this->shippingMethod = $this->createMock(ShippingMethod::class);
-        $this->orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $this->historyRepository = $this->createMock(OrderStatusHistoryRepositoryInterface::class);
 
         $this->order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
@@ -99,7 +100,7 @@ class ChangeServiceTest extends TestCase
             $this->webservice,
             $this->shippingMethod,
             new ScheduleFormatter(),
-            $this->orderRepository,
+            $this->historyRepository,
             $this->createMock(HopHelper::class)
         );
     }
@@ -127,7 +128,7 @@ class ChangeServiceTest extends TestCase
     }
 
     /**
-     * The history comment is added on a fresh copy of the order.
+     * addHopData() saves the order; the comment is then saved on its own, never the order again.
      *
      * @return Order|MockObject
      */
@@ -135,18 +136,21 @@ class ChangeServiceTest extends TestCase
     {
         $freshOrder = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['addCommentToStatusHistory', 'getShippingDescription'])
+            ->onlyMethods(['addCommentToStatusHistory', 'getShippingDescription', 'save'])
             ->getMock();
         $freshOrder->method('getShippingDescription')->willReturn('Retirá tu pedido en: Punto nuevo');
+        $freshOrder->expects($this->never())->method('save');
+        $history = $this->createMock(OrderStatusHistoryInterface::class);
+        $freshOrder->method('addCommentToStatusHistory')->willReturn($history);
         $this->shippingMethod->method('getOrder')->with(self::ORDER_ID)->willReturn($freshOrder);
-        $this->orderRepository->expects($this->once())->method('save')->with($freshOrder);
+        $this->historyRepository->expects($this->once())->method('save')->with($history);
         return $freshOrder;
     }
 
     private function expectNothingSaved(): void
     {
         $this->shippingMethod->expects($this->never())->method('addHopData');
-        $this->orderRepository->expects($this->never())->method('save');
+        $this->historyRepository->expects($this->never())->method('save');
     }
 
     public function testChangeWithSamePriceIsSavedWithServerSideData(): void
@@ -181,7 +185,8 @@ class ChangeServiceTest extends TestCase
                 }),
                 false,
                 false
-            );
+            )
+            ->willReturn($this->createMock(OrderStatusHistoryInterface::class));
 
         $this->assertSame(ChangeService::CODE_OK, $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID)['code']);
     }
@@ -268,7 +273,7 @@ class ChangeServiceTest extends TestCase
             $this->webservice,
             $this->shippingMethod,
             new ScheduleFormatter(),
-            $this->orderRepository,
+            $this->historyRepository,
             $this->createMock(HopHelper::class)
         );
 

@@ -53,7 +53,7 @@ Un servicio, por ejemplo `Model/PickupPoint/ChangeEligibility`, decide si un ped
 
 - Método de envío `hop_hop`.
 - Estado distinto de `canceled` y `closed`.
-- No despachado, con la lógica `isDispatched` extraída del plugin. El plugin del admin pasa a usar este servicio sin cambiar su comportamiento.
+- No despachado, con la lógica `isRecordDispatched` extraída del plugin. El plugin del admin pasa a usar este servicio sin cambiar su comportamiento.
 - Para el comprador el corte es más estricto (corrección de la revisión de código del 2026-11-03): tampoco se permite si el cron ya está despachando (`status_shipment = processing`) o si el pedido ya tiene un envío de Magento.
 - Pedido del cliente logueado.
 
@@ -82,7 +82,7 @@ Es la fase más delicada, porque un cambio en el carrier rompe la cotización de
     4. El punto existe en la lista de Hop para ese CP.
     5. No es el mismo punto que ya tiene.
     6. Envío gratis: acepta. Si no, una cotización y la comparación.
-    7. Si todo da bien: `addHopData()` con datos del servidor y comentario en el historial (punto anterior, punto nuevo, «cambiado por el comprador»). No toca `shipping_amount` ni `grand_total`.
+    7. Si todo da bien: `addHopData()` con datos del servidor y comentario en el historial (punto anterior, punto nuevo, «cambiado por el comprador»). El pedido se guarda una sola vez, dentro de `addHopData()`; el comentario se guarda aparte, con el repositorio del historial, para no volver a disparar los observers del guardado del pedido (limpieza del 2026-11-04). No toca `shipping_amount` ni `grand_total`.
 
 Detalle a verificar: `addHopData()` guarda el pedido y eso dispara `SalesOrderSaveAfter`; no debe provocar un despacho accidental.
 

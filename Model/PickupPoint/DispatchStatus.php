@@ -2,6 +2,7 @@
 
 namespace Hop\Envios\Model\PickupPoint;
 
+use Hop\Envios\Cron\GenarateShipment;
 use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnvios;
 use Hop\Envios\Model\HopEnviosRepository;
@@ -15,11 +16,6 @@ use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as Shipme
  */
 class DispatchStatus
 {
-    /**
-     * Set by the dispatch cron right before it creates the Magento shipment and calls Hop.
-     */
-    const STATUS_PROCESSING = 'processing';
-
     /**
      * @var HopEnviosRepository
      */
@@ -44,9 +40,9 @@ class DispatchStatus
 
     /**
      * Stricter cut-off for the buyer: besides an order already dispatched, blocks an order the
-     * cron is dispatching right now (status "processing", the Hop call may already be in flight)
+     * cron is dispatching right now (status "processing", set right before it calls Hop)
      * and an order with a Magento shipment (an admin is dispatching it by hand). The admin keeps
-     * using isDispatched(), since an admin may still need to fix the point in those cases.
+     * using isRecordDispatched(), since an admin may still need to fix the point in those cases.
      *
      * @param int $orderId
      * @return bool
@@ -57,21 +53,12 @@ class DispatchStatus
         if ($this->isRecordDispatched($hopEnvios)) {
             return true;
         }
-        if ($hopEnvios && $hopEnvios->getStatusShipment() === self::STATUS_PROCESSING) {
+        if ($hopEnvios && $hopEnvios->getStatusShipment() === GenarateShipment::SHIPMENT_STATUS_PROCESING) {
             return true;
         }
         return $this->shipmentCollectionFactory->create()
             ->addFieldToFilter('order_id', $orderId)
             ->getSize() > 0;
-    }
-
-    /**
-     * @param int $orderId
-     * @return bool
-     */
-    public function isDispatched(int $orderId): bool
-    {
-        return $this->isRecordDispatched($this->hopEnviosRepository->getByOrderId($orderId));
     }
 
     /**
@@ -86,7 +73,7 @@ class DispatchStatus
     public function isRecordDispatched($hopEnvios): bool
     {
         return $hopEnvios && (
-            $hopEnvios->getStatusShipment() === 'completed'
+            $hopEnvios->getStatusShipment() === GenarateShipment::SHIPMENT_STATUS_COMPLETED
             || !DispatchError::isRetryable($hopEnvios->getLastErrorCode())
         );
     }

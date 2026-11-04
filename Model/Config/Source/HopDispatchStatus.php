@@ -23,6 +23,7 @@ class HopDispatchStatus implements \Magento\Framework\Data\OptionSourceInterface
     {
         return [
             ['value' => Status::DISPATCHED, 'label' => __('Despachado')],
+            ['value' => Status::PARTIAL, 'label' => __('Parcial')],
             ['value' => Status::PENDING, 'label' => __('No despachado')],
             ['value' => Status::NOT_APPLICABLE, 'label' => __('No aplica')],
         ];

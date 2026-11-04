@@ -15,8 +15,11 @@ use Magento\Framework\Filesystem;
 /**
  * Descarga el PDF de etiquetas que MassLabels dejó guardado porque hubo pedidos afuera.
  *
- * Hay un archivo por usuario admin: cada lote pisa el anterior (no se acumulan etiquetas con
- * datos de clientes en var/) y nadie puede bajar el PDF que armó otro. Se borra al descargarlo.
+ * El archivo lleva el id del usuario admin y un token del lote: nadie puede bajar el PDF que
+ * armó otro, y un lote nuevo no se hace pasar por el anterior. Se borra al descargarlo, y al
+ * guardar uno nuevo se borra el pendiente del mismo usuario, para no acumular etiquetas con
+ * datos de clientes en var/: el link viejo queda sin archivo y lo dice, que es preferible a
+ * entregar en silencio las etiquetas de otro lote.
  *
  * @version 1.0.0
  * @author Hop Envíos <https://hopenvios.com.ar>
@@ -29,6 +32,11 @@ class MassLabelsDownload extends Action implements HttpGetActionInterface
      * Authorization level of a basic admin session
      */
     public const ADMIN_RESOURCE = 'Hop_Envios::label_download';
+
+    /**
+     * Token de lote: identifica el PDF que generó una corrida de MassLabels.
+     */
+    private const TOKEN_PATTERN = '/^[a-f0-9]{16}$/';
 
     /**
      * @var FileFactory
@@ -59,11 +67,23 @@ class MassLabelsDownload extends Action implements HttpGetActionInterface
      * Ruta del PDF pendiente de un usuario, relativa a var/.
      *
      * @param int $userId
+     * @param string $token
      * @return string
      */
-    public static function pendingPath(int $userId): string
+    public static function pendingPath(int $userId, string $token): string
     {
-        return sprintf('hop_labels/etiquetas-%d.pdf', $userId);
+        return sprintf('hop_labels/etiquetas-%d-%s.pdf', $userId, $token);
+    }
+
+    /**
+     * Todos los PDFs pendientes de un usuario, para limpiar antes de dejar uno nuevo.
+     *
+     * @param int $userId
+     * @return string
+     */
+    public static function pendingPattern(int $userId): string
+    {
+        return sprintf('hop_labels/etiquetas-%d-*.pdf', $userId);
     }
 
     /**
@@ -71,10 +91,15 @@ class MassLabelsDownload extends Action implements HttpGetActionInterface
      */
     public function execute()
     {
-        $path = self::pendingPath((int)$this->_auth->getUser()->getId());
+        $token = (string)$this->getRequest()->getParam('token');
         $varDir = $this->filesystem->getDirectoryRead(DirectoryList::VAR_DIR);
+        // El token entra en el nombre del archivo: sin este control, un token armado a mano
+        // apuntaría a cualquier archivo de var/.
+        $path = preg_match(self::TOKEN_PATTERN, $token)
+            ? self::pendingPath((int)$this->_auth->getUser()->getId(), $token)
+            : '';
 
-        if (!$varDir->isFile($path)) {
+        if ($path === '' || !$varDir->isFile($path)) {
             $this->messageManager->addErrorMessage(
                 __('El PDF de etiquetas ya no está disponible. Volvé a generarlo desde la grilla de pedidos.')
             );

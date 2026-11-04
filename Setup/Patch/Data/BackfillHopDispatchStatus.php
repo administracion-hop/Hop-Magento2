@@ -7,6 +7,7 @@ namespace Hop\Envios\Setup\Patch\Data;
 use Hop\Envios\Model\OrderGrid\DispatchStatusExpression;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\Setup\Patch\DataPatchInterface;
+use Magento\Framework\Setup\Patch\NonTransactionableInterface;
 
 /**
  * Llena hop_dispatch_status en las filas de sales_order_grid que ya existían.
@@ -19,11 +20,17 @@ use Magento\Framework\Setup\Patch\DataPatchInterface;
  * @copyright Copyright (c) 2025 Hop Envíos
  * @package Hop\Envios\Setup\Patch\Data
  */
-class BackfillHopDispatchStatus implements DataPatchInterface
+class BackfillHopDispatchStatus implements DataPatchInterface, NonTransactionableInterface
 {
     /**
      * Pedidos por tanda. Un UPDATE con join sobre sales_order_grid entera deja la tabla
      * bloqueada todo lo que dure; en tandas el lock es corto aunque el total tarde lo mismo.
+     *
+     * Para que eso sea cierto el patch tiene que ser NonTransactionable: PatchApplier envuelve
+     * cada data patch en una transacción, y adentro de una transacción InnoDB no suelta los
+     * locks hasta el commit final, así que las tandas no aliviarían nada. Como contrapartida,
+     * un corte a mitad de camino deja el backfill incompleto; es idempotente, así que se
+     * resuelve volviendo a correr setup:upgrade (el patch no quedó registrado como aplicado).
      */
     private const BATCH_SIZE = 5000;
 

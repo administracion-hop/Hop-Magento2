@@ -164,25 +164,35 @@ class HopEnviosRepository
         // del save, que es cuando el resource todavía conserva los datos originales.
         $statusChanged = $hopEnvios->isObjectNew() || $hopEnvios->dataHasChangedFor('status_shipment');
 
+        // La columna hop_dispatch_status de la grilla sale de hop_envios: si no refrescamos, el
+        // pedido recién despachado sigue figurando como "No despachado" hasta el próximo save de
+        // la orden. Va como callback de commit y no inline: este save suele correr dentro de la
+        // transacción del checkout o del envío, y el INSERT...SELECT del agregador contra
+        // sales_order_grid puede dar deadlock. Adentro de la transacción ajena, atrapar esa
+        // excepción no la arregla —InnoDB ya revirtió todo— y encima la esconde. El callback
+        // corre después del commit de la transacción más externa, con la fila ya escrita; si el
+        // save falla, el rollback descarta el callback (AbstractResource::rollBack limpia el
+        // CallbackPool), así que no se refresca por un despacho que no ocurrió.
+        if ($statusChanged) {
+            $orderId = (int)$hopEnvios->getOrderId();
+            $this->hopEnviosResource->addCommitCallback(function () use ($orderId) {
+                // Un fallo refrescando no puede tirar abajo el despacho, pero tiene que quedar
+                // registrado: si falla siempre, la columna se congela sin que nadie se entere.
+                try {
+                    $this->orderGrid->refresh($orderId);
+                } catch (\Exception $exception) {
+                    $this->logger->error('No se pudo refrescar el estado Hop en la grilla de pedidos', [
+                        'order_id' => $orderId,
+                        'error' => $exception->getMessage()
+                    ]);
+                }
+            });
+        }
+
         try {
             $this->hopEnviosResource->save($hopEnvios);
         } catch (\Exception $exception) {
             throw new \Exception(__('Could not save the selected pickup point: %1', $exception->getMessage()));
-        }
-
-        // La columna hop_dispatch_status de la grilla sale de hop_envios: si no refrescamos acá,
-        // el pedido recién despachado sigue figurando como "No despachado" hasta el próximo save
-        // de la orden. Un fallo refrescando no puede tirar abajo el despacho, pero tiene que
-        // quedar registrado: si falla siempre, la columna se congela sin que nadie se entere.
-        if ($statusChanged) {
-            try {
-                $this->orderGrid->refresh((int)$hopEnvios->getOrderId());
-            } catch (\Exception $exception) {
-                $this->logger->error('No se pudo refrescar el estado Hop en la grilla de pedidos', [
-                    'order_id' => $hopEnvios->getOrderId(),
-                    'error' => $exception->getMessage()
-                ]);
-            }
         }
     }
 

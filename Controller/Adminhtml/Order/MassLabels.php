@@ -215,10 +215,20 @@ class MassLabels extends Action implements HttpPostActionInterface
             // Con pedidos afuera no se descarga directo: la descarga no recarga la grilla y los
             // avisos de qué quedó afuera recién se verían en la próxima navegación, cuando el PDF
             // ya se imprimió como si estuviera completo. Se guarda y se ofrece junto a los avisos.
-            $this->filesystem->getDirectoryWrite(DirectoryList::VAR_DIR)->writeFile(
-                MassLabelsDownload::pendingPath((int)$this->_auth->getUser()->getId()),
-                $pdf
-            );
+            // El token identifica este lote: sin él, dos lotes seguidos del mismo usuario comparten
+            // archivo y el link del primero termina bajando las etiquetas del segundo.
+            $userId = (int)$this->_auth->getUser()->getId();
+            $token = bin2hex(random_bytes(8));
+            $varDir = $this->filesystem->getDirectoryWrite(DirectoryList::VAR_DIR);
+
+            // Queda un solo PDF pendiente por usuario: no se acumulan etiquetas con datos de
+            // clientes en var/, y el link del lote anterior avisa que ya no está en vez de
+            // entregar otra cosa.
+            foreach ($varDir->search(MassLabelsDownload::pendingPattern($userId)) as $stale) {
+                $varDir->delete($stale);
+            }
+
+            $varDir->writeFile(MassLabelsDownload::pendingPath($userId, $token), $pdf);
         } catch (\Exception $e) {
             $this->logger->error('Error armando el PDF de etiquetas Hop', ['error' => $e->getMessage()]);
             $this->messageManager->addErrorMessage(
@@ -228,7 +238,7 @@ class MassLabels extends Action implements HttpPostActionInterface
         }
 
         $this->messageManager->addComplexSuccessMessage('hopLabelsDownload', [
-            'url' => $this->getUrl('hop/order/massLabelsDownload'),
+            'url' => $this->getUrl('hop/order/massLabelsDownload', ['token' => $token]),
             'count' => count($included)
         ]);
 

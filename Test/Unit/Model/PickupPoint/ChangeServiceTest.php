@@ -54,6 +54,9 @@ class ChangeServiceTest extends TestCase
     /** @var OrderStatusHistoryRepositoryInterface|MockObject */
     private $historyRepository;
 
+    /** @var HopHelper|MockObject */
+    private $helper;
+
     /** @var Order|MockObject */
     private $order;
 
@@ -101,7 +104,7 @@ class ChangeServiceTest extends TestCase
             $this->shippingMethod,
             new ScheduleFormatter(),
             $this->historyRepository,
-            $this->createMock(HopHelper::class)
+            $this->helper = $this->createMock(HopHelper::class)
         );
     }
 
@@ -317,5 +320,27 @@ class ChangeServiceTest extends TestCase
 
         $this->assertCount(2, $points);
         $this->assertSame(self::NEW_POINT, $points[1]['id']);
+    }
+
+    /**
+     * The point is already saved when the comment fails: the buyer is told the truth and the
+     * error is logged for support.
+     */
+    public function testCommentThatCantBeSavedIsLoggedAndTheChangeStillReported(): void
+    {
+        $this->priceRule->method('isFreeShipping')->willReturn(true);
+        $this->shippingMethod->expects($this->once())->method('addHopData');
+        $freshOrder = $this->getMockBuilder(Order::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['addCommentToStatusHistory', 'getShippingDescription', 'getIncrementId'])
+            ->getMock();
+        $freshOrder->method('addCommentToStatusHistory')->willReturn($this->createMock(OrderStatusHistoryInterface::class));
+        $this->shippingMethod->method('getOrder')->willReturn($freshOrder);
+        $this->historyRepository->method('save')
+            ->willThrowException(new \Magento\Framework\Exception\CouldNotSaveException(__('bloqueo')));
+        $this->helper->expects($this->once())->method('log')
+            ->with($this->stringContains('sin comentario'), true);
+
+        $this->assertSame(ChangeService::CODE_OK, $this->service->change($this->order, self::NEW_POINT, self::CUSTOMER_ID)['code']);
     }
 }

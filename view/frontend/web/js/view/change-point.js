@@ -185,7 +185,7 @@ define(
                         return;
                     }
                     // Nothing else can be done from here for these: keep the list locked.
-                    if (_.contains(['dispatched', 'not_found', 'not_eligible', 'too_many_attempts', 'login_required'], response.code)) {
+                    if (_.contains(['dispatched', 'not_found', 'not_eligible', 'too_many_attempts', 'login_required', 'invalid_form_key'], response.code)) {
                         locked = true;
                     }
                     showMessage('error', response.message);

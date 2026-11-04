@@ -68,56 +68,45 @@ class DispatchStatusTest extends TestCase
         $this->assertSame($expected, $this->dispatchStatus->hasDispatchStarted(10));
     }
 
-    public function testAdminCutOffIgnoresProcessingAndShipments(): void
+    public function testAdminCutOffIgnoresProcessing(): void
     {
-        $this->repository->method('getByOrderId')->willReturn(
-            new DataObject(['status_shipment' => 'processing', 'last_error_code' => null])
-        );
-        $this->shipmentCount = 1;
+        $record = new DataObject(['status_shipment' => 'processing', 'last_error_code' => null]);
 
-        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($record));
     }
 
     public function testOrderWithoutHopRecordIsNotDispatched(): void
     {
-        $this->repository->method('getByOrderId')->with(10)->willReturn(null);
+        $record = null;
 
-        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($record));
     }
 
     public function testPendingOrderIsNotDispatched(): void
     {
-        $this->repository->method('getByOrderId')->willReturn(
-            new DataObject(['status_shipment' => 'pending', 'last_error_code' => null])
-        );
+        $record = new DataObject(['status_shipment' => 'pending', 'last_error_code' => null]);
 
-        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($record));
     }
 
     public function testCompletedOrderIsDispatched(): void
     {
-        $this->repository->method('getByOrderId')->willReturn(
-            new DataObject(['status_shipment' => 'completed', 'last_error_code' => null])
-        );
+        $record = new DataObject(['status_shipment' => 'completed', 'last_error_code' => null]);
 
-        $this->assertTrue($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertTrue($this->dispatchStatus->isRecordDispatched($record));
     }
 
     public function testRetryableFailureIsNotDispatched(): void
     {
-        $this->repository->method('getByOrderId')->willReturn(
-            new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_ORIGIN_ZIP])
-        );
+        $record = new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_ORIGIN_ZIP]);
 
-        $this->assertFalse($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertFalse($this->dispatchStatus->isRecordDispatched($record));
     }
 
     public function testPartialMultibultoIsDispatched(): void
     {
-        $this->repository->method('getByOrderId')->willReturn(
-            new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_MULTIBULTO_PARTIAL])
-        );
+        $record = new DataObject(['status_shipment' => 'failed', 'last_error_code' => DispatchError::CODE_MULTIBULTO_PARTIAL]);
 
-        $this->assertTrue($this->dispatchStatus->isRecordDispatched($this->repository->getByOrderId(10)));
+        $this->assertTrue($this->dispatchStatus->isRecordDispatched($record));
     }
 }

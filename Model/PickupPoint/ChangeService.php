@@ -299,8 +299,11 @@ class ChangeService
 
     /**
      * Saves only the comment row: addHopData() already saved the order, and saving it again
-     * would run every order-save observer (Hop dispatch included) a second time. The order is
-     * read again just for its new shipping description.
+     * would run every order-save observer a second time. The order is read again just for its
+     * new shipping description.
+     *
+     * The point is already changed when this runs: if the comment can't be saved, the error is
+     * logged and the change is still reported as done, since it is.
      *
      * @param int $orderId
      * @param string $previousDescription
@@ -322,6 +325,15 @@ class ChangeService
             false,
             false
         );
-        $this->historyRepository->save($history);
+        try {
+            $this->historyRepository->save($history);
+        } catch (\Exception $e) {
+            $this->helper->log(sprintf(
+                'Cambio de punto guardado sin comentario en el historial (pedido %s, punto %s): %s',
+                $order->getIncrementId(),
+                $newPoint['id'],
+                $e->getMessage()
+            ), true);
+        }
     }
 }

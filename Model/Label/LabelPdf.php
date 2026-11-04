@@ -163,8 +163,22 @@ class LabelPdf
     }
 
     /**
-     * Baja la etiqueta y la devuelve siempre como PDF. Lo que no sea PDF ni imagen (ZPL,
-     * por ejemplo) no se puede meter en un PDF unificado: tira excepción y el caller informa.
+     * Si la etiqueta es ZPL (archivo para impresora de etiquetas). Mismo criterio que usan los
+     * botones del pedido (Plugin\Widget\Context y HopLabelsView): la terminación de la URL.
+     * No es un error: la etiqueta existe, sólo que no se puede unir a un PDF.
+     *
+     * @param string $url
+     * @return bool
+     */
+    public function isZpl(string $url): bool
+    {
+        return strtolower(substr($url, -4)) === '.zpl';
+    }
+
+    /**
+     * Baja la etiqueta y la devuelve siempre como PDF. Lo que no sea PDF ni imagen no se puede
+     * meter en un PDF unificado: tira excepción y el caller informa. Las ZPL conviene
+     * separarlas antes con isZpl(), para no bajarlas en vano ni informarlas como error.
      *
      * Verifica acá que Zend_Pdf pueda abrirlo, aunque merge() lo vuelva a parsear. El tipo MIME
      * no alcanza: un PDF corrupto o cifrado pasa el finfo y recién revienta al unir, cuando ya

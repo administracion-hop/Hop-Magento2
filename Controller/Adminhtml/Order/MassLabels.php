@@ -136,6 +136,7 @@ class MassLabels extends Action implements HttpPostActionInterface
         $pdfs = [];
         $included = [];
         $withoutLabel = [];
+        $zpl = [];
         $failed = [];
 
         foreach ($collection as $order) {
@@ -144,6 +145,13 @@ class MassLabels extends Action implements HttpPostActionInterface
 
             if (!$urls) {
                 $withoutLabel[] = $increment;
+                continue;
+            }
+
+            // ZPL es para impresora de etiquetas y no entra en un PDF. No es un error: se informa
+            // aparte para que nadie salga a revisar una etiqueta que está bien.
+            if (array_filter($urls, [$this->labelPdf, 'isZpl'])) {
+                $zpl[] = $increment;
                 continue;
             }
 
@@ -173,37 +181,20 @@ class MassLabels extends Action implements HttpPostActionInterface
         }
 
         // Sin PDF no hay nada que ofrecer, pero el motivo importa: "ninguno tiene etiqueta" cuando
-        // en realidad todas estaban ilegibles manda a revisar los pedidos equivocados.
+        // en realidad estaban ilegibles o eran ZPL manda a revisar los pedidos equivocados. Por eso
+        // cada grupo que quedó afuera lleva su propio aviso.
         if (!$pdfs) {
-            if ($failed && $withoutLabel) {
-                $this->messageManager->addNoticeMessage(
-                    __(
-                        '%1 pedido(s) sin etiqueta Hop, omitidos: %2',
-                        count($withoutLabel),
-                        implode(', ', $withoutLabel)
-                    )
-                );
-            }
-
             $this->messageManager->addErrorMessage(
-                $failed
-                    ? __(
-                        'No se generó ningún PDF: %1 pedido(s) con etiqueta ilegible: %2',
-                        count($failed),
-                        implode(', ', $failed)
-                    )
-                    : __(
-                        'Ninguno de los pedidos seleccionados tiene etiqueta Hop para descargar: %1',
-                        implode(', ', $withoutLabel)
-                    )
+                __('No se generó ningún PDF: ninguno de los pedidos seleccionados tiene una etiqueta Hop que se pueda unir.')
             );
+            $this->addLeftOutMessages($withoutLabel, $zpl, $failed);
             return $resultRedirect;
         }
 
         try {
             $pdf = $this->labelPdf->merge($pdfs);
 
-            if (!$withoutLabel && !$failed) {
+            if (!$withoutLabel && !$zpl && !$failed) {
                 return $this->fileFactory->create(
                     'etiquetas-hop-' . date('Ymd-His') . '.pdf',
                     $pdf,
@@ -241,13 +232,37 @@ class MassLabels extends Action implements HttpPostActionInterface
             'url' => $this->getUrl('hop/order/massLabelsDownload', ['token' => $token]),
             'count' => count($included)
         ]);
+        $this->addLeftOutMessages($withoutLabel, $zpl, $failed);
 
+        return $resultRedirect;
+    }
+
+    /**
+     * Un aviso por cada grupo de pedidos que quedó fuera del PDF, con el motivo.
+     *
+     * @param string[] $withoutLabel Sin etiqueta en Hop todavía
+     * @param string[] $zpl Con etiqueta ZPL, que no se puede unir a un PDF
+     * @param string[] $failed Con etiqueta que no se pudo bajar o abrir
+     * @return void
+     */
+    private function addLeftOutMessages(array $withoutLabel, array $zpl, array $failed): void
+    {
         if ($withoutLabel) {
             $this->messageManager->addNoticeMessage(
                 __(
                     '%1 pedido(s) sin etiqueta Hop, omitidos: %2',
                     count($withoutLabel),
                     implode(', ', $withoutLabel)
+                )
+            );
+        }
+
+        if ($zpl) {
+            $this->messageManager->addNoticeMessage(
+                __(
+                    '%1 pedido(s) con etiqueta ZPL (impresora de etiquetas): se descargan desde el pedido, no entran en el PDF: %2',
+                    count($zpl),
+                    implode(', ', $zpl)
                 )
             );
         }
@@ -261,8 +276,6 @@ class MassLabels extends Action implements HttpPostActionInterface
                 )
             );
         }
-
-        return $resultRedirect;
     }
 
     /**

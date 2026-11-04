@@ -159,10 +159,14 @@ class HopEnviosRepository
      */
     public function save(HopEnvios $hopEnvios)
     {
-        // El estado de la grilla sale de status_shipment: los saves que sólo tocan contadores o
-        // next_retry_at (el cron corre cada minuto) no necesitan refrescar nada. Se mira antes
-        // del save, que es cuando el resource todavía conserva los datos originales.
-        $statusChanged = $hopEnvios->isObjectNew() || $hopEnvios->dataHasChangedFor('status_shipment');
+        // El estado de la grilla sale de status_shipment y de last_error_code ("Parcial" es un
+        // failed con código multibulto_partial, y un reintento puede pasar de failed a failed
+        // cambiando sólo el código). Los saves que sólo tocan contadores o next_retry_at (el cron
+        // corre cada minuto) no necesitan refrescar nada. Se mira antes del save, que es cuando
+        // el modelo todavía conserva los datos originales.
+        $statusChanged = $hopEnvios->isObjectNew()
+            || $hopEnvios->dataHasChangedFor('status_shipment')
+            || $hopEnvios->dataHasChangedFor('last_error_code');
 
         // La columna hop_dispatch_status de la grilla sale de hop_envios: si no refrescamos, el
         // pedido recién despachado sigue figurando como "No despachado" hasta el próximo save de

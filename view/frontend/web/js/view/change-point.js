@@ -10,7 +10,8 @@ define(
     [
         'jquery',
         'underscore',
-        'mage/translate'
+        'mage/translate',
+        'mage/cookies'
     ],
     function ($, _, $t) {
         'use strict';
@@ -157,6 +158,15 @@ define(
                 }
             }
 
+            /**
+             * Magento's page-cache script creates the form_key cookie when the browser has none,
+             * and the server then takes the cookie as the session's key: read it when confirming,
+             * not the key the page was rendered with.
+             */
+            function currentFormKey() {
+                return $.mage.cookies.get('form_key') || config.formKey;
+            }
+
             function choose(pointId) {
                 if (isBlocked() || !pointId || sameId(pointId, currentPointId)) {
                     return;
@@ -177,7 +187,7 @@ define(
                     data: {
                         'order_id': config.orderId,
                         'point_id': pointId,
-                        'form_key': config.formKey
+                        'form_key': currentFormKey()
                     }
                 }).done(function (response) {
                     if (response.success) {

@@ -124,11 +124,6 @@ class ChangePriceRuleTest extends TestCase
         $this->assertTrue($this->rule->isFreeShipping($this->order(0, 0)));
     }
 
-    public function testFreeshippingMethodIsFreeShipping(): void
-    {
-        $this->assertTrue($this->rule->isFreeShipping($this->order(100, 0, 'freeshipping_freeshipping')));
-    }
-
     public function testPaidShippingIsNotFree(): void
     {
         $this->assertFalse($this->rule->isFreeShipping($this->order(5000, 4999.99)));

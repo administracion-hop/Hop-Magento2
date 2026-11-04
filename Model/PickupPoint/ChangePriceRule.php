@@ -13,8 +13,6 @@ use Magento\Tax\Model\Config as TaxConfig;
  */
 class ChangePriceRule
 {
-    const FREESHIPPING_METHOD = 'freeshipping_freeshipping';
-
     /**
      * @var TaxConfig
      */
@@ -61,16 +59,17 @@ class ChangePriceRule
     }
 
     /**
-     * Free shipping takes any point without quoting: Magento's freeshipping method, or a
-     * shipping charge of 0 after discounts (cart rule or Hop's own hop_free_shipping threshold).
+     * A Hop shipment that came out free takes any point without quoting: a shipping charge of 0
+     * after discounts, whether by a cart rule or Hop's own hop_free_shipping threshold. Orders
+     * shipped with Magento's freeshipping method never get here: they aren't Hop orders
+     * (ChangeEligibility::NOT_HOP).
      *
      * @param Order $order
      * @return bool
      */
     public function isFreeShipping(Order $order): bool
     {
-        return $order->getShippingMethod() === self::FREESHIPPING_METHOD
-            || $this->getChargedAmount($order) <= 0.0;
+        return $this->getChargedAmount($order) <= 0.0;
     }
 
     /**

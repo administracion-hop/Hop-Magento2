@@ -8,6 +8,7 @@ use Magento\Catalog\Model\ResourceModel\Product as ProductResource;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Address;
 use Magento\Sales\Model\Order\Item;
+use Magento\Tax\Model\Config as TaxConfig;
 use PHPUnit\Framework\TestCase;
 
 class OrderPackageBuilderTest extends TestCase
@@ -31,6 +32,11 @@ class OrderPackageBuilderTest extends TestCase
      */
     private $builder;
 
+    /**
+     * @var bool "Catalog Prices: Including Tax" for the order's store
+     */
+    private $catalogIncludesTax = false;
+
     protected function setUp(): void
     {
         $this->helper = $this->createMock(HopHelper::class);
@@ -44,7 +50,10 @@ class OrderPackageBuilderTest extends TestCase
             }
         );
 
-        $this->builder = new OrderPackageBuilder($this->helper, $productResource);
+        $taxConfig = $this->createMock(TaxConfig::class);
+        $taxConfig->method('priceIncludesTax')->with(1)->willReturnCallback(fn () => $this->catalogIncludesTax);
+
+        $this->builder = new OrderPackageBuilder($this->helper, $productResource, $taxConfig);
     }
 
     /**
@@ -56,13 +65,14 @@ class OrderPackageBuilderTest extends TestCase
     {
         $item = $this->getMockBuilder(Item::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getProductType', 'getParentItem', 'getQtyOrdered', 'getProductId', 'getBasePrice'])
+            ->onlyMethods(['getProductType', 'getParentItem', 'getQtyOrdered', 'getProductId', 'getBasePrice', 'getBasePriceInclTax'])
             ->getMock();
         $item->method('getProductType')->willReturn($data['type'] ?? 'simple');
         $item->method('getParentItem')->willReturn($parent);
         $item->method('getQtyOrdered')->willReturn($data['qty'] ?? 1);
         $item->method('getProductId')->willReturn($data['product_id'] ?? null);
         $item->method('getBasePrice')->willReturn($data['price'] ?? 0);
+        $item->method('getBasePriceInclTax')->willReturn($data['price_incl_tax'] ?? $data['price'] ?? 0);
         return $item;
     }
 
@@ -107,6 +117,42 @@ class OrderPackageBuilderTest extends TestCase
             ['width' => 45, 'length' => 120, 'height' => 30, 'weight' => 1500.0, 'value' => 60000],
             $this->builder->build($this->order([$parent, $child]))
         );
+    }
+
+    /**
+     * Catalog prices include tax (21 %): the product costs 12100 in the catalog and the checkout
+     * declared that to Hop, while Magento stored the item at 10000 without tax.
+     */
+    public function testCatalogPricesIncludingTaxDeclareThePriceWithTax(): void
+    {
+        $this->catalogIncludesTax = true;
+        $order = $this->order([
+            $this->item(['product_id' => 1, 'qty' => 2, 'price' => 10000, 'price_incl_tax' => 12100]),
+        ]);
+
+        $this->assertSame(24200, $this->builder->build($order)['value']);
+    }
+
+    public function testCatalogPricesWithoutTaxDeclareThePriceWithoutTax(): void
+    {
+        $order = $this->order([
+            $this->item(['product_id' => 1, 'qty' => 2, 'price' => 10000, 'price_incl_tax' => 12100]),
+        ]);
+
+        $this->assertSame(20000, $this->builder->build($order)['value']);
+    }
+
+    /**
+     * Configurable with catalog prices including tax: the child item's price is 0, the price
+     * with tax of the chosen simple product is on the parent.
+     */
+    public function testConfigurableWithCatalogPricesIncludingTaxUsesParentPriceWithTax(): void
+    {
+        $this->catalogIncludesTax = true;
+        $parent = $this->item(['type' => 'configurable', 'product_id' => 9, 'qty' => 3, 'price' => 20000, 'price_incl_tax' => 24200]);
+        $child = $this->item(['product_id' => 5, 'qty' => 1, 'price' => 0, 'price_incl_tax' => 0], $parent);
+
+        $this->assertSame(72600, $this->builder->build($this->order([$parent, $child]))['value']);
     }
 
     /**

@@ -15,7 +15,7 @@ Reglas de negocio:
 - Solo antes del despacho a Hop, con la misma condición de corte que el admin.
 - El nuevo punto se acepta si su cotización es igual a la tarifa de Hop del checkout antes de descuentos, redondeada a 2 decimales. El comprador conserva el descuento que tuvo.
 - Una sola cotización, después de elegir el punto. El mapa no cotiza ni filtra.
-- Envío gratis (método freeshipping o envío neto 0 por regla de carrito): se acepta cualquier punto sin cotizar.
+- Envío de Hop que salió gratis (envío neto 0 por una regla de carrito o por el umbral propio de Hop): se acepta cualquier punto sin cotizar. Un pedido enviado con el método freeshipping de Magento no es un envío de Hop y no puede cambiar de punto (ajuste del 2026-11-04).
 - Persistencia con `Helper/ShippingMethod.php::addHopData()`, igual que el admin.
 - Fuera de alcance: invitados, precotización en el mapa, cambios posteriores al despacho.
 
@@ -36,7 +36,7 @@ Nacho respondió el 23/10/2026: cinco de las seis preguntas quedaron cerradas y 
 
 | # | Pregunta | Decisión | Qué implica para dev |
 | --- | --- | --- | --- |
-| 1 | Si el pedido salió gratis por el umbral propio de Hop (`hop_free_shipping`), ¿cuenta como envío gratis? | Sí | Todo envío neto 0 se acepta sin cotizar: freeshipping de Magento, regla de carrito o umbral de Hop. |
+| 1 | Si el pedido salió gratis por el umbral propio de Hop (`hop_free_shipping`), ¿cuenta como envío gratis? | Sí | Todo envío de Hop con neto 0 se acepta sin cotizar: regla de carrito o umbral de Hop. El método freeshipping de Magento queda afuera, porque no es un envío de Hop (ajuste del 2026-11-04). |
 | 2 | Si la tarifa de Hop o las medidas cambiaron desde la compra, ¿se puede cambiar el punto? | No | Se mantiene la regla: la cotización actual se compara contra lo cobrado y, si difiere, se rechaza. No se recotiza el punto original. |
 | 3 | ¿Qué monto se compara? | Tal como se cobró en el checkout. Ajuste del 2026-11-03: contra la tarifa antes del descuento | Se compara contra la tarifa de Hop del pedido antes de descuentos (`base_shipping_amount`, o `base_shipping_incl_tax` si la tienda tiene «Shipping Prices include tax»), con el mismo criterio de impuestos y moneda con que el carrier la cotizó. Comparar neto de descuentos rechazaba siempre los pedidos con cupón parcial sobre el envío; Nacho aprobó el cambio. |
 | 4 | ¿El comentario del historial es visible para el comprador? | Pendiente: Nacho preguntó «¿qué comentario?» | Es el comentario que exige el criterio de aceptación: punto anterior, punto nuevo y que lo cambió el comprador. Hasta que responda, queda interno. |
@@ -64,8 +64,8 @@ Lo consumen el bloque que muestra el link y el controlador que confirma. Riesgo:
 Es la fase más delicada, porque un cambio en el carrier rompe la cotización del checkout.
 
 - Extraer de `collectRates` un servicio, por ejemplo `Model/Shipping/HopPriceCalculator`: recibe el paquete y devuelve el precio ajustado (cotización, porcentaje, valor fijo, `max(0)`). El carrier lo usa sin cambiar su resultado.
-- Armar el paquete desde el pedido (medidas, peso, valor), respetando productos configurables y padres igual que el carrier.
-- Detectar envío gratis: método freeshipping, o envío neto 0.
+- Armar el paquete desde el pedido (medidas, peso, valor), respetando productos configurables y padres igual que el carrier. El valor tiene que ser el mismo que declaró el checkout, que es el precio final del catálogo: si la tienda carga los precios del catálogo con impuestos, se usa el precio con impuestos del ítem; si no, el precio sin impuestos (revisión de código del 2026-11-04). En los configurables se toma el precio del padre, porque Magento deja el hijo en 0. Límite conocido: si al comprador le corresponde otra tasa de impuesto que la de la tienda y «Cross Border Trade» está apagado, el precio con impuestos del ítem no es el del catálogo.
+- Detectar envío gratis: envío neto 0, por regla de carrito o por el umbral de Hop.
 - Comparar con `round(x, 2)` contra el envío neto cobrado.
 - Si `estimatePrice` devuelve `false` o hay timeout, rechazar con error genérico.
 
@@ -106,7 +106,8 @@ Detalle a verificar: `addHopData()` guarda el pedido y eso dispara `SalesOrderSa
 
 El entorno local ya tiene AR, PE y UY, productos de prueba y credenciales sandbox. Uruguay sirve solo cuando Hop desbloquee el seller `MENZESBX`.
 
-- Pedido Hop normal, con regla de envío gratis y con freeshipping.
+- Pedido Hop normal y con regla de envío gratis, en una tienda con precios de catálogo con impuestos y en otra sin impuestos.
+- Pedido con el método freeshipping: no muestra el link de cambio.
 - Pedido ya despachado (forzando `status_shipment`).
 - Pedido de otro cliente.
 - Cambio desde el admin y checkout completo, como regresión.
@@ -135,8 +136,9 @@ El entorno local ya tiene AR, PE y UY, productos de prueba y credenciales sandbo
 | Mensaje «otro costo de envío» al rechazar | 4 | QA |
 | Elegir otro punto tras un rechazo sin salir | 4 | QA |
 | Error o timeout de cotización: rechazo y mensaje genérico | 2, 3 | Unit |
-| Freeshipping de Magento: acepta sin cotizar | 2 | Unit |
+| Método freeshipping de Magento: no permite cambiar el punto | 1 | Unit |
 | Envío neto 0 por regla de carrito: acepta sin cotizar | 2 | Unit |
+| Valor del paquete igual al del checkout, con y sin impuestos en el catálogo | 2 | Unit |
 | Guarda con `addHopData()`, visible en front y admin | 3 | QA |
 | Comentario en historial con punto anterior y nuevo | 3 | Unit + QA |
 | No cambia total ni monto de envío | 3 | Unit |

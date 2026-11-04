@@ -5,6 +5,8 @@ namespace Hop\Envios\Model\Shipping;
 use Hop\Envios\Helper\Data as HopHelper;
 use Magento\Catalog\Model\ResourceModel\Product as ProductResource;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Item as OrderItem;
+use Magento\Tax\Model\Config as TaxConfig;
 
 /**
  * Rebuilds, from a placed order, the package and destination Model\Carrier\Hop::collectRates()
@@ -24,21 +26,30 @@ class OrderPackageBuilder
     protected $productResource;
 
     /**
+     * @var TaxConfig
+     */
+    protected $taxConfig;
+
+    /**
      * @param HopHelper $helper
      * @param ProductResource $productResource
+     * @param TaxConfig $taxConfig
      */
     public function __construct(
         HopHelper $helper,
-        ProductResource $productResource
+        ProductResource $productResource,
+        TaxConfig $taxConfig
     ) {
         $this->helper = $helper;
         $this->productResource = $productResource;
+        $this->taxConfig = $taxConfig;
     }
 
     /**
      * Same rules as collectRates(): configurable parents are skipped and their children take
-     * the parent's qty (and, here, the parent's price, which is what the buyer paid); height
-     * is the sum of every item's height, length and width the largest of each.
+     * the parent's qty (and, here, the parent's price: Magento leaves the child's price at 0 and
+     * stores on the parent the price of the chosen simple product); height is the sum of every
+     * item's height, length and width the largest of each.
      *
      * Dimensions are read from the current product, as they aren't stored with the order.
      *
@@ -67,7 +78,7 @@ class OrderPackageBuilder
             $lengths[] = $this->getMeasure($productId, 'largo', $qty, $storeId);
             $widths[] = $this->getMeasure($productId, 'ancho', $qty, $storeId);
 
-            $totalPrice += (float)$priceItem->getBasePrice() * $qty;
+            $totalPrice += $this->getCatalogPrice($priceItem, $storeId) * $qty;
         }
 
         return [
@@ -114,6 +125,22 @@ class OrderPackageBuilder
         $address = $order->getShippingAddress();
         $countryId = $address ? $address->getCountryId() : null;
         return $countryId ?: ($this->helper->getStoreCountry($order->getStoreId()) ?: 'AR');
+    }
+
+    /**
+     * The unit price collectRates() declared to Hop: the product's final price as entered in
+     * the catalog. Magento stores the order item's price without tax, so when catalog prices
+     * include tax the price with tax is the one that matches.
+     *
+     * @param OrderItem $item
+     * @param int|null $storeId
+     * @return float
+     */
+    protected function getCatalogPrice($item, $storeId): float
+    {
+        return $this->taxConfig->priceIncludesTax($storeId)
+            ? (float)$item->getBasePriceInclTax()
+            : (float)$item->getBasePrice();
     }
 
     /**

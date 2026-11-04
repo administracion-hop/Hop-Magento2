@@ -96,6 +96,18 @@ class ChangeEligibilityTest extends TestCase
     }
 
     /**
+     * An order shipped with Magento's free shipping method isn't a Hop shipment: the buyer
+     * can't change a pickup point it doesn't have.
+     */
+    public function testFreeshippingMethodCantChange(): void
+    {
+        $order = $this->order(['shipping_method' => 'freeshipping_freeshipping']);
+
+        $this->assertSame(ChangeEligibility::NOT_HOP, $this->eligibility->check($order, self::CUSTOMER_ID));
+        $this->assertFalse($this->eligibility->canChange($order, self::CUSTOMER_ID));
+    }
+
+    /**
      * @dataProvider closedStates
      */
     public function testCanceledOrClosedOrder(string $state): void

@@ -75,7 +75,7 @@ Es la fase más delicada, porque un cambio en el carrier rompe la cotización de
 - `Order/ChangePoint` (GET): página dentro de «Mis pedidos». El login lo exige `Customer\Controller\AccountInterface`. La pertenencia la valida `OrderViewAuthorization`, que da el mismo 404 para pedido ajeno o inexistente.
 - `Order/Points` (GET, JSON): puntos para el CP o ubigeo del pedido, sin aceptar un CP del cliente. Reutiliza `Webservice::getPickupPoints` y no cotiza. Si el pedido no es elegible responde sin puntos: pedido ajeno o inexistente → «No encontramos el pedido.»; pedido propio despachado → «ya fue despachado»; otro motivo → «no permite cambiar el punto» (revisión del 2026-11-03).
 - Límite de 10 confirmaciones por pedido y sesión. Solo gastan intento las que realmente cotizaron con Hop (el servicio lo informa): los rechazos previos a la cotización y los cambios con envío gratis no cuentan.
-- `Order/ChangePointPost` (POST con `form_key`, JSON). Valida en este orden:
+- `Order/ChangePointPost` (POST con `form_key`, JSON). Exige el `form_key` siempre, también en peticiones AJAX, que Magento por defecto deja pasar sin él; si falta o no coincide responde «La página expiró. Recargala e intentá de nuevo.» (pruebas en Magento limpio, 2026-11-03). Valida en este orden:
     1. Login.
     2. Pertenencia.
     3. Elegibilidad. Si se despachó mientras el selector estaba abierto, responde «ya fue despachado».
@@ -92,6 +92,7 @@ Detalle a verificar: `addHopData()` guarda el pedido y eso dispara `SalesOrderSa
 - Layout de la página nueva sobre `customer_account`.
 - JS: refactorizar el render de lista y mapa de `hop.js` a un módulo compartido que el checkout siga usando igual.
 - Componente nuevo: marca el punto actual, deshabilita «Elegir» en él, hace el POST y muestra el resultado en la misma pantalla. Tras un rechazo, el comprador elige otro sin recargar.
+- Si el cambio se confirma, lleva al detalle del pedido con el mensaje «Listo, cambiamos el punto de retiro de tu pedido.». El POST se envía sin disparar la recarga de mensajes de Magento (`global: false`); si no, el mensaje se consume antes de llegar al pedido (pruebas en Magento limpio, 2026-11-03).
 - Textos: otro costo de envío, error genérico, ya despachado.
 - Estilos: reutilizar `_module.less`.
 

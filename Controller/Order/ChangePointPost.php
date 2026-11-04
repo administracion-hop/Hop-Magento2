@@ -2,14 +2,28 @@
 
 namespace Hop\Envios\Controller\Order;
 
+use Hop\Envios\Model\PickupPoint\ChangeEligibility;
 use Hop\Envios\Model\PickupPoint\ChangeService;
+use Magento\Customer\Model\Session as CustomerSession;
 use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
+use Magento\Framework\Message\ManagerInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Sales\Controller\AbstractController\OrderViewAuthorizationInterface;
 
 /**
  * POST hop/order/changepointpost (order_id, point_id, form_key) — confirms the buyer's new
- * pickup point. Magento validates the form_key of every frontend POST before this runs.
+ * pickup point.
+ *
+ * Magento's default check lets AJAX requests through without a form_key; this action always
+ * requires it, since a confirmation changes the order.
  */
-class ChangePointPost extends AbstractChangePoint implements HttpPostActionInterface
+class ChangePointPost extends AbstractChangePoint implements HttpPostActionInterface, CsrfAwareActionInterface
 {
     /**
      * Each confirmation may quote Hop once: cap them per order and session. Only confirmations
@@ -19,6 +33,69 @@ class ChangePointPost extends AbstractChangePoint implements HttpPostActionInter
     const MAX_ATTEMPTS = 10;
 
     const SESSION_ATTEMPTS_KEY = 'hop_change_point_attempts';
+
+    /**
+     * @var FormKeyValidator
+     */
+    private $formKeyValidator;
+
+    /**
+     * @param RequestInterface $request
+     * @param CustomerSession $customerSession
+     * @param OrderRepositoryInterface $orderRepository
+     * @param OrderViewAuthorizationInterface $orderAuthorization
+     * @param ChangeService $changeService
+     * @param ChangeEligibility $eligibility
+     * @param JsonFactory $jsonFactory
+     * @param RedirectFactory $redirectFactory
+     * @param ManagerInterface $messageManager
+     * @param FormKeyValidator $formKeyValidator
+     */
+    public function __construct(
+        RequestInterface $request,
+        CustomerSession $customerSession,
+        OrderRepositoryInterface $orderRepository,
+        OrderViewAuthorizationInterface $orderAuthorization,
+        ChangeService $changeService,
+        ChangeEligibility $eligibility,
+        JsonFactory $jsonFactory,
+        RedirectFactory $redirectFactory,
+        ManagerInterface $messageManager,
+        FormKeyValidator $formKeyValidator
+    ) {
+        parent::__construct(
+            $request,
+            $customerSession,
+            $orderRepository,
+            $orderAuthorization,
+            $changeService,
+            $eligibility,
+            $jsonFactory,
+            $redirectFactory,
+            $messageManager
+        );
+        $this->formKeyValidator = $formKeyValidator;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function validateForCsrf(RequestInterface $request): ?bool
+    {
+        return $this->formKeyValidator->validate($request);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
+    {
+        return new InvalidRequestException($this->json([
+            'success' => false,
+            'code' => 'invalid_form_key',
+            'message' => (string)__('La página expiró. Recargala e intentá de nuevo.'),
+        ]));
+    }
 
     /**
      * @return \Magento\Framework\Controller\Result\Json

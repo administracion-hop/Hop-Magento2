@@ -168,9 +168,12 @@ define(
                     activeInfoWindow.close();
                 }
 
+                // global: false keeps Magento from reloading the "messages" section after this
+                // request, which would consume the success message before the order page shows it.
                 $.ajax(config.saveUrl, {
                     method: 'POST',
                     dataType: 'json',
+                    global: false,
                     data: {
                         'order_id': config.orderId,
                         'point_id': pointId,

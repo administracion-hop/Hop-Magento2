@@ -10,6 +10,7 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Controller\Result\Json;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
@@ -40,6 +41,9 @@ class ChangePointPostTest extends TestCase
 
     /** @var array|null */
     private $response;
+
+    /** @var FormKeyValidator|MockObject */
+    private $formKeyValidator;
 
     /** @var ChangePointPost */
     private $controller;
@@ -86,7 +90,8 @@ class ChangePointPostTest extends TestCase
             $this->createMock(ChangeEligibility::class),
             $jsonFactory,
             $this->createMock(RedirectFactory::class),
-            $this->createMock(ManagerInterface::class)
+            $this->createMock(ManagerInterface::class),
+            $this->formKeyValidator = $this->createMock(FormKeyValidator::class)
         );
     }
 
@@ -213,5 +218,27 @@ class ChangePointPostTest extends TestCase
         }
 
         $this->assertSame('too_many_attempts', $this->response['code']);
+    }
+
+    /**
+     * Magento's default check skips the form_key on AJAX requests; this action never does.
+     */
+    public function testFormKeyIsAlwaysRequired(): void
+    {
+        $this->formKeyValidator->expects($this->exactly(2))->method('validate')
+            ->with($this->request)
+            ->willReturnOnConsecutiveCalls(false, true);
+
+        $this->assertFalse($this->controller->validateForCsrf($this->request));
+        $this->assertTrue($this->controller->validateForCsrf($this->request));
+    }
+
+    public function testMissingFormKeyAnswersWithAMessage(): void
+    {
+        $exception = $this->controller->createCsrfValidationException($this->request);
+
+        $this->assertNotNull($exception);
+        $this->assertSame('invalid_form_key', $this->response['code']);
+        $this->assertFalse($this->response['success']);
     }
 }

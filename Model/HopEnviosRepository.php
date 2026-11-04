@@ -6,6 +6,8 @@ use Hop\Envios\Model\ResourceModel\HopEnvios\CollectionFactory;
 use Hop\Envios\Model\HopEnviosFactory;
 use Hop\Envios\Model\ResourceModel\HopEnvios as HopEnviosResource;
 use Hop\Envios\Cron\GenarateShipment;
+use Hop\Envios\Logger\LoggerInterface;
+use Magento\Sales\Model\ResourceModel\GridInterface;
 
 class HopEnviosRepository
 {
@@ -25,18 +27,34 @@ class HopEnviosRepository
     private $hopEnviosResource;
 
     /**
+     * @var GridInterface
+     */
+    private $orderGrid;
+
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    /**
      * @param CollectionFactory $collectionFactory
      * @param HopEnviosFactory $hopEnviosFactory
      * @param HopEnviosResource $hopEnviosResource
+     * @param GridInterface $orderGrid Agregador de sales_order_grid (virtualType, ver etc/di.xml)
+     * @param LoggerInterface $logger
      */
     public function __construct(
         CollectionFactory $collectionFactory,
         HopEnviosFactory $hopEnviosFactory,
-        HopEnviosResource $hopEnviosResource
+        HopEnviosResource $hopEnviosResource,
+        GridInterface $orderGrid,
+        LoggerInterface $logger
     ) {
         $this->collectionFactory = $collectionFactory;
         $this->hopEnviosFactory = $hopEnviosFactory;
         $this->hopEnviosResource = $hopEnviosResource;
+        $this->orderGrid = $orderGrid;
+        $this->logger = $logger;
     }
 
 
@@ -141,6 +159,40 @@ class HopEnviosRepository
      */
     public function save(HopEnvios $hopEnvios)
     {
+        // El estado de la grilla sale de status_shipment y de last_error_code ("Parcial" es un
+        // failed con código multibulto_partial, y un reintento puede pasar de failed a failed
+        // cambiando sólo el código). Los saves que sólo tocan contadores o next_retry_at (el cron
+        // corre cada minuto) no necesitan refrescar nada. Se mira antes del save, que es cuando
+        // el modelo todavía conserva los datos originales.
+        $statusChanged = $hopEnvios->isObjectNew()
+            || $hopEnvios->dataHasChangedFor('status_shipment')
+            || $hopEnvios->dataHasChangedFor('last_error_code');
+
+        // La columna hop_dispatch_status de la grilla sale de hop_envios: si no refrescamos, el
+        // pedido recién despachado sigue figurando como "No despachado" hasta el próximo save de
+        // la orden. Va como callback de commit y no inline: este save suele correr dentro de la
+        // transacción del checkout o del envío, y el INSERT...SELECT del agregador contra
+        // sales_order_grid puede dar deadlock. Adentro de la transacción ajena, atrapar esa
+        // excepción no la arregla —InnoDB ya revirtió todo— y encima la esconde. El callback
+        // corre después del commit de la transacción más externa, con la fila ya escrita; si el
+        // save falla, el rollback descarta el callback (AbstractResource::rollBack limpia el
+        // CallbackPool), así que no se refresca por un despacho que no ocurrió.
+        if ($statusChanged) {
+            $orderId = (int)$hopEnvios->getOrderId();
+            $this->hopEnviosResource->addCommitCallback(function () use ($orderId) {
+                // Un fallo refrescando no puede tirar abajo el despacho, pero tiene que quedar
+                // registrado: si falla siempre, la columna se congela sin que nadie se entere.
+                try {
+                    $this->orderGrid->refresh($orderId);
+                } catch (\Exception $exception) {
+                    $this->logger->error('No se pudo refrescar el estado Hop en la grilla de pedidos', [
+                        'order_id' => $orderId,
+                        'error' => $exception->getMessage()
+                    ]);
+                }
+            });
+        }
+
         try {
             $this->hopEnviosResource->save($hopEnvios);
         } catch (\Exception $exception) {

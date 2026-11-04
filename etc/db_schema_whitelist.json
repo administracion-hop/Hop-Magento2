@@ -48,6 +48,9 @@
         },
         "constraint": {
             "PRIMARY": true
+        },
+        "index": {
+            "HOP_ENVIOS_ORDER_ID": true
         }
     },
     "hop_pickup_points": {
@@ -164,6 +167,14 @@
         },
         "index": {
             "HOP_PERU_DISTRITO_PROVINCIA_ID": true
+        }
+    },
+    "sales_order_grid": {
+        "column": {
+            "hop_dispatch_status": true
+        },
+        "index": {
+            "SALES_ORDER_GRID_HOP_DISPATCH_STATUS": true
         }
     }
 }

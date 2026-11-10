@@ -7,6 +7,12 @@
     <table name="sales_order">
         <column xsi:type="text" name="hop_data" nullable="true"/>
     </table>
+    <table name="sales_order_grid">
+        <column xsi:type="varchar" name="hop_dispatch_status" length="20" nullable="true" comment="Estado de despacho Hop"/>
+        <index referenceId="SALES_ORDER_GRID_HOP_DISPATCH_STATUS" indexType="btree">
+            <column name="hop_dispatch_status"/>
+        </index>
+    </table>
     <table name="quote_address">
         <column xsi:type="varchar" name="hop_ubigeo_provincia" nullable="true" length="255" comment="Provincia (Perú)"/>
         <column xsi:type="varchar" name="hop_ubigeo_distrito" nullable="true" length="255" comment="Distrito (Perú)"/>
@@ -40,6 +46,11 @@
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="entity_id"/>
         </constraint>
+        <!-- La grilla de pedidos consulta hop_envios por order_id en cada guardado de pedido
+             (ver Model/OrderGrid/DispatchStatusExpression); sin esto es un full scan. -->
+        <index referenceId="HOP_ENVIOS_ORDER_ID" indexType="btree">
+            <column name="order_id"/>
+        </index>
     </table>
 
     <table name="hop_pickup_points" resource="default" engine="innodb" comment="HOP Pickup Points Table">

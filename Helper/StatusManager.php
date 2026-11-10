@@ -94,9 +94,15 @@ class StatusManager extends AbstractHelper
         );
     }
 
-    public function processOrder($referenceId, $code, $comment)
+    /**
+     * @param Order|null $order
+     * @param string $code
+     * @param string $comment
+     * @return void
+     * @throws \Magento\Framework\Exception\LocalizedException
+     */
+    public function processOrder($order, $code, $comment)
     {
-        $order = $this->getOrderByReferenceId($referenceId);
         if ($order) {
             $storeId = $order->getStoreId();
             $state = $order->getState();
@@ -130,11 +136,12 @@ class StatusManager extends AbstractHelper
      * Get order
      *
      * @param string $referenceId
+     * @param string|null $sellerCode Prefijo del reference_id; si es null se usa el configurado en el scope por defecto
      * @return Order|null
      */
-    protected function getOrderByReferenceId($referenceId)
+    public function getOrderByReferenceId($referenceId, $sellerCode = null)
     {
-        $sellerCode = $this->_helperData->getSellerCode();
+        $sellerCode = $sellerCode ?? $this->_helperData->getSellerCode();
         $incrementId = str_replace($sellerCode . "-", "", $referenceId);
         return $this->getOrderByIncrementId($incrementId);
     }

@@ -39,6 +39,14 @@ define(
         var map;
         var activeInfoWindow;
         var lastHopRequest;
+        // Drives the CTA text ("Seleccioná" vs "Modificar"); every hop_data write goes through
+        // setHopData so it stays in sync, whether the point was preselected or picked.
+        var hasHopPoint = ko.observable(false);
+
+        function setHopData(value) {
+            window.checkoutConfig.quoteData.hop_data = value;
+            hasHopPoint(!!value);
+        }
 
         /**
          * address.customAttributes can be either a plain {code: value} map or an array of
@@ -101,7 +109,7 @@ define(
                         var selectedPoint = JSON.parse(response);
                         if (selectedPoint && selectedPoint.hopPointId
                             && selectedPoint.hopPointPostcode === currentPostcode) {
-                            window.checkoutConfig.quoteData.hop_data = JSON.stringify(selectedPoint);
+                            setHopData(JSON.stringify(selectedPoint));
                         }
                     } catch (e) {
                         console.error('Hop: Error parsing selected-point response', e);
@@ -227,9 +235,11 @@ define(
                 options: {}
             },
             disponible: ko.observable(false),
+            hasHopPoint: hasHopPoint,
             nombre: ko.observable(''),
             initialize: function () {
                 const this_component = this;
+                hasHopPoint(!!window.checkoutConfig.quoteData.hop_data);
 
                 quote.shippingAddress.subscribe(function (newAddress) {
                     if (!newAddress) return;
@@ -240,10 +250,10 @@ define(
                         try {
                             let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
                             if (hopData.hopPointPostcode != newAddress.postcode) {
-                                window.checkoutConfig.quoteData.hop_data = null;
+                                setHopData(null);
                             }
                         } catch (e) {
-                            window.checkoutConfig.quoteData.hop_data = null;
+                            setHopData(null);
                         }
                     }
 
@@ -267,14 +277,14 @@ define(
                             try {
                                 let hopData = JSON.parse(window.checkoutConfig.quoteData.hop_data);
                                 if (hopData.hopPointPostcode != shippingAddress.postcode){
-                                    window.checkoutConfig.quoteData.hop_data = null;
+                                    setHopData(null);
                                 }
                             } catch (e) {
-                                window.checkoutConfig.quoteData.hop_data = null;
+                                setHopData(null);
                             }
                         }
                         if (!rate.available) {
-                            window.checkoutConfig.quoteData.hop_data = null;
+                            setHopData(null);
                         } else if (!window.checkoutConfig.quoteData.hop_data) {
                             fetchAndSetHopData(shippingAddress ? shippingAddress.postcode : null);
                         }
@@ -528,7 +538,7 @@ define(
                     'hopPointDistributorId': selectedPointHop.attr('data-distributorid'),
                     'hopPointAgencycode': selectedPointHop.attr('data-agencycode')
                 };
-                window.checkoutConfig.quoteData.hop_data = JSON.stringify(hopData);
+                setHopData(JSON.stringify(hopData));
                 var processors = [];
                 $('#points-maps-hop').addClass('loading-hop');
 

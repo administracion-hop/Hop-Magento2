@@ -57,6 +57,30 @@ class OrderPickupPointRepository
     }
 
     /**
+     * Get the pickup point of the customer's most recent Hop order.
+     * Skips rows without zip code or description (old migrated orders): the carrier
+     * would discard them anyway.
+     *
+     * @param int $customerId
+     * @return OrderPickupPoint|null
+     */
+    public function getLastByCustomerId(int $customerId)
+    {
+        $collection = $this->collectionFactory->create();
+        $collection->getSelect()
+            ->join(['so' => $collection->getTable('sales_order')], 'so.entity_id = main_table.order_id', [])
+            ->where('so.customer_id = ?', $customerId)
+            ->where('so.shipping_method = ?', 'hop_hop')
+            ->order('so.entity_id DESC');
+        $collection->addFieldToFilter('main_table.pickup_point_id', ['neq' => '']);
+        $collection->addFieldToFilter('main_table.original_zip_code', ['neq' => '']);
+        $collection->addFieldToFilter('main_table.original_shipping_description', ['neq' => '']);
+        $collection->setPageSize(1);
+        $item = $collection->getFirstItem();
+        return $item->getId() ? $item : null;
+    }
+
+    /**
      * Create new OrderPickupPoint instance
      *
      * @return OrderPickupPoint

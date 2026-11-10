@@ -3,15 +3,13 @@ define([
     'underscore',
     'jquery',
     'uiComponent',
-    'Hop_Envios/js/google-maps-loader',
-    'Magento_Checkout/js/checkout-data' ,
+    'Hop_Envios/js/google-maps-loader'
 ], function (
     ko,
     _,
     $,
     Component,
-    GoogleMapsLoader,
-    checkoutData
+    GoogleMapsLoader
 ) {
     'use strict';
     var map;

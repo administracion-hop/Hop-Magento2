@@ -1,0 +1,7 @@
+<?php
+/** @var \Hop\Envios\Block\Order\ChangePointLink $block */
+/** @var \Magento\Framework\Escaper $escaper */
+?>
+<a class="action hop-change-point-link" href="<?= $escaper->escapeUrl($block->getChangeUrl()) ?>">
+    <span><?= $escaper->escapeHtml(__('Cambiar punto de retiro')) ?></span>
+</a>

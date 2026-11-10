@@ -142,6 +142,29 @@
     .point-selected{
         border: solid 2px #e53a16;
     }
+
+    //  Pickup point change in My Orders: same selector as the checkout modal, in a page
+    .hop-change-point{
+        .hop-change-point-selector{
+            &:after{
+                content: '';
+                display: table;
+                clear: both;
+            }
+            margin-bottom: 20px;
+        }
+        #points-maps-hop{
+            .point-current{
+                .btn-select-hop{
+                    background: #828282;
+                    cursor: default;
+                }
+            }
+            .btn-select-hop[disabled]{
+                opacity: .6;
+            }
+        }
+    }
 }
 
 //

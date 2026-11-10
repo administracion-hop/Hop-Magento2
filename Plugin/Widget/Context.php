@@ -4,8 +4,8 @@ namespace Hop\Envios\Plugin\Widget;
 use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
 use Hop\Envios\Helper\Data as DataHop;
-use Hop\Envios\Model\DispatchError;
 use Hop\Envios\Model\HopEnviosRepository;
+use Hop\Envios\Model\PickupPoint\DispatchStatus;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
 use Magento\Framework\UrlInterface;
 use Hop\Envios\Model\OrderPickupPointRepository;
@@ -51,6 +51,11 @@ class Context
     protected $orderPickupPointRepository;
 
     /**
+     * @var DispatchStatus
+     */
+    protected $dispatchStatus;
+
+    /**
      * Context constructor.
      * @param Order $order
      * @param DataHop $helperHop
@@ -58,6 +63,7 @@ class Context
      * @param HopEnviosRepository $hopEnviosRepository
      * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      * @param OrderPickupPointRepository $orderPickupPointRepository
+     * @param DispatchStatus $dispatchStatus
      */
     public function __construct(
         Order $order,
@@ -65,7 +71,8 @@ class Context
         UrlInterface $urlInterface,
         HopEnviosRepository $hopEnviosRepository,
         HopEnviosShipmentRepository $hopEnviosShipmentRepository,
-        OrderPickupPointRepository $orderPickupPointRepository
+        OrderPickupPointRepository $orderPickupPointRepository,
+        DispatchStatus $dispatchStatus
     )
     {
         $this->order = $order;
@@ -74,6 +81,7 @@ class Context
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
+        $this->dispatchStatus = $dispatchStatus;
     }
 
     /**
@@ -93,16 +101,10 @@ class Context
             if ($order->getShippingMethod() === 'hop_hop')
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
-                // Multibulto orders (2+ shipments) never populate the order-level info_hop
-                // field — each shipment's tracking/label lives in its own hop_envios_shipment
-                // row instead. status_shipment is the only order-level signal that's reliable
-                // for both the single-shipment and multibulto paths. A multibulto with rejected
-                // bultos stays failed but is already created in Hop: show its labels instead of
-                // "Cambiar punto" / "Enviar a HOP", which can't do anything for it.
-                $isDispatched = $hopEnvios && (
-                    $hopEnvios->getStatusShipment() === 'completed'
-                    || !DispatchError::isRetryable($hopEnvios->getLastErrorCode())
-                );
+                // Dispatched orders (incl. a multibulto with rejected bultos, already created in
+                // Hop) show their labels instead of "Cambiar punto" / "Enviar a HOP", which can't
+                // do anything for them. Same cut-off as the buyer's change in My Orders.
+                $isDispatched = $this->dispatchStatus->isRecordDispatched($hopEnvios);
 
                 if ($isDispatched) {
                     $records = $this->hopEnviosShipmentRepository->getByHopEnvioId((int)$hopEnvios->getEntityId());

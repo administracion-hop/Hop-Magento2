@@ -3,4 +3,18 @@
     <type name="Magento\Backend\Block\Widget\Context">
         <plugin name="hop_envios_add_custom_button_sales_view" type="Hop\Envios\Plugin\Widget\Context" sortOrder="10"/>
     </type>
+    <!-- Mensaje con link de descarga de MassLabels: los mensajes simples se escapan, así que
+         el link necesita su propio renderer. -->
+    <type name="Magento\Framework\View\Element\Message\MessageConfigurationsPool">
+        <arguments>
+            <argument name="configurationsMap" xsi:type="array">
+                <item name="hopLabelsDownload" xsi:type="array">
+                    <item name="renderer" xsi:type="const">Magento\Framework\View\Element\Message\Renderer\BlockRenderer::CODE</item>
+                    <item name="data" xsi:type="array">
+                        <item name="template" xsi:type="string">Hop_Envios::messages/labels_download.phtml</item>
+                    </item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
 </config>

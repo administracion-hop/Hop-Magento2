@@ -30,7 +30,7 @@ De ahí se derivan las dos consecuencias prácticas más importantes:
    no es un error: Hop todavía no fue notificado.
 2. **Si vas a dividir el pedido, decidí la división antes de despachar.** Un envío que
    crees después queda sin seguimiento y sin etiqueta de Hop, y no hay manera de
-   recuperarlo desde el panel (ver [sección 7](#7-límites-y-cosas-que-no-se-pueden-hacer)).
+   recuperarlo desde el panel (ver [sección 8](#8-límites-y-cosas-que-no-se-pueden-hacer)).
 
 ---
 
@@ -153,7 +153,7 @@ Lo que ves depende de cuántos bultos tenga el pedido:
 
 Solo aparecen en el listado los bultos que efectivamente tienen etiqueta en Hop. Si
 esperabas tres filas y ves dos, uno de los bultos falló: mirá la
-[sección 6](#6-cuando-algo-sale-mal).
+[sección 7](#7-cuando-algo-sale-mal).
 
 ### Datos del punto de retiro
 
@@ -196,13 +196,22 @@ El formato lo define la configuración del módulo, no el pedido:
 - **JPEG** (y otros formatos de imagen): el módulo lo convierte a **PDF** y te lo entrega
   como archivo descargable.
 - **ZPL**: es un archivo para impresora de etiquetas. Se abre directo, sin pasar por la
-  conversión a PDF.
+  conversión a PDF. Por eso no entra en la descarga masiva de etiquetas: el pedido queda
+  afuera con un aviso y su etiqueta se descarga desde el pedido (ver
+  [sección 6](#acción-descargar-etiquetas-hop)).
 
 ### Permisos
 
-Para descargar etiquetas de Hop el usuario admin necesita el permiso correspondiente en su
-rol. Si un operador ve el botón pero recibe *"No está autorizado a acceder a este
-recurso"*, hay que habilitárselo en `Sistema → Permisos → Roles de usuario`.
+Los permisos de Hop están en `Sistema → Permisos → Roles de usuario`, dentro de **Hop
+Envios**:
+
+| Permiso | Qué habilita |
+|---------|--------------|
+| **Descargar etiquetas Hop** | Los botones de etiqueta del pedido y la acción masiva *Descargar etiquetas Hop* de la grilla. |
+| **Despachar pedidos a Hop** | La acción masiva *Despachar a Hop* de la grilla. El botón **Enviar a HOP** del pedido no depende de este permiso. |
+
+Si un operador ve el botón pero recibe *"No está autorizado a acceder a este recurso"*, o
+no ve las acciones de Hop en la grilla, hay que habilitarle el permiso en su rol.
 
 ---
 
@@ -225,7 +234,79 @@ recurso"*, hay que habilitárselo en `Sistema → Permisos → Roles de usuario`
 
 ---
 
-## 6. Cuando algo sale mal
+## 6. Acciones masivas desde la grilla de pedidos
+
+En **Ventas → Pedidos** hay una columna y dos acciones de Hop que sirven para trabajar
+muchos pedidos a la vez.
+
+### La columna "Despacho Hop"
+
+Muestra en qué quedó cada pedido con Hop y se puede usar como filtro.
+
+| Valor | Qué significa |
+|-------|---------------|
+| **Despachado** | Hop aceptó el envío. Las etiquetas ya están disponibles (o lo estarán en un minuto, ver [sección 4](#4-las-etiquetas-y-el-minuto-de-espera)). |
+| **Parcial** | Multibulto en el que Hop rechazó uno o más bultos. Los aceptados ya existen en Hop con su etiqueta; los rechazados no se pueden reintentar desde Magento (ver [sección 7](#7-cuando-algo-sale-mal)). |
+| **No despachado** | Hop todavía no tiene el envío: está pendiente, o falló y se puede volver a intentar. |
+| **No aplica** | El pedido no usa el método de envío Hop. |
+
+La columna se actualiza sola cada vez que cambia el estado del despacho, sea por el botón,
+por la acción masiva o por el despacho automático. Los pedidos anteriores a esta versión del
+módulo se completan al actualizarlo.
+
+### Acción "Despachar a Hop"
+
+Seleccioná los pedidos, elegí **Despachar a Hop** en el menú *Acciones* y confirmá. Cada
+pedido se despacha igual que con el botón **Enviar a HOP** del pedido.
+
+- **Máximo 100 pedidos por vez.** Si seleccionás más, no se despacha ninguno y el aviso te
+  pide filtrar la grilla y despachar en tandas.
+- Un pedido que falla no frena al resto. Al terminar ves un resumen con tres avisos:
+  - **despachados**: los números de pedido que Hop aceptó;
+  - **omitidos**: los que no se intentaron, con el motivo de cada uno;
+  - **con error**: los que Hop rechazó, con el motivo que devolvió Hop.
+- Motivos por los que un pedido se omite:
+
+| Motivo en el aviso | Qué hacer |
+|--------------------|-----------|
+| *no es un envío Hop* | Nada: el pedido usa otro método de envío. |
+| *pedido canceled* / *pedido closed* | Nada: el pedido está cancelado o cerrado. |
+| *ya despachado* | Nada: ya está en Hop. |
+| *ya creado en Hop con bultos rechazados* | Es un pedido **Parcial**. Resolvé los bultos rechazados con Hop por fuera de Magento. |
+| *tiene productos sin enviar en Magento* | Terminá de crear los envíos del pedido: al confirmar el último se despacha solo (ver [sección 2](#2-las-cuatro-formas-de-despachar-un-pedido-a-hop)). |
+
+### Acción "Descargar etiquetas Hop"
+
+Seleccioná los pedidos y elegí **Descargar etiquetas Hop** en el menú *Acciones*. Recibís
+**un solo PDF** con las etiquetas de todos, **en el mismo orden en que los muestra la grilla**.
+Un pedido multibulto aporta todas sus etiquetas, una detrás de otra.
+
+- **Máximo 100 pedidos por vez**, igual que el despacho.
+- Cada pedido entra completo o no entra: nunca vas a tener la mitad de los bultos de un
+  pedido en el PDF.
+- Si todos los pedidos entraron, el PDF se descarga directo.
+- Si alguno quedó afuera, el PDF no se descarga solo: aparece el aviso *"Las etiquetas de N
+  pedido(s) están listas: **Descargar etiquetas**"* junto a otro aviso que dice cuáles
+  quedaron afuera y por qué. Así te enterás antes de imprimir.
+
+| Motivo por el que un pedido queda afuera | Qué hacer |
+|------------------------------------------|-----------|
+| *sin etiqueta Hop* | Todavía no se despachó, o Hop no terminó de generar la etiqueta. Esperá un minuto y volvé a intentar. |
+| *con etiqueta ZPL (impresora de etiquetas)* | No es un error: ese formato no se puede unir a un PDF. Descargá la etiqueta desde el pedido. |
+| *con etiqueta ilegible* | Hop no entregó un archivo válido. Probá descargarla desde el pedido; si sigue fallando, escalalo. |
+
+El link **Descargar etiquetas** sirve una sola vez. También deja de servir si generás otro
+lote, porque se guarda solo el último. Si lo usás de nuevo, aparece *"El PDF de etiquetas ya no
+está disponible"*: volvé a generarlo desde la grilla.
+
+### Quién ve estas acciones
+
+Cada acción aparece solo si el rol del usuario tiene su permiso (ver
+[Permisos](#permisos)). Sin el permiso, la acción no figura en el menú.
+
+---
+
+## 7. Cuando algo sale mal
 
 ### Un envío parcial no tiene número de seguimiento
 
@@ -282,7 +363,7 @@ falta, escalalo.
 
 ---
 
-## 7. Límites y cosas que no se pueden hacer
+## 8. Límites y cosas que no se pueden hacer
 
 | Límite | Detalle |
 |--------|---------|
@@ -296,7 +377,7 @@ falta, escalalo.
 
 ---
 
-## 8. Recomendaciones de operación
+## 9. Recomendaciones de operación
 
 1. **Decidí la división antes de empezar.** Contá las cajas primero y creá un envío por
    caja. Una vez que confirmás el último, no hay vuelta atrás.

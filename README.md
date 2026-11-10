@@ -2,6 +2,13 @@
 
 Este plugin oficial de **Envíos Hop** permite integrar fácilmente el servicio en tu sitio **Magento 2**. Está desarrollado sobre la base del SDK oficial de HOP, asegurando compatibilidad y facilidad de uso.
 
+## Documentación
+
+- [Instalación y configuración inicial](docs/instalacion.md)
+- [Guía de uso](docs/guia-usuario.md)
+- [Envíos multibulto](docs/multibulto-guia-admin.md)
+- [Configuración para Perú (Ubigeo)](docs/peru-ubigeo.md)
+
 ## Requisitos
 
 - Magento 2.0.x o superior.

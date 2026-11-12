@@ -3,7 +3,6 @@
 namespace Hop\Envios\Model\Health;
 
 use Hop\Envios\Logger\LoggerInterface;
-use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Framework\App\CacheInterface;
 
 /**
@@ -14,10 +13,9 @@ use Magento\Framework\App\CacheInterface;
  * prueba nada. Para no sumar costo al checkout se lee de la caché de Magento y solo se escribe
  * cuando el estado cambia (de bien a rechazado o al revés).
  *
- * Con cada inicio de sesión bueno se reprograman los despachos que fallaron por credenciales.
- * No alcanza con mirar el cambio de estado de la cuenta: si alguien carga una contraseña mal y
- * después vuelve a la correcta, la cuenta correcta ya figuraba como buena y no "cambia". Es solo
- * una consulta, y un inicio de sesión real pasa cuando vence el token o en la revisión.
+ * Los despachos que esperan credenciales no se reprograman acá (esto corre dentro del inicio de
+ * sesión, que puede pasar en el checkout o en la transacción de guardado de un envío): los
+ * reprograma CredentialRetryScheduler desde la tarea de despacho, mirando este estado.
  */
 class CredentialState
 {
@@ -42,11 +40,6 @@ class CredentialState
     private $accountResolver;
 
     /**
-     * @var HopEnviosRepository
-     */
-    private $hopEnviosRepository;
-
-    /**
      * @var LoggerInterface
      */
     private $logger;
@@ -55,20 +48,17 @@ class CredentialState
      * @param CacheInterface $cache
      * @param ResultStorage $storage
      * @param AccountResolver $accountResolver
-     * @param HopEnviosRepository $hopEnviosRepository
      * @param LoggerInterface $logger
      */
     public function __construct(
         CacheInterface $cache,
         ResultStorage $storage,
         AccountResolver $accountResolver,
-        HopEnviosRepository $hopEnviosRepository,
         LoggerInterface $logger
     ) {
         $this->cache = $cache;
         $this->storage = $storage;
         $this->accountResolver = $accountResolver;
-        $this->hopEnviosRepository = $hopEnviosRepository;
         $this->logger = $logger;
     }
 
@@ -88,9 +78,6 @@ class CredentialState
         try {
             $previous = $this->getState($accountKey);
             if ($previous === $state) {
-                if ($state === self::OK) {
-                    $this->scheduleRetries($this->accountResolver->getStoreIdsForAccount($accountKey));
-                }
                 return;
             }
 
@@ -109,10 +96,6 @@ class CredentialState
                 $previous ?: 'sin estado',
                 $state
             ));
-
-            if ($state === self::OK) {
-                $this->scheduleRetries($storeIds);
-            }
         } catch (\Throwable $e) {
             // Registrar el estado nunca puede romper el checkout ni un despacho.
             $this->logger->error('Hop: no se pudo registrar el estado de las credenciales: ' . $e->getMessage());
@@ -147,21 +130,6 @@ class CredentialState
     public function forget($accountKey)
     {
         $this->cache->remove($this->cacheId($accountKey));
-    }
-
-    /**
-     * @param int[] $storeIds
-     * @return void
-     */
-    private function scheduleRetries(array $storeIds)
-    {
-        if (!$storeIds) {
-            return;
-        }
-        $count = $this->hopEnviosRepository->scheduleCredentialRetries($storeIds);
-        if ($count) {
-            $this->logger->info(sprintf('Hop: %d despachos reprogramados al recuperarse las credenciales', $count));
-        }
     }
 
     /**

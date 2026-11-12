@@ -7,7 +7,6 @@ use Hop\Envios\Model\Health\AccountResolver;
 use Hop\Envios\Model\Health\Checks;
 use Hop\Envios\Model\Health\CredentialState;
 use Hop\Envios\Model\Health\ResultStorage;
-use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Framework\App\CacheInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -26,8 +25,6 @@ class CredentialStateTest extends TestCase
     /** @var array */
     private $saved = [];
 
-    /** @var array */
-    private $scheduled = [];
 
     /** @var CredentialState */
     private $state;
@@ -54,29 +51,22 @@ class CredentialStateTest extends TestCase
         $resolver = $this->createMock(AccountResolver::class);
         $resolver->method('getStoreIdsForAccount')->willReturn([1, 2]);
 
-        $repository = $this->createMock(HopEnviosRepository::class);
-        $repository->method('scheduleCredentialRetries')->willReturnCallback(function ($storeIds) {
-            $this->scheduled[] = $storeIds;
-            return 3;
-        });
-
-        $this->state = new CredentialState($cache, $storage, $resolver, $repository, $this->createMock(LoggerInterface::class));
+        $this->state = new CredentialState($cache, $storage, $resolver, $this->createMock(LoggerInterface::class));
     }
 
-    public function testRejectionIsStoredWithoutScheduling(): void
+    public function testRejectionIsStored(): void
     {
         $this->state->record('acct:a', CredentialState::REJECTED, 'Nombre de usuario y/o contraseña incorrecta');
         $this->assertSame([[Checks::CREDENTIALS, Checks::SEVERITY_ERROR, 'Nombre de usuario y/o contraseña incorrecta']], $this->saved);
-        $this->assertSame([], $this->scheduled);
         $this->assertSame(CredentialState::REJECTED, $this->state->getState('acct:a'));
     }
 
-    public function testRecoverySchedulesRetries(): void
+    public function testRecoveryIsStored(): void
     {
         $this->state->record('acct:a', CredentialState::REJECTED, 'x');
         $this->state->record('acct:a', CredentialState::OK);
-        $this->assertSame([[1, 2]], $this->scheduled);
         $this->assertSame([Checks::CREDENTIALS, Checks::STATUS_OK, null], end($this->saved));
+        $this->assertSame(CredentialState::OK, $this->state->getState('acct:a'));
     }
 
     public function testSameStateWritesNothing(): void
@@ -86,20 +76,6 @@ class CredentialStateTest extends TestCase
 
         $this->state->record('acct:a', CredentialState::REJECTED, 'x');
         $this->assertSame([], $this->saved, 'el estado no cambia: no hay escrituras');
-        $this->assertSame([], $this->scheduled);
-    }
-
-    public function testEveryGoodLoginLooksForPendingRetries(): void
-    {
-        // Cuenta que ya figuraba como buena (por ejemplo, se volvió a la contraseña correcta
-        // después de cargar una mala): igual se reintentan sus pedidos fallidos.
-        $this->state->record('acct:a', CredentialState::OK);
-        $this->saved = [];
-        $this->scheduled = [];
-
-        $this->state->record('acct:a', CredentialState::OK);
-        $this->assertSame([], $this->saved, 'sin escrituras del estado');
-        $this->assertSame([[1, 2]], $this->scheduled);
     }
 
     public function testStateSurvivesCacheFlush(): void
@@ -130,7 +106,6 @@ class CredentialStateTest extends TestCase
             $this->createMock(CacheInterface::class),
             $storage,
             $this->createMock(AccountResolver::class),
-            $this->createMock(HopEnviosRepository::class),
             $this->createMock(LoggerInterface::class)
         );
         $state->record('acct:a', CredentialState::OK);

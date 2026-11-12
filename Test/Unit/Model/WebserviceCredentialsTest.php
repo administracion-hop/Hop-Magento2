@@ -192,6 +192,7 @@ class WebserviceCredentialsTest extends TestCase
             'intermediario prohíbe' => [403, '{"message":"Forbidden"}'],
             'no encontrado' => [404, '{"message":"Not Found"}'],
             'respuesta que no es JSON' => [200, '<html></html>'],
+            'demasiados pedidos con errores de Hop' => [429, '{"errors":[{"status":429,"detail":"Too Many Attempts"}]}'],
         ];
     }
 
@@ -208,9 +209,24 @@ class WebserviceCredentialsTest extends TestCase
         $this->assertSame([], $this->recorded);
     }
 
-    public function testValidationErrorsAreRejection(): void
+    /**
+     * @return array [HTTP, cuerpo]
+     */
+    public static function rejectionsWithHopErrors(): array
     {
-        $this->responses = [[422, '{"errors":[{"status":422,"detail":"El campo client id es obligatorio","data":null}]}']];
+        return [
+            'validación' => [422, '{"errors":[{"status":422,"detail":"El campo client id es obligatorio","data":null}]}'],
+            'cuenta bloqueada' => [403, '{"errors":[{"status":403,"detail":"Usuario bloqueado","data":null}]}'],
+            'errores con 200' => [200, '{"errors":[{"detail":"Cuenta deshabilitada"}]}'],
+        ];
+    }
+
+    /**
+     * @dataProvider rejectionsWithHopErrors
+     */
+    public function testHopErrorsAreRejection($status, $body): void
+    {
+        $this->responses = [[$status, $body]];
         $this->webservice->isSellerActive();
         $this->assertTrue($this->webservice->isCredentialsRejected());
     }

@@ -116,7 +116,8 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
             $repository,
             $shipmentCollectionFactory,
             $shippingMethod,
-            $this->createMock(OrderStatusHistoryRepositoryInterface::class)
+            $this->createMock(OrderStatusHistoryRepositoryInterface::class),
+            $this->createMock(\Hop\Envios\Model\Health\CredentialRetryScheduler::class)
         );
     }
 
@@ -165,16 +166,25 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         $this->assertSame([], $this->comments);
     }
 
-    public function testRetryClearsCredentialsReason(): void
+    public function testOrderOutsideCriteriaKeepsWaiting(): void
     {
-        // Si no se llega a intentar el despacho, el pedido no puede quedar con el motivo de
-        // credenciales: se reprogramaría con cada inicio de sesión bueno.
-        $this->order->method('getState')->willReturn(Order::STATE_PROCESSING);
-        $this->createdAt = gmdate('Y-m-d H:i:s', time() - 45 * 86400);
+        // Retenido justo después de reprogramarse: no se despacha, pero conserva el motivo para
+        // reprogramarse cuando se libere.
+        $this->order->method('getState')->willReturn(Order::STATE_HOLDED);
         $this->cron->execute();
 
-        $this->assertNull($this->hopEnvio->getLastErrorCode());
-        $this->assertSame([], $this->comments, 'sin intento no hay comentario');
+        $this->assertSame(0, $this->dispatches);
+        $this->assertSame(\Hop\Envios\Model\DispatchError::CODE_CREDENTIALS, $this->hopEnvio->getLastErrorCode());
+        $this->assertSame([], $this->comments);
+    }
+
+    public function testRetryClearsReasonRightBeforeDispatching(): void
+    {
+        $this->order->method('getState')->willReturn(Order::STATE_PROCESSING);
+        $this->cron->execute();
+
+        $this->assertSame(1, $this->dispatches);
+        $this->assertNull($this->hopEnvio->getLastErrorCode(), 'el motivo nuevo lo deja markFailed si vuelve a fallar');
     }
 
     public function testOldOrdersAreNotRetried(): void

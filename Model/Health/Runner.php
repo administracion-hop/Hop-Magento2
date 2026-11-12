@@ -91,11 +91,22 @@ class Runner
     }
 
     /**
+     * Momento (timestamp) a partir del cual no se hacen más llamadas a Hop en esta corrida.
+     *
+     * @var float|null
+     */
+    private $deadline = null;
+
+    /**
      * @param int[]|null $storeIds null = todas las vistas de tienda con Hop habilitado
+     * @param int|null $timeBudgetSeconds tope para toda la corrida (el guardado de la configuración
+     *     no puede quedar colgado); lo que no alcance queda con su resultado anterior hasta la
+     *     revisión de 6 horas. null = sin tope.
      * @return void
      */
-    public function run(?array $storeIds = null)
+    public function run(?array $storeIds = null, $timeBudgetSeconds = null)
     {
+        $this->deadline = $timeBudgetSeconds ? microtime(true) + $timeBudgetSeconds : null;
         $accounts = $this->accountResolver->getAccounts($storeIds);
         $this->webservice->setRequestTimeout(self::REQUEST_TIMEOUT_SECONDS);
         try {
@@ -129,6 +140,9 @@ class Runner
      */
     private function runAccount($accountKey, array $storeIds)
     {
+        if ($this->isOutOfTime()) {
+            return;
+        }
         $this->webservice->setStoreId(reset($storeIds));
         $login = $this->webservice->checkCredentials();
 
@@ -183,6 +197,9 @@ class Runner
             return;
         }
         if (!array_key_exists($sellerCode, $sellerStatuses)) {
+            if ($this->isOutOfTime()) {
+                return;
+            }
             $this->webservice->setStoreId($storeId);
             $sellerStatuses[$sellerCode] = $this->webservice->getSellerStatus();
         }
@@ -206,6 +223,9 @@ class Runner
     public function checkTestQuote($storeId)
     {
         $scope = Checks::storeScope($storeId);
+        if ($this->isOutOfTime()) {
+            return;
+        }
         // Perú (ubigeo) queda para la segunda etapa.
         if ($this->helper->getStoreCountry($storeId) === 'PE') {
             $this->storage->delete($scope, Checks::TEST_QUOTE);
@@ -318,6 +338,14 @@ class Runner
     /**
      * @return bool
      */
+    private function isOutOfTime()
+    {
+        return $this->deadline !== null && microtime(true) >= $this->deadline;
+    }
+
+    /**
+     * @return bool
+     */
     private function isNoResponse()
     {
         $status = (int)$this->webservice->getLastStatus();
@@ -332,22 +360,19 @@ class Runner
      */
     private function cleanUp(array $accountKeys)
     {
-        // El estado de credenciales de esas cuentas también sale de la caché: si la cuenta vuelve
-        // a configurarse, el primer inicio de sesión tiene que volver a escribir su fila.
-        foreach ($this->storage->loadAll() as $row) {
-            if (strpos($row['scope_key'], 'acct:') === 0 && !in_array($row['scope_key'], $accountKeys, true)) {
-                $this->credentialState->forget($row['scope_key']);
-            }
-        }
-        $this->storage->deleteStaleAccounts($accountKeys);
         $activeScopes = array_map([Checks::class, 'storeScope'], $this->accountResolver->getActiveStoreIds());
         foreach ($this->storage->loadAll() as $row) {
-            if (strpos($row['scope_key'], 'store:') === 0
+            if (strpos($row['scope_key'], 'acct:') === 0 && !in_array($row['scope_key'], $accountKeys, true)) {
+                // El estado de credenciales de esas cuentas también sale de la caché: si la cuenta
+                // vuelve a configurarse, el primer inicio de sesión tiene que volver a escribir su fila.
+                $this->credentialState->forget($row['scope_key']);
+            } elseif (strpos($row['scope_key'], 'store:') === 0
                 && in_array($row['check_code'], Checks::REMOTE, true)
                 && !in_array($row['scope_key'], $activeScopes, true)
             ) {
                 $this->storage->delete($row['scope_key'], $row['check_code']);
             }
         }
+        $this->storage->deleteStaleAccounts($accountKeys);
     }
 }

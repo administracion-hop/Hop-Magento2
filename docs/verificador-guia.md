@@ -141,33 +141,40 @@ vuelven a funcionar, aparece en la primera cotización, sin tener que guardar na
   administrador).
 - **Cuentas.** Las vistas de tienda se agrupan por cuenta (mismas credenciales y mismo modo).
   La clave de la cuenta es un HMAC con la clave de la instalación: no se guardan credenciales.
-- **Credenciales en las llamadas normales.** `Webservice::login()` distingue rechazo (HTTP 401,
-  o 400 y 422 con los `errors` de Hop) de falta de respuesta (excepción, HTTP 5xx, 429, un 403 o
-  404 de un intermediario, o una respuesta que no es JSON). Con un rechazo, el resto del proceso
-  (una carga de página o una corrida de una tarea programada) no vuelve a llamar a Hop: una
-  cotización hace como máximo una llamada. El corte se reinicia al cambiar de vista de tienda y
-  en la revisión. Si el token venció y Hop no responde al inicio de sesión, es falta de
+- **Credenciales en las llamadas normales.** `Webservice::login()` distingue rechazo (un 401, o
+  cualquier otra respuesta con los `errors` de Hop salvo 429 y 5xx, por ejemplo una cuenta
+  bloqueada) de falta de respuesta (excepción, HTTP 5xx, 429, un 403 o 404 de un intermediario
+  sin el formato de errores de Hop, o una respuesta que no es JSON). Con un rechazo, el resto del
+  proceso (una carga de página o una corrida de una tarea programada) no vuelve a llamar a Hop:
+  una cotización hace como máximo una llamada. El corte se reinicia al cambiar de vista de tienda
+  y en la revisión. Si el token venció y Hop no responde al inicio de sesión, es falta de
   respuesta. El estado se guarda en la caché de Magento y en la tabla, y solo se escribe cuando
   cambia.
 - **Motivo de despacho.** `DispatchError::CODE_CREDENTIALS` lo asigna quien despacha cuando
-  `Webservice::isCredentialsRejected()`, es decir, cuando Hop rechazó el inicio de sesión. Un 401
-  de una llamada con el inicio de sesión aceptado (por ejemplo, un vendedor que no corresponde
-  al cliente) no es de credenciales: queda para revisión manual, como cualquier 4XX. No cuenta
-  para los escalones de reintento por errores del servidor (1, 10 y 30 minutos). Con cada
-  inicio de sesión real que Hop acepta, `HopEnviosRepository::scheduleCredentialRetries()` pone
-  `next_retry_at` en la hora actual para esos pedidos. No depende de que la cuenta "cambie" de
-  estado: si alguien carga una contraseña mal y vuelve a la correcta, la cuenta correcta ya
-  figuraba como buena. Los fallos anteriores a esta versión, que no guardaban el motivo, se
-  reconocen una sola vez por el texto `Authorization fail` (parche `ClassifyCredentialFailures`):
-  se reintentan una vez y, si vuelven a fallar, quedan con el motivo que corresponda. Qué pedidos
-  se reintentan lo decide un solo criterio, `Model/CredentialRetryCriteria.php`, para el parche,
-  la reprogramación y el reintento: fallidos, ni cancelados, cerrados, completos o retenidos, y
-  creados en los últimos 30 días.
+  `Webservice::wasRejectedByCredentials()`: ese despacho llegó a llamar a Hop y Hop rechazó el
+  inicio de sesión. No alcanza con `isCredentialsRejected()`, que vale para todo el proceso: un
+  despacho que falla antes de llamar a Hop (por ejemplo, sin punto de retiro) no es de
+  credenciales. Un 401 de una llamada con el inicio de sesión aceptado (por ejemplo, un vendedor
+  que no corresponde al cliente) tampoco: queda para revisión manual, como cualquier 4XX. No
+  cuenta para los escalones de reintento por errores del servidor (1, 10 y 30 minutos).
+- **Reintento al recuperarse.** `Model/Health/CredentialRetryScheduler.php` corre al principio de
+  cada corrida de la tarea de despacho, fuera de cualquier transacción: busca las vistas de tienda
+  con despachos que esperan credenciales y, si la cuenta de esa vista ya funciona (último inicio
+  de sesión real aceptado), los reprograma para ya. No corre dentro del inicio de sesión, que
+  puede pasar en el checkout o en la transacción de guardado de un envío. No depende de que la
+  cuenta "cambie" de estado: si alguien carga una contraseña mal y vuelve a la correcta, la cuenta
+  correcta ya figuraba como buena. Al reintentar se quita el motivo recién cuando se va a intentar
+  el despacho; un pedido que ya no se puede despachar queda para revisión manual. Los fallos
+  anteriores a esta versión, que no guardaban el motivo, se reconocen una sola vez por el texto
+  `Authorization fail` (parche `ClassifyCredentialFailures`). Qué pedidos se reintentan lo decide
+  un solo criterio, `Model/CredentialRetryCriteria.php`: fallidos, ni cancelados, cerrados,
+  completos o retenidos, y creados en los últimos 30 días.
 - **Guardado de la configuración.** Guardar la sección `shipping` (donde están las credenciales
   de Hop) corre las revisiones siempre, aunque no cambie nada: es lo que hace alguien después de
   que Hop le desbloquea la cuenta. Guardar la sección `carriers`, que tiene todos los
   transportistas, solo las corre si cambió alguna ruta `carriers/hop/*`. Cada llamada a Hop de
-  la revisión espera como máximo 10 segundos, y si el inicio de sesión no responde no se hacen
-  las demás.
+  la revisión espera como máximo 10 segundos, si el inicio de sesión no responde no se hacen las
+  demás, y la revisión al guardar tiene un tope de 25 segundos en total: lo que no alcance queda
+  con su resultado anterior hasta la revisión de 6 horas.
 - **Referencia en uso.** `DispatchError::CODE_REFERENCE_IN_USE` ya no se puede reintentar:
   Hop rechaza cualquier otro envío con la misma referencia.

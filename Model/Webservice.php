@@ -510,12 +510,14 @@ class Webservice
             return false;
         }
 
-        // Rechazo: 401, o 400/422 con los errores de Hop (por ejemplo, datos de acceso vacíos).
-        // Cualquier otra respuesta sin token (5xx, 429, 403 o 404 de un intermediario, una
-        // respuesta que no es JSON) no dice nada de las credenciales.
         $hasToken = is_array($response) && !empty($response['access_token']);
+        // Rechazo: un 401, o cualquier otra respuesta con los errores de Hop (por ejemplo, una
+        // cuenta bloqueada o datos de acceso vacíos), salvo 429 y 5xx. Una respuesta sin el
+        // formato de errores de Hop (un 403 o 404 de un intermediario, algo que no es JSON) no
+        // dice nada de las credenciales.
+        $hasHopErrors = is_array($response) && !empty($response['errors']) && is_array($response['errors']);
         $isRejection = $status === 401
-            || (in_array($status, [400, 422], true) && is_array($response) && !empty($response['errors']));
+            || ($hasHopErrors && $status !== 429 && $status < 500);
         if (!$hasToken && !$isRejection) {
             $this->_helper->log(__('Hop no respondió al inicio de sesión (HTTP %1)', $status), true);
             $this->lastLoginResult = self::LOGIN_UNREACHABLE;
@@ -1027,9 +1029,9 @@ class Webservice
                 if ($found !== false) {
                     return $found;
                 }
-                if ($this->lastStatus === 0 || $this->lastStatus >= 500) {
-                    // Hop no respondió la búsqueda del envío existente: no se sabe si es de este
-                    // pedido. Se trata como falta de respuesta (reintento por tiempo, y "Enviar a
+                if ($this->lastStatus !== 404 && ($this->lastStatus < 200 || $this->lastStatus >= 300)) {
+                    // Hop no respondió la búsqueda del envío existente (sin respuesta, 429, 5xx u
+                    // otro error): no se sabe si es de este pedido. Se trata como falta de respuesta (reintento por tiempo, y "Enviar a
                     // HOP" sigue disponible) y no como referencia en uso, que no se reintenta.
                     $error = (string)__('Hop indicó que ya tiene un envío con la referencia de este pedido, pero no respondió al buscarlo para recuperarlo. Se vuelve a intentar.');
                     $this->_helper->log($error, true);

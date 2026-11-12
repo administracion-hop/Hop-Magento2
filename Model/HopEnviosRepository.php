@@ -126,6 +126,24 @@ class HopEnviosRepository
     }
 
     /**
+     * Vistas de tienda con despachos que esperan credenciales y cumplen CredentialRetryCriteria.
+     *
+     * @return int[]
+     */
+    public function getStoresWaitingForCredentials()
+    {
+        $connection = $this->hopEnviosResource->getConnection();
+        $select = $connection->select()
+            ->distinct()
+            ->from(['h' => $this->hopEnviosResource->getMainTable()], [])
+            ->join(['o' => $this->hopEnviosResource->getTable('sales_order')], 'o.entity_id = h.order_id', ['o.store_id'])
+            ->where('h.last_error_code = ?', DispatchError::CODE_CREDENTIALS)
+            ->where('h.next_retry_at IS NULL');
+        CredentialRetryCriteria::apply($select);
+        return array_map('intval', $connection->fetchCol($select));
+    }
+
+    /**
      * Reprograma para ya los despachos que fallaron por credenciales en estas vistas de tienda:
      * los toma la próxima corrida de Cron/GenarateShipment (getRetryableFailed). Solo los que
      * cumplen CredentialRetryCriteria; los resueltos mientras tanto ya no están en failed.

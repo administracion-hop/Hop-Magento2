@@ -241,6 +241,15 @@ class RunnerTest extends TestCase
         $this->assertSame([], $this->forgotten, 'al guardar una sola vista de tienda no se limpia nada');
     }
 
+    public function testTimeBudgetStopsCallingHop(): void
+    {
+        // Tope ya vencido: no se llama a Hop y quedan los resultados anteriores.
+        $this->runner->run(null, -1);
+        $this->assertSame(0, $this->sellerCalls);
+        $this->assertArrayNotHasKey('acct:a|connection', $this->saved);
+        $this->assertArrayNotHasKey('store:1|test_quote', $this->saved);
+    }
+
     public function testSizeCategoryMakesMeasuresOk(): void
     {
         $this->withoutMeasures = 12;

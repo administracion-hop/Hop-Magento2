@@ -18,6 +18,9 @@ use Psr\Log\LoggerInterface;
  */
 class HealthConfigSaved implements ObserverInterface
 {
+    /** Tope para toda la revisión al guardar: lo que no alcance lo revisa la tarea de 6 horas. */
+    const TIME_BUDGET_SECONDS = 25;
+
     /**
      * @var Runner
      */
@@ -56,7 +59,10 @@ class HealthConfigSaved implements ObserverInterface
             return;
         }
         try {
-            $this->runner->run($this->getStoreIds($observer->getEvent()->getData('website'), $observer->getEvent()->getData('store')));
+            $this->runner->run(
+                $this->getStoreIds($observer->getEvent()->getData('website'), $observer->getEvent()->getData('store')),
+                self::TIME_BUDGET_SECONDS
+            );
         } catch (\Throwable $e) {
             // Una revisión que falla nunca puede impedir guardar la configuración.
             $this->logger->error('Hop: error en la revisión al guardar la configuración: ' . $e->getMessage());

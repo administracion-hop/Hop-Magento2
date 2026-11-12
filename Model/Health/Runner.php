@@ -118,10 +118,14 @@ class Runner
                 }
             }
             // Las medidas no dependen de Hop: se revisan también en las vistas de tienda que
-            // todavía no tienen una cuenta (sin credenciales cargadas).
+            // todavía no tienen una cuenta (sin credenciales cargadas). Sus resultados viejos de
+            // vendedor y cotización de prueba se borran: sin cuenta, el aviso es "Faltan
+            // credenciales".
             $withAccount = $accounts ? array_merge(...array_values($accounts)) : [];
             foreach ($this->accountResolver->getActiveStoreIds() as $storeId) {
                 if (($storeIds === null || in_array($storeId, $storeIds, true)) && !in_array($storeId, $withAccount, true)) {
+                    $this->storage->delete(Checks::storeScope($storeId), Checks::SELLER);
+                    $this->storage->delete(Checks::storeScope($storeId), Checks::TEST_QUOTE);
                     $this->checkMeasures($storeId);
                 }
             }
@@ -144,6 +148,7 @@ class Runner
             return;
         }
         $this->webservice->setStoreId(reset($storeIds));
+        $this->limitRequestTime();
         $login = $this->webservice->checkCredentials();
 
         if ($login === Webservice::LOGIN_UNREACHABLE) {
@@ -201,6 +206,7 @@ class Runner
                 return;
             }
             $this->webservice->setStoreId($storeId);
+            $this->limitRequestTime();
             $sellerStatuses[$sellerCode] = $this->webservice->getSellerStatus();
         }
         $status = $sellerStatuses[$sellerCode];
@@ -239,6 +245,7 @@ class Runner
             return;
         }
 
+        $this->limitRequestTime();
         $points = $this->webservice->getPickupPoints($originZip);
         $point = !empty($points->data) && is_array($points->data) ? reset($points->data) : null;
         if (!$point || empty($point->id)) {
@@ -254,6 +261,10 @@ class Runner
         }
 
         $sizeCategory = $this->helper->getSizeCategory($storeId) ?: self::SMALLEST_SIZE_CATEGORY;
+        if ($this->isOutOfTime()) {
+            return;
+        }
+        $this->limitRequestTime();
         $price = $this->webservice->estimatePrice(
             $originZip,
             !empty($point->zip_code) ? $point->zip_code : $originZip,
@@ -336,6 +347,21 @@ class Runner
     }
 
     /**
+     * Cada llamada a Hop espera como máximo lo que le queda al tope de la corrida (y nunca más de
+     * REQUEST_TIMEOUT_SECONDS), así el tope se cumple aunque Hop esté lento.
+     *
+     * @return void
+     */
+    private function limitRequestTime()
+    {
+        $seconds = self::REQUEST_TIMEOUT_SECONDS;
+        if ($this->deadline !== null) {
+            $seconds = (int)max(1, min($seconds, ceil($this->deadline - microtime(true))));
+        }
+        $this->webservice->setRequestTimeout($seconds);
+    }
+
+    /**
      * @return bool
      */
     private function isOutOfTime()
@@ -349,7 +375,8 @@ class Runner
     private function isNoResponse()
     {
         $status = (int)$this->webservice->getLastStatus();
-        return $status === 0 || $status >= 500;
+        // 429 (demasiadas consultas) tampoco dice nada de la configuración.
+        return $status === 0 || $status === 429 || $status >= 500;
     }
 
     /**

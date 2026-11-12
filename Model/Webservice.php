@@ -1034,6 +1034,9 @@ class Webservice
                     // otro error): no se sabe si es de este pedido. Se trata como falta de respuesta (reintento por tiempo, y "Enviar a
                     // HOP" sigue disponible) y no como referencia en uso, que no se reintenta.
                     $error = (string)__('Hop indicó que ya tiene un envío con la referencia de este pedido, pero no respondió al buscarlo para recuperarlo. Se vuelve a intentar.');
+                    // Como falta de respuesta: así markFailed agenda el reintento por tiempo
+                    // (con un 429 u otro 4XX no lo haría).
+                    $this->lastStatus = 0;
                     $this->_helper->log($error, true);
                     $this->messageManager->addErrorMessage($error);
                     return ['error' => $error];

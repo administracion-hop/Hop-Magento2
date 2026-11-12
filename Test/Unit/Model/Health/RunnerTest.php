@@ -45,6 +45,9 @@ class RunnerTest extends TestCase
     /** @var int consultas del vendedor a Hop */
     private $sellerCalls = 0;
 
+    /** @var int[] tiempos de espera fijados en el cliente de Hop */
+    private $timeouts = [];
+
     /** @var array filas que devuelve la tabla */
     private $rows = [];
 
@@ -62,6 +65,9 @@ class RunnerTest extends TestCase
         $webservice = $this->createMock(Webservice::class);
         $webservice->method('checkCredentials')->willReturnCallback(fn () => $this->hop['login']);
         $webservice->method('getLastLoginError')->willReturn('Nombre de usuario y/o contraseña incorrecta');
+        $webservice->method('setRequestTimeout')->willReturnCallback(function ($seconds) {
+            $this->timeouts[] = $seconds;
+        });
         $currentStore = null;
         $webservice->method('setStoreId')->willReturnCallback(function ($storeId) use (&$currentStore) {
             $currentStore = $storeId;
@@ -248,6 +254,35 @@ class RunnerTest extends TestCase
         $this->assertSame(0, $this->sellerCalls);
         $this->assertArrayNotHasKey('acct:a|connection', $this->saved);
         $this->assertArrayNotHasKey('store:1|test_quote', $this->saved);
+    }
+
+    public function testStoreWithoutAccountDropsOldHopResults(): void
+    {
+        // Se borraron las credenciales de la vista: los avisos viejos de vendedor y cotización
+        // no pueden quedar en la franja junto a "Faltan credenciales".
+        $this->accounts = [];
+        $this->runner->run();
+        $this->assertContains('store:1|seller', $this->deleted);
+        $this->assertContains('store:1|test_quote', $this->deleted);
+    }
+
+    public function testTooManyRequestsIsNotAConfigurationError(): void
+    {
+        $this->hop['price'] = false;
+        $this->hop['status'] = 429;
+        $this->runner->run();
+        $this->assertArrayNotHasKey('store:1|test_quote', $this->saved, 'un 429 no dice nada de la configuración');
+    }
+
+    public function testEachCallWaitsAtMostWhatIsLeft(): void
+    {
+        $this->runner->run(null, 3);
+        $calls = array_slice($this->timeouts, 1, -1); // sin el inicial ni el que lo limpia al final
+        $this->assertNotEmpty($calls);
+        foreach ($calls as $seconds) {
+            $this->assertLessThanOrEqual(3, $seconds);
+            $this->assertGreaterThanOrEqual(1, $seconds);
+        }
     }
 
     public function testSizeCategoryMakesMeasuresOk(): void

@@ -1029,10 +1029,20 @@ class Webservice
                 if ($found !== false) {
                     return $found;
                 }
+                if ($this->credentialsRejected) {
+                    // La búsqueda falló porque Hop rechazó las credenciales: el pedido espera a que
+                    // vuelvan a funcionar (wasRejectedByCredentials con lastStatus 401).
+                    $this->lastStatus = 401;
+                    $error = $this->getCredentialsRejectedMessage();
+                    $this->_helper->log($error, true);
+                    $this->messageManager->addErrorMessage($error);
+                    return ['error' => $error];
+                }
                 if ($this->lastStatus !== 404 && ($this->lastStatus < 200 || $this->lastStatus >= 300)) {
                     // Hop no respondió la búsqueda del envío existente (sin respuesta, 429, 5xx u
-                    // otro error): no se sabe si es de este pedido. Se trata como falta de respuesta (reintento por tiempo, y "Enviar a
-                    // HOP" sigue disponible) y no como referencia en uso, que no se reintenta.
+                    // otro error): no se sabe si es de este pedido. Se trata como falta de respuesta
+                    // (reintento por tiempo, y "Enviar a HOP" sigue disponible) y no como
+                    // referencia en uso, que no se reintenta.
                     $error = (string)__('Hop indicó que ya tiene un envío con la referencia de este pedido, pero no respondió al buscarlo para recuperarlo. Se vuelve a intentar.');
                     // Como falta de respuesta: así markFailed agenda el reintento por tiempo
                     // (con un 429 u otro 4XX no lo haría).

@@ -104,15 +104,18 @@ resultado.
 
 No se reintentan:
 
-- los pedidos cancelados, cerrados, completos o retenidos,
+- los pedidos cancelados, cerrados o retenidos,
 - los de hace más de 30 días,
 - los que ya se despacharon mientras tanto (por ejemplo, con **Enviar a HOP**),
 - los que fallaron por otro motivo (esos siguen como hasta ahora).
 
-Un pedido que se resolvió por fuera de Hop (otro transportista o retiro en el local) y no se
-canceló en Magento no tiene un envío en Hop con su referencia: si se reintentara, Hop crearía un
-envío real. Por eso no se reintentan los completos ni los de hace más de 30 días. Si alguno de
-esos igual tiene que salir por Hop, usá **Enviar a HOP**.
+Los pedidos completos sí se reintentan: Magento pasa a completo un pedido facturado en cuanto se
+crea su envío, justo antes del despacho a Hop.
+
+Para los fallos de antes de esta versión (los que se reconocen por el texto "Authorization fail"),
+además se excluyen los completos: un pedido de hace semanas pudo haberse resuelto por fuera de Hop
+(otro transportista o retiro en el local) sin cancelarse en Magento, y si se reintentara, Hop
+crearía un envío real. Si alguno de esos igual tiene que salir por Hop, usá **Enviar a HOP**.
 
 Si el envío ya se había creado a mano en el panel de Hop, Hop avisa que la referencia del pedido
 ya está en uso y no se crea otro. En un pedido de un solo bulto el módulo intenta recuperar ese
@@ -167,8 +170,9 @@ vuelven a funcionar, aparece en la primera cotización, sin tener que guardar na
   el despacho; un pedido que ya no se puede despachar queda para revisión manual. Los fallos
   anteriores a esta versión, que no guardaban el motivo, se reconocen una sola vez por el texto
   `Authorization fail` (parche `ClassifyCredentialFailures`). Qué pedidos se reintentan lo decide
-  un solo criterio, `Model/CredentialRetryCriteria.php`: fallidos, ni cancelados, cerrados,
-  completos o retenidos, y creados en los últimos 30 días.
+  un solo criterio, `Model/CredentialRetryCriteria.php`: fallidos, ni cancelados, cerrados ni
+  retenidos, y creados en los últimos 30 días; para el parche de pedidos viejos, tampoco
+  completos.
 - **Guardado de la configuración.** Guardar la sección `shipping` (donde están las credenciales
   de Hop) corre las revisiones siempre, aunque no cambie nada: es lo que hace alguien después de
   que Hop le desbloquea la cuenta. Guardar la sección `carriers`, que tiene todos los

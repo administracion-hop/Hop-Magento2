@@ -12,18 +12,29 @@ use Magento\Sales\Model\Order;
  * las credenciales (HopEnviosRepository::scheduleCredentialRetries) y el corte al reintentar
  * (Cron/GenarateShipment::retryOrder).
  *
- * Se excluyen los pedidos que ya no esperan un despacho (cancelados, cerrados, completos o
- * retenidos) y los de hace más de 30 días: un pedido resuelto por fuera de Hop y no cancelado en
- * Magento no tiene envío en Hop con su referencia, así que el reintento crearía un envío real
- * y cobrable para un pedido ya entregado.
+ * Se excluyen los pedidos cancelados, cerrados o retenidos, y los de hace más de 30 días.
+ *
+ * Los completos se reintentan en el flujo normal: Magento pasa a completo un pedido facturado en
+ * cuanto se guarda su envío de Magento, y el despacho a Hop corre justo después de ese guardado,
+ * así que un fallo nuevo por credenciales suele quedar en un pedido completo. En cambio, el parche
+ * de pedidos viejos (fallos de antes de esta versión) también excluye los completos: un pedido de
+ * hace semanas pudo haberse resuelto por fuera de Hop sin cancelarse en Magento, no tiene envío en
+ * Hop con su referencia, y el reintento crearía un envío real y cobrable.
  */
 class CredentialRetryCriteria
 {
     const EXCLUDED_STATES = [
         Order::STATE_CANCELED,
         Order::STATE_CLOSED,
-        Order::STATE_COMPLETE,
         Order::STATE_HOLDED,
+    ];
+
+    /** Para el parche de pedidos viejos: además, los completos. */
+    const EXCLUDED_STATES_HISTORICAL = [
+        Order::STATE_CANCELED,
+        Order::STATE_CLOSED,
+        Order::STATE_HOLDED,
+        Order::STATE_COMPLETE,
     ];
 
     const MAX_AGE_DAYS = 30;
@@ -33,13 +44,14 @@ class CredentialRetryCriteria
      *
      * @param Select $select
      * @param int|null $now timestamp, para las pruebas
+     * @param bool $historical true para el parche de pedidos viejos (excluye también los completos)
      * @return Select
      */
-    public static function apply(Select $select, $now = null)
+    public static function apply(Select $select, $now = null, $historical = false)
     {
         return $select
             ->where('h.status_shipment = ?', GenarateShipment::SHIPMENT_STATUS_FAILED)
-            ->where('o.state NOT IN (?)', self::EXCLUDED_STATES)
+            ->where('o.state NOT IN (?)', $historical ? self::EXCLUDED_STATES_HISTORICAL : self::EXCLUDED_STATES)
             ->where('o.created_at >= ?', self::cutoff($now));
     }
 

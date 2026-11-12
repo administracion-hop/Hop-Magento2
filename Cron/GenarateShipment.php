@@ -172,26 +172,24 @@ class GenarateShipment
 
         $this->logger->info(__('Reintento %1 de despacho a Hop para la orden %2', (int)$hopEnvio->getAttempts() + 1, $hopEnvio->getOrderId()));
 
+        if ($byCredentials) {
+            // Pasó el criterio: se quita el motivo de credenciales antes de intentar. Si el intento
+            // vuelve a fallar, markFailed deja el motivo nuevo (de credenciales u otro); si no se
+            // llega a intentar (no hay nada para despachar, o un error inesperado), queda para
+            // revisión manual en vez de reprogramarse cada minuto.
+            $hopEnvio->setLastErrorCode(null);
+            $this->hopEnviosRepository->save($hopEnvio);
+        }
+
         try {
             $hasShipments = $order->getId() && $this->shipmentCollectionFactory->create()
                 ->addFieldToFilter('order_id', $order->getId())
                 ->getSize() > 0;
             if (!$hasShipments && (!$order->getId() || !$order->canShip())) {
                 // Mismo corte que processOrder(): no hay nada para despachar (por ejemplo, se
-                // resolvió a mano mientras tanto). No se comenta como reintento, y sin el motivo de
-                // credenciales queda para revisión manual en vez de reprogramarse cada minuto.
+                // resolvió a mano mientras tanto). No se comenta como reintento.
                 $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
-                if ($byCredentials) {
-                    $hopEnvio->setLastErrorCode(null);
-                    $this->hopEnviosRepository->save($hopEnvio);
-                }
                 return;
-            }
-            if ($byCredentials) {
-                // Recién acá, a punto de intentar: si vuelve a fallar, markFailed deja el motivo
-                // nuevo (de credenciales u otro).
-                $hopEnvio->setLastErrorCode(null);
-                $this->hopEnviosRepository->save($hopEnvio);
             }
             $before = [$hopEnvio->getStatusShipment(), $hopEnvio->getLastError(), (int)$hopEnvio->getAttempts()];
             if ($hasShipments) {

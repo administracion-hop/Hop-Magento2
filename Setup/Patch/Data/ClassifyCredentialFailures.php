@@ -14,8 +14,8 @@ use Magento\Framework\Setup\Patch\DataPatchInterface;
  * "Authorization fail" cuando no acepta el token (probado en el sandbox), así que esos fallos se
  * reconocen por el texto. Se marcan con el motivo de credenciales y se reprograman para ya: si
  * las credenciales ya funcionan se despachan; si no, quedan esperando a que vuelvan a funcionar.
- * Solo los que cumplen CredentialRetryCriteria: ni cancelados, cerrados, completos o retenidos,
- * ni de hace más de 30 días. Si el envío ya se creó a mano en Hop, Hop responde que la
+ * Solo los que cumplen CredentialRetryCriteria para pedidos viejos: ni cancelados, cerrados,
+ * retenidos o completos, ni de hace más de 30 días. Si el envío ya se creó a mano en Hop, Hop responde que la
  * referencia está en uso y no se duplica.
  */
 class ClassifyCredentialFailures implements DataPatchInterface
@@ -45,7 +45,7 @@ class ClassifyCredentialFailures implements DataPatchInterface
             ->join(['o' => $this->moduleDataSetup->getTable('sales_order')], 'o.entity_id = h.order_id', [])
             ->where('h.last_error_code IS NULL')
             ->where('h.last_error LIKE ?', '%Authorization fail%');
-        CredentialRetryCriteria::apply($select);
+        CredentialRetryCriteria::apply($select, null, true);
         $ids = $connection->fetchCol($select);
         if ($ids) {
             $connection->update(

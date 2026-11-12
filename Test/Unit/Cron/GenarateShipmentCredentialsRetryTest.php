@@ -46,6 +46,9 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
     /** @var string fecha UTC del pedido */
     private $createdAt;
 
+    /** @var bool la cuenta de envíos de Magento falla */
+    private $shipmentCountThrows = false;
+
     protected function setUp(): void
     {
         $this->createdAt = gmdate('Y-m-d H:i:s', time() - 2 * 86400);
@@ -97,7 +100,12 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         // El pedido ya tiene envío de Magento: el reintento va por retryDispatch().
         $shipments = $this->createMock(ShipmentCollection::class);
         $shipments->method('addFieldToFilter')->willReturnSelf();
-        $shipments->method('getSize')->willReturn(1);
+        $shipments->method('getSize')->willReturnCallback(function () {
+            if ($this->shipmentCountThrows) {
+                throw new \Exception('Error inesperado de la base');
+            }
+            return 1;
+        });
         $shipmentCollectionFactory = $this->createMock(ShipmentCollectionFactory::class);
         $shipmentCollectionFactory->method('create')->willReturn($shipments);
 
@@ -149,7 +157,6 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         return [
             'cancelado' => [Order::STATE_CANCELED],
             'cerrado' => [Order::STATE_CLOSED],
-            'completo' => [Order::STATE_COMPLETE],
             'retenido' => [Order::STATE_HOLDED],
         ];
     }
@@ -185,6 +192,27 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
 
         $this->assertSame(1, $this->dispatches);
         $this->assertNull($this->hopEnvio->getLastErrorCode(), 'el motivo nuevo lo deja markFailed si vuelve a fallar');
+    }
+
+    public function testCompleteOrderIsRetried(): void
+    {
+        // Pedido facturado: Magento lo pasó a completo al guardar su envío, justo antes del
+        // despacho que falló por credenciales.
+        $this->order->method('getState')->willReturn(Order::STATE_COMPLETE);
+        $this->cron->execute();
+
+        $this->assertSame(1, $this->dispatches);
+        $this->assertStringContainsString('despachado a Hop', $this->comments[0]);
+    }
+
+    public function testUnexpectedErrorDoesNotLoopEveryMinute(): void
+    {
+        $this->order->method('getState')->willReturn(Order::STATE_PROCESSING);
+        $this->shipmentCountThrows = true;
+        $this->cron->execute();
+
+        $this->assertNull($this->hopEnvio->getLastErrorCode(), 'queda para revisión manual, no se reprograma cada minuto');
+        $this->assertSame([], $this->comments);
     }
 
     public function testOldOrdersAreNotRetried(): void

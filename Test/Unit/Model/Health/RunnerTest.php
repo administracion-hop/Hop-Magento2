@@ -82,7 +82,6 @@ class RunnerTest extends TestCase
     public function testEverythingOk(): void
     {
         $this->runner->run();
-        $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|credentials'));
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|connection'));
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|seller'));
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('store:1|test_quote'));
@@ -93,7 +92,7 @@ class RunnerTest extends TestCase
     {
         $this->hop['login'] = Webservice::LOGIN_REJECTED;
         $this->runner->run();
-        $this->assertSame(Checks::SEVERITY_ERROR, $this->savedStatus('acct:a|credentials'));
+        $this->assertArrayNotHasKey('acct:a|credentials', $this->saved, 'la escribe solo CredentialState');
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|connection'), 'Hop respondió');
         $this->assertContains('acct:a|seller', $this->deleted);
         $this->assertContains('store:1|test_quote', $this->deleted);

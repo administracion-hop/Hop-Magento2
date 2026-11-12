@@ -11,26 +11,26 @@ use PHPUnit\Framework\TestCase;
 class DispatchErrorTest extends TestCase
 {
     /**
-     * @return array [mensaje, HTTP, código esperado]
+     * @return array [mensaje, código esperado]
      */
-    public static function failureCases(): array
+    public static function messageCases(): array
     {
         return [
-            '401 manda sobre el texto' => ['Hubo un error al enviar su pedido a Hop: package.height', 401, DispatchError::CODE_CREDENTIALS],
-            'texto de Hop con token inválido (pedidos viejos, sin HTTP)' => ['Hubo un error al enviar su pedido a Hop: Authorization fail. ', null, DispatchError::CODE_CREDENTIALS],
-            'corte del módulo' => ['Hop rechazó las credenciales de inicio de sesión (Nombre de usuario y/o contraseña incorrecta).', 401, DispatchError::CODE_CREDENTIALS],
-            'Hop no responde no es credenciales' => ['Sin respuesta de la API de Hop (error de conexión o timeout).', 0, null],
-            'error del servidor no es credenciales' => ['Hubo un error al enviar su pedido a Hop: Server Error', 500, null],
-            'otro error conocido sigue igual' => ['El código postal de origen es inválido', 422, DispatchError::CODE_ORIGIN_ZIP],
+            'corte del módulo por rechazo del inicio de sesión' => ['Hop rechazó las credenciales de inicio de sesión (Nombre de usuario y/o contraseña incorrecta).', DispatchError::CODE_CREDENTIALS],
+            // Hop responde así también cuando acepta el inicio de sesión pero rechaza la llamada
+            // (por ejemplo, un vendedor que no corresponde al cliente): no es de credenciales.
+            '401 de una llamada no es credenciales' => ['Hubo un error al enviar su pedido a Hop: Authorization fail. ', null],
+            'Hop no responde no es credenciales' => ['Sin respuesta de la API de Hop (error de conexión o timeout).', null],
+            'otro error conocido sigue igual' => ['El código postal de origen es inválido', DispatchError::CODE_ORIGIN_ZIP],
         ];
     }
 
     /**
-     * @dataProvider failureCases
+     * @dataProvider messageCases
      */
-    public function testClassifyFailure($message, $httpStatus, $expected): void
+    public function testClassify($message, $expected): void
     {
-        $this->assertSame($expected, DispatchError::classifyFailure($message, $httpStatus));
+        $this->assertSame($expected, DispatchError::classify($message));
     }
 
     public function testCredentialsAreNotRetriedByTime(): void

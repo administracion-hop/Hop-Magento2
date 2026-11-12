@@ -11,6 +11,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Al guardar la configuración de Hop (secciones carriers y shipping) corre en el momento las
  * revisiones contra Hop y el catálogo de las vistas de tienda alcanzadas por ese guardado.
+ * Solo si cambió algo de Hop: guardar, por ejemplo, la tarifa plana no llama a Hop.
  */
 class HealthConfigSaved implements ObserverInterface
 {
@@ -47,12 +48,29 @@ class HealthConfigSaved implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
+        if (!$this->hasHopChanges((array)$observer->getEvent()->getData('changed_paths'))) {
+            return;
+        }
         try {
             $this->runner->run($this->getStoreIds($observer->getEvent()->getData('website'), $observer->getEvent()->getData('store')));
         } catch (\Throwable $e) {
             // Una revisión que falla nunca puede impedir guardar la configuración.
             $this->logger->error('Hop: error en la revisión al guardar la configuración: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * @param string[] $changedPaths
+     * @return bool
+     */
+    private function hasHopChanges(array $changedPaths)
+    {
+        foreach ($changedPaths as $path) {
+            if (strpos((string)$path, 'carriers/hop/') === 0 || strpos((string)$path, 'shipping/hop/') === 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

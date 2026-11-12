@@ -130,21 +130,30 @@ vuelven a funcionar, aparece en la primera cotización, sin tener que guardar na
 - **Costo por pantalla.** La franja lee configuración, hace una consulta a
   `hop_envios_health_check` y dos consultas cacheadas 5 minutos (`cron_schedule` y las
   integraciones). Nunca llama a Hop ni recorre el catálogo, y solo escribe cuando un problema
-  aparece, cambia o se resuelve.
+  aparece, cambia de tipo o se resuelve (no cuando cambia el texto: se traduce al idioma de cada
+  administrador).
 - **Cuentas.** Las vistas de tienda se agrupan por cuenta (mismas credenciales y mismo modo).
   La clave de la cuenta es un HMAC con la clave de la instalación: no se guardan credenciales.
-- **Credenciales en las llamadas normales.** `Webservice::login()` distingue rechazo (Hop
-  responde con `errors` o sin token) de falta de respuesta (excepción, HTTP 5xx o respuesta que
-  no es JSON). Con un rechazo, el resto del proceso (una carga de página o una corrida de una
-  tarea programada) no vuelve a llamar a Hop: una cotización hace como máximo una llamada. El
-  corte se reinicia al cambiar de vista de tienda y en la revisión. El estado se guarda en la
-  caché de Magento y en la tabla, y solo se escribe cuando cambia.
-- **Motivo de despacho.** `DispatchError::CODE_CREDENTIALS` se asigna cuando Hop sigue
-  respondiendo 401 después de reintentar el inicio de sesión. No cuenta para los escalones de
-  reintento por errores del servidor (1, 10 y 30 minutos). Con cada inicio de sesión
-  real que Hop acepta, `HopEnviosRepository::scheduleCredentialRetries()` pone `next_retry_at`
-  en la hora actual para esos pedidos. No depende de que la cuenta "cambie" de estado: si alguien
-  carga una contraseña mal y vuelve a la correcta, la cuenta correcta ya figuraba como buena. Los fallos anteriores a esta versión se reconocen por el texto `Authorization fail`
-  (parche `ClassifyCredentialFailures`).
+- **Credenciales en las llamadas normales.** `Webservice::login()` distingue rechazo (HTTP 401,
+  o 400 y 422 con los `errors` de Hop) de falta de respuesta (excepción, HTTP 5xx, 429, un 403 o
+  404 de un intermediario, o una respuesta que no es JSON). Con un rechazo, el resto del proceso
+  (una carga de página o una corrida de una tarea programada) no vuelve a llamar a Hop: una
+  cotización hace como máximo una llamada. El corte se reinicia al cambiar de vista de tienda y
+  en la revisión. Si el token venció y Hop no responde al inicio de sesión, es falta de
+  respuesta. El estado se guarda en la caché de Magento y en la tabla, y solo se escribe cuando
+  cambia.
+- **Motivo de despacho.** `DispatchError::CODE_CREDENTIALS` lo asigna quien despacha cuando
+  `Webservice::isCredentialsRejected()`, es decir, cuando Hop rechazó el inicio de sesión. Un 401
+  de una llamada con el inicio de sesión aceptado (por ejemplo, un vendedor que no corresponde
+  al cliente) no es de credenciales: queda para revisión manual, como cualquier 4XX. No cuenta
+  para los escalones de reintento por errores del servidor (1, 10 y 30 minutos). Con cada
+  inicio de sesión real que Hop acepta, `HopEnviosRepository::scheduleCredentialRetries()` pone
+  `next_retry_at` en la hora actual para esos pedidos. No depende de que la cuenta "cambie" de
+  estado: si alguien carga una contraseña mal y vuelve a la correcta, la cuenta correcta ya
+  figuraba como buena. Los fallos anteriores a esta versión, que no guardaban el motivo, se
+  reconocen una sola vez por el texto `Authorization fail` (parche `ClassifyCredentialFailures`):
+  se reintentan una vez y, si vuelven a fallar, quedan con el motivo que corresponda.
+- **Guardado de la configuración.** Las revisiones contra Hop solo corren si cambió alguna ruta
+  `carriers/hop/*` o `shipping/hop/*`.
 - **Referencia en uso.** `DispatchError::CODE_REFERENCE_IN_USE` ya no se puede reintentar:
   Hop rechaza cualquier otro envío con la misma referencia.

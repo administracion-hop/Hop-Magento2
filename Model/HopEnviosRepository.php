@@ -111,7 +111,7 @@ class HopEnviosRepository
      */
     public function markFailed(HopEnvios $hopEnvios, $error, $httpStatus = null, $code = null)
     {
-        $code = $code ?: DispatchError::classifyFailure((string)$error, $httpStatus);
+        $code = $code ?: DispatchError::classify((string)$error);
         // Los rechazos de credenciales no cuentan para los escalones de reintento por errores
         // del servidor de Hop: se reintentan cuando las credenciales vuelven a funcionar.
         $attempts = (int)$hopEnvios->getAttempts() + ($code === DispatchError::CODE_CREDENTIALS ? 0 : 1);

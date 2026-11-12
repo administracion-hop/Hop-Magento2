@@ -31,9 +31,11 @@ class DispatchError
      */
     const CODE_MULTIBULTO_PARTIAL = 'multibulto_partial';
     /**
-     * Hop rechazó las credenciales (401 después de reintentar el inicio de sesión). No se
-     * reintenta por tiempo: lo reprograma CredentialState cuando las credenciales vuelven a
-     * funcionar, y no cuenta para los escalones de RETRY_DELAYS_MINUTES.
+     * Hop rechazó el inicio de sesión (Webservice::isCredentialsRejected). Lo asigna quien
+     * despacha, no sale del texto: un 401 de una llamada con el inicio de sesión aceptado (por
+     * ejemplo, un vendedor que no corresponde al cliente) no es de credenciales, y marcarlo así
+     * lo reprogramaría con cada inicio de sesión bueno, para siempre. No se reintenta por tiempo:
+     * lo reprograma CredentialState, y no cuenta para los escalones de RETRY_DELAYS_MINUTES.
      */
     const CODE_CREDENTIALS = 'credentials';
 
@@ -46,7 +48,6 @@ class DispatchError
     /** substring (case-insensitive) => código. Doc oficial salvo donde se indica. */
     const PATTERNS = [
         'reference id ya est' => self::CODE_REFERENCE_IN_USE,          // 1
-        'Authorization fail' => self::CODE_CREDENTIALS,                // 401 de Hop con token inválido (sandbox)
         'rechazó las credenciales' => self::CODE_CREDENTIALS,          // del módulo: Webservice::getCredentialsRejectedMessage
         'client.id number' => self::CODE_CLIENT_ID,                    // 2
         'client.name' => self::CODE_CLIENT_DATA,                       // 4
@@ -153,20 +154,6 @@ class DispatchError
         return $code !== self::CODE_MULTIBULTO_PARTIAL && $code !== self::CODE_REFERENCE_IN_USE;
     }
 
-    /**
-     * Código para un despacho fallido: el 401 (credenciales) manda sobre el texto.
-     *
-     * @param string|null $message
-     * @param int|null $httpStatus
-     * @return string|null
-     */
-    public static function classifyFailure($message, $httpStatus = null)
-    {
-        if ((int)$httpStatus === 401) {
-            return self::CODE_CREDENTIALS;
-        }
-        return self::classify($message);
-    }
 
     /**
      * Minutos hasta el próximo reintento automático, o null si no hay que reintentar solo.

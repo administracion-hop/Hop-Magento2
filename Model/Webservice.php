@@ -315,6 +315,13 @@ class Webservice
         if ($response === false || $this->lastStatus === 0 || $this->lastStatus >= 500 || $this->credentialsRejected) {
             return null;
         }
+        if ($this->lastStatus === 404) {
+            return 'not_found';
+        }
+        if ($this->lastStatus < 200 || $this->lastStatus >= 300) {
+            // 401, 403, 429...: no se sabe nada del vendedor.
+            return null;
+        }
         $decoded = json_decode($response, true);
         return !empty($decoded['data']['status']) ? (string)$decoded['data']['status'] : 'not_found';
     }
@@ -424,6 +431,12 @@ class Webservice
                         $this->lastStatus = 401;
                         return false;
                     }
+                    if ($this->lastLoginResult === self::LOGIN_UNREACHABLE) {
+                        // El token venció y Hop no responde al inicio de sesión: es una falta de
+                        // respuesta (reintento por tiempo), no un rechazo de credenciales.
+                        $this->lastStatus = 0;
+                        return false;
+                    }
                     $retry = true;
                     continue;
                 }
@@ -483,14 +496,19 @@ class Webservice
             return false;
         }
 
-        // Un error del servidor o una respuesta que no es JSON no dice nada de las credenciales.
-        if ($status === 0 || $status >= 500 || !is_array($response)) {
+        // Rechazo: 401, o 400/422 con los errores de Hop (por ejemplo, datos de acceso vacíos).
+        // Cualquier otra respuesta sin token (5xx, 429, 403 o 404 de un intermediario, una
+        // respuesta que no es JSON) no dice nada de las credenciales.
+        $hasToken = is_array($response) && !empty($response['access_token']);
+        $isRejection = $status === 401
+            || (in_array($status, [400, 422], true) && is_array($response) && !empty($response['errors']));
+        if (!$hasToken && !$isRejection) {
             $this->_helper->log(__('Hop no respondió al inicio de sesión (HTTP %1)', $status), true);
             $this->lastLoginResult = self::LOGIN_UNREACHABLE;
             return false;
         }
 
-        if (!empty($response['errors']) || empty($response['access_token'])) {
+        if (!$hasToken) {
             $detail = '';
             if (!empty($response['errors'])) {
                 try {

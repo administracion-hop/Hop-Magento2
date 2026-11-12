@@ -116,8 +116,6 @@ class Runner
         $this->webservice->setStoreId(reset($storeIds));
         $login = $this->webservice->checkCredentials();
 
-        // 1a: el estado de credenciales lo registra Webservice::login() vía CredentialState. Acá
-        // solo se refresca la fecha de la última revisión.
         if ($login === Webservice::LOGIN_UNREACHABLE) {
             $this->storage->save($accountKey, Checks::CONNECTION, Checks::SEVERITY_WARNING, (string)__('No se pudo verificar la conexión con Hop.'), $storeIds);
             // Sin respuesta no se sabe nada del vendedor ni se puede cotizar: se dejan los
@@ -128,7 +126,7 @@ class Runner
             return;
         }
         $this->storage->save($accountKey, Checks::CONNECTION, Checks::STATUS_OK, null, $storeIds);
-        $this->touchCredentials($accountKey, $login, $storeIds);
+        // 1a: la fila de credenciales la escribe solo CredentialState, desde Webservice::login().
 
         if ($login === Webservice::LOGIN_REJECTED) {
             // Con credenciales rechazadas no se puede saber nada más de Hop.
@@ -155,26 +153,6 @@ class Runner
             $this->checkTestQuote($storeId);
             $this->checkMeasures($storeId);
         }
-    }
-
-    /**
-     * Refresca la fecha de revisión de la fila de credenciales sin mover "since".
-     *
-     * @param string $accountKey
-     * @param string $login
-     * @param int[] $storeIds
-     * @return void
-     */
-    private function touchCredentials($accountKey, $login, array $storeIds)
-    {
-        $ok = $login === Webservice::LOGIN_OK;
-        $this->storage->save(
-            $accountKey,
-            Checks::CREDENTIALS,
-            $ok ? Checks::STATUS_OK : Checks::SEVERITY_ERROR,
-            $ok ? null : (string)$this->webservice->getLastLoginError(),
-            $storeIds
-        );
     }
 
     /**

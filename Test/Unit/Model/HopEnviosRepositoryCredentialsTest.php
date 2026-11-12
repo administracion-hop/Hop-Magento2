@@ -73,12 +73,24 @@ class HopEnviosRepositoryCredentialsTest extends TestCase
     public function testCredentialsFailureHasOwnCodeAndDoesNotCount(): void
     {
         $hopEnvios = $this->hopEnvios(1);
-        $this->repository->markFailed($hopEnvios, 'Hubo un error al enviar su pedido a Hop: Authorization fail.', 401);
+        $this->repository->markFailed($hopEnvios, 'Hop rechazó las credenciales de inicio de sesión.', 401, DispatchError::CODE_CREDENTIALS);
 
         $this->assertSame(DispatchError::CODE_CREDENTIALS, $hopEnvios->getLastErrorCode());
         $this->assertSame(1, $hopEnvios->getAttempts(), 'no cuenta para los escalones de 1, 10 y 30 minutos');
         $this->assertNull($hopEnvios->getNextRetryAt(), 'espera a que las credenciales vuelvan a funcionar');
         $this->assertSame(GenarateShipment::SHIPMENT_STATUS_FAILED, $hopEnvios->getStatusShipment());
+    }
+
+    public function testCallRejectedWithAcceptedLoginIsNotCredentials(): void
+    {
+        // Hop aceptó el inicio de sesión pero respondió 401 a la llamada: si se marcara como
+        // credenciales, cada inicio de sesión bueno lo reprogramaría, para siempre.
+        $hopEnvios = $this->hopEnvios(0);
+        $this->repository->markFailed($hopEnvios, 'Hubo un error al enviar su pedido a Hop: Authorization fail.', 401);
+
+        $this->assertNull($hopEnvios->getLastErrorCode());
+        $this->assertSame(1, $hopEnvios->getAttempts());
+        $this->assertNull($hopEnvios->getNextRetryAt(), 'queda para revisión manual, como cualquier 4XX');
     }
 
     public function testServerErrorKeepsCurrentRetry(): void

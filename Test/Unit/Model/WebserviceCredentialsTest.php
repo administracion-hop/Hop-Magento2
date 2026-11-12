@@ -167,6 +167,73 @@ class WebserviceCredentialsTest extends TestCase
         $this->assertSame([], $this->recorded);
     }
 
+    /**
+     * @return array [HTTP, cuerpo]
+     */
+    public static function notRejections(): array
+    {
+        return [
+            'demasiados pedidos' => [429, '{"message":"Too Many Attempts."}'],
+            'intermediario prohíbe' => [403, '{"message":"Forbidden"}'],
+            'no encontrado' => [404, '{"message":"Not Found"}'],
+            'respuesta que no es JSON' => [200, '<html></html>'],
+        ];
+    }
+
+    /**
+     * @dataProvider notRejections
+     */
+    public function testOnlyRealRejectionsCountAsRejected($status, $body): void
+    {
+        $this->responses = [[$status, $body]];
+        $this->webservice->isSellerActive();
+
+        $this->assertFalse($this->webservice->isCredentialsRejected());
+        $this->assertSame(Webservice::LOGIN_UNREACHABLE, $this->webservice->getLastLoginResult());
+        $this->assertSame([], $this->recorded);
+    }
+
+    public function testValidationErrorsAreRejection(): void
+    {
+        $this->responses = [[422, '{"errors":[{"status":422,"detail":"El campo client id es obligatorio","data":null}]}']];
+        $this->webservice->isSellerActive();
+        $this->assertTrue($this->webservice->isCredentialsRejected());
+    }
+
+    public function testExpiredTokenWithHopDownIsNoResponse(): void
+    {
+        $this->savedToken = new DataObject(['id' => 1, 'created_at' => date('Y-m-d H:i:s'), 'expires_in' => 3600, 'access_token' => 'viejo']);
+        $this->responses = [[401, '{"message":"Authorization fail"}'], [503, 'Service Unavailable']];
+
+        $this->assertFalse($this->webservice->isSellerActive());
+        $this->assertSame(0, $this->webservice->getLastStatus(), 'se reintenta por tiempo, como un error del servidor');
+        $this->assertFalse($this->webservice->isCredentialsRejected());
+        $this->assertCount(2, $this->calls);
+    }
+
+    /**
+     * @return array [respuesta del vendedor, estado esperado]
+     */
+    public static function sellerCases(): array
+    {
+        return [
+            'activo' => [[200, '{"data":{"status":"active"}}'], 'active'],
+            'bloqueado' => [[200, '{"data":{"status":"bloqueado"}}'], 'bloqueado'],
+            'no existe' => [[404, '{"message":"Not Found"}'], 'not_found'],
+            'llamada rechazada' => [[403, '{"message":"Forbidden"}'], null],
+            'demasiados pedidos' => [[429, '{"message":"Too Many Attempts."}'], null],
+        ];
+    }
+
+    /**
+     * @dataProvider sellerCases
+     */
+    public function testSellerStatus($sellerResponse, $expected): void
+    {
+        $this->responses = [$this->okLogin(), $sellerResponse];
+        $this->assertSame($expected, $this->webservice->getSellerStatus());
+    }
+
     public function testSuccessfulLoginRecordsOk(): void
     {
         $this->responses = [$this->okLogin(), [200, '{"data":{"status":"active"}}']];

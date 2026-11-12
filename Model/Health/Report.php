@@ -14,7 +14,7 @@ use Magento\Framework\Serialize\SerializerInterface;
  * estado). Nunca llama a Hop ni recorre el catálogo: eso lo hace Runner.
  *
  * Las revisiones que se calculan acá (LIVE_*) también se guardan en la tabla, solo cuando
- * cambian, para saber desde cuándo existe cada problema.
+ * cambia su estado, para saber desde cuándo existe cada problema.
  */
 class Report
 {
@@ -182,7 +182,10 @@ class Report
         foreach ($current as $key => [$code, $severity, $message, $storeIds, $scope]) {
             $row = $rows[$key] ?? null;
             $since = $row['since'] ?? null;
-            if (!$row || $row['status'] !== $severity || $row['message'] !== $message) {
+            // Solo cuando cambia el estado: el mensaje se traduce al idioma de cada administrador,
+            // así que compararlo reescribiría la fila en cada pantalla. Se muestra el mensaje
+            // calculado ahora, no el guardado.
+            if (!$row || $row['status'] !== $severity) {
                 $this->safely(function () use ($scope, $code, $severity, $message, $storeIds, $row) {
                     $this->storage->save($scope, $code, $severity, $message, $storeIds, $row);
                 });

@@ -2,6 +2,8 @@
 
 namespace Hop\Envios\Helper;
 
+use Hop\Envios\Model\DispatchError;
+
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\ResourceModel\Order as OrderResourceModel;
@@ -175,7 +177,12 @@ class ShippingMethod extends AbstractHelper
                 $error = (is_array($result) && isset($result['error']))
                     ? $result['error']
                     : __('No se pudo generar el envío en Hop: el pedido no tiene punto de retiro (No Hop Data).');
-                $this->hopEnviosRepository->markFailed($hopEnvios, $error, $this->webservice->getLastStatus());
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvios,
+                    $error,
+                    $this->webservice->getLastStatus(),
+                    $this->webservice->isCredentialsRejected() ? DispatchError::CODE_CREDENTIALS : null
+                );
                 return false;
             }
         }

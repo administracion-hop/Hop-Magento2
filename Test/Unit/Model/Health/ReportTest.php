@@ -121,4 +121,17 @@ class ReportTest extends TestCase
         $this->assertSame('2026-11-10 08:00:00', $problems[0]['since']);
         $this->assertSame(0, $this->writes, 'mostrar la franja no escribe si nada cambió');
     }
+
+    public function testOtherLanguageDoesNotRewrite(): void
+    {
+        // Otro administrador ve el mismo problema traducido a otro idioma.
+        $this->configProblems = [1 => [Checks::WEIGHT_UNIT => [Checks::SEVERITY_ERROR, 'The store uses pounds']]];
+        $this->rows = [
+            'store:1|weight_unit' => ['scope_key' => 'store:1', 'check_code' => 'weight_unit', 'status' => 'error', 'message' => 'La tienda usa libras', 'since' => '2026-11-10 08:00:00'],
+        ];
+        $problems = $this->report()->getProblems();
+
+        $this->assertSame(0, $this->writes);
+        $this->assertSame('The store uses pounds', $problems[0]['message'], 'se muestra el mensaje en el idioma de quien mira');
+    }
 }

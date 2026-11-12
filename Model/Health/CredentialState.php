@@ -139,6 +139,17 @@ class CredentialState
     }
 
     /**
+     * Olvida el estado de una cuenta que ya no está configurada (ver Runner::cleanUp).
+     *
+     * @param string $accountKey
+     * @return void
+     */
+    public function forget($accountKey)
+    {
+        $this->cache->remove($this->cacheId($accountKey));
+    }
+
+    /**
      * @param int[] $storeIds
      * @return void
      */

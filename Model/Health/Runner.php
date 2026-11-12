@@ -20,7 +20,7 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductColl
 class Runner
 {
     /** Que un Hop que no responde no deje colgado el guardado de la configuración. */
-    const REQUEST_TIMEOUT_SECONDS = 15;
+    const REQUEST_TIMEOUT_SECONDS = 10;
 
     /** Paquete de la cotización de prueba: 1 kg y valor 1000. */
     const TEST_PACKAGE_WEIGHT_GRAMS = 1000;
@@ -59,12 +59,18 @@ class Runner
     private $logger;
 
     /**
+     * @var CredentialState
+     */
+    private $credentialState;
+
+    /**
      * @param Webservice $webservice
      * @param AccountResolver $accountResolver
      * @param ResultStorage $storage
      * @param HelperHop $helper
      * @param ProductCollectionFactory $productCollectionFactory
      * @param LoggerInterface $logger
+     * @param CredentialState $credentialState
      */
     public function __construct(
         Webservice $webservice,
@@ -72,7 +78,8 @@ class Runner
         ResultStorage $storage,
         HelperHop $helper,
         ProductCollectionFactory $productCollectionFactory,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        CredentialState $credentialState
     ) {
         $this->webservice = $webservice;
         $this->accountResolver = $accountResolver;
@@ -80,6 +87,7 @@ class Runner
         $this->helper = $helper;
         $this->productCollectionFactory = $productCollectionFactory;
         $this->logger = $logger;
+        $this->credentialState = $credentialState;
     }
 
     /**
@@ -298,6 +306,13 @@ class Runner
      */
     private function cleanUp(array $accountKeys)
     {
+        // El estado de credenciales de esas cuentas también sale de la caché: si la cuenta vuelve
+        // a configurarse, el primer inicio de sesión tiene que volver a escribir su fila.
+        foreach ($this->storage->loadAll() as $row) {
+            if (strpos($row['scope_key'], 'acct:') === 0 && !in_array($row['scope_key'], $accountKeys, true)) {
+                $this->credentialState->forget($row['scope_key']);
+            }
+        }
         $this->storage->deleteStaleAccounts($accountKeys);
         $activeScopes = array_map([Checks::class, 'storeScope'], $this->accountResolver->getActiveStoreIds());
         foreach ($this->storage->loadAll() as $row) {

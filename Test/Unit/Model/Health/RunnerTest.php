@@ -6,6 +6,7 @@ use Hop\Envios\Helper\Data as HelperHop;
 use Hop\Envios\Logger\LoggerInterface;
 use Hop\Envios\Model\Health\AccountResolver;
 use Hop\Envios\Model\Health\Checks;
+use Hop\Envios\Model\Health\CredentialState;
 use Hop\Envios\Model\Health\ResultStorage;
 use Hop\Envios\Model\Health\Runner;
 use Hop\Envios\Model\Webservice;
@@ -35,6 +36,12 @@ class RunnerTest extends TestCase
     /** @var array */
     private $accounts = ['acct:a' => [1]];
 
+    /** @var array filas que devuelve la tabla */
+    private $rows = [];
+
+    /** @var string[] cuentas olvidadas en la caché */
+    private $forgotten = [];
+
     /** @var Runner */
     private $runner;
 
@@ -62,7 +69,7 @@ class RunnerTest extends TestCase
         $storage->method('delete')->willReturnCallback(function ($scope, $code) {
             $this->deleted[] = $scope . '|' . $code;
         });
-        $storage->method('loadAll')->willReturn([]);
+        $storage->method('loadAll')->willReturnCallback(fn () => $this->rows);
 
         $helper = $this->createMock(HelperHop::class);
         $helper->method('getOriginZipcode')->willReturnCallback(fn () => $this->config['origin']);
@@ -70,8 +77,13 @@ class RunnerTest extends TestCase
         $helper->method('getStoreCountry')->willReturnCallback(fn () => $this->config['country']);
         $helper->method('getSellerCode')->willReturn('MENZE');
 
+        $credentialState = $this->createMock(CredentialState::class);
+        $credentialState->method('forget')->willReturnCallback(function ($key) {
+            $this->forgotten[] = $key;
+        });
+
         $this->runner = $this->getMockBuilder(Runner::class)
-            ->setConstructorArgs([$webservice, $resolver, $storage, $helper, $this->createMock(ProductCollectionFactory::class), $this->createMock(LoggerInterface::class)])
+            ->setConstructorArgs([$webservice, $resolver, $storage, $helper, $this->createMock(ProductCollectionFactory::class), $this->createMock(LoggerInterface::class), $credentialState])
             ->onlyMethods(['countProductsWithoutMeasures'])
             ->getMock();
         $this->runner->method('countProductsWithoutMeasures')->willReturnCallback(fn () => $this->withoutMeasures);
@@ -164,6 +176,25 @@ class RunnerTest extends TestCase
         $this->runner->run();
         $this->assertSame(Checks::SEVERITY_WARNING, $this->savedStatus('store:1|measures'), 'las medidas no dependen de Hop');
         $this->assertArrayNotHasKey('store:1|test_quote', $this->saved);
+    }
+
+    public function testStaleAccountIsForgottenInCache(): void
+    {
+        // La cuenta vieja deja de estar configurada: si vuelve, su estado tiene que volver a
+        // escribirse, así que no puede quedar en la caché.
+        $this->rows = [
+            ['scope_key' => 'acct:vieja', 'check_code' => 'credentials', 'status' => 'error'],
+            ['scope_key' => 'acct:a', 'check_code' => 'credentials', 'status' => 'ok'],
+        ];
+        $this->runner->run();
+        $this->assertSame(['acct:vieja'], $this->forgotten);
+    }
+
+    public function testPartialRunDoesNotForget(): void
+    {
+        $this->rows = [['scope_key' => 'acct:vieja', 'check_code' => 'credentials', 'status' => 'error']];
+        $this->runner->run([1]);
+        $this->assertSame([], $this->forgotten, 'al guardar una sola vista de tienda no se limpia nada');
     }
 
     public function testSizeCategoryMakesMeasuresOk(): void

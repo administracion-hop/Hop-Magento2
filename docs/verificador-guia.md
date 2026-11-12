@@ -65,7 +65,7 @@ Un problema corregido desaparece solo, sin que nadie tenga que marcarlo.
 |---|---|
 | 2, 3, 4 y 8 (solo leen configuración) | Al recargar la pantalla. |
 | 6 y 7 (consultan la base) | Al recargar la pantalla, con hasta 5 minutos de demora. |
-| 1, 5 y 9 (consultan a Hop o al catálogo) | Al guardar la configuración de Hop (las vistas de tienda alcanzadas por ese guardado) y cada 6 horas (todas). |
+| 1, 5 y 9 (consultan a Hop o al catálogo) | Al guardar *Configuración de webservices HOP* (aunque no cambie nada), al guardar *Métodos de envío* si cambió algo de Hop (las vistas de tienda alcanzadas por ese guardado), y cada 6 horas (todas). |
 
 Las credenciales (1a) también se actualizan con las llamadas normales a Hop: si Hop rechaza las
 credenciales en el checkout, en un despacho o en la actualización de puntos, el aviso aparece en
@@ -153,7 +153,11 @@ vuelven a funcionar, aparece en la primera cotización, sin tener que guardar na
   figuraba como buena. Los fallos anteriores a esta versión, que no guardaban el motivo, se
   reconocen una sola vez por el texto `Authorization fail` (parche `ClassifyCredentialFailures`):
   se reintentan una vez y, si vuelven a fallar, quedan con el motivo que corresponda.
-- **Guardado de la configuración.** Las revisiones contra Hop solo corren si cambió alguna ruta
-  `carriers/hop/*` o `shipping/hop/*`.
+- **Guardado de la configuración.** Guardar la sección `shipping` (donde están las credenciales
+  de Hop) corre las revisiones siempre, aunque no cambie nada: es lo que hace alguien después de
+  que Hop le desbloquea la cuenta. Guardar la sección `carriers`, que tiene todos los
+  transportistas, solo las corre si cambió alguna ruta `carriers/hop/*`. Cada llamada a Hop de
+  la revisión espera como máximo 10 segundos, y si el inicio de sesión no responde no se hacen
+  las demás.
 - **Referencia en uso.** `DispatchError::CODE_REFERENCE_IN_USE` ya no se puede reintentar:
   Hop rechaza cualquier otro envío con la misma referencia.

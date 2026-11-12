@@ -11,7 +11,10 @@ use Psr\Log\LoggerInterface;
 /**
  * Al guardar la configuración de Hop (secciones carriers y shipping) corre en el momento las
  * revisiones contra Hop y el catálogo de las vistas de tienda alcanzadas por ese guardado.
- * Solo si cambió algo de Hop: guardar, por ejemplo, la tarifa plana no llama a Hop.
+ * La sección de envíos (shipping), donde están las credenciales de Hop, revisa siempre al
+ * guardarla, aunque no cambie nada: es lo que hace alguien después de que Hop le desbloquea la
+ * cuenta o vuelve de una caída. La de métodos de envío (carriers) tiene todos los transportistas,
+ * así que revisa solo si cambió algo de Hop: guardar, por ejemplo, la tarifa plana no llama a Hop.
  */
 class HealthConfigSaved implements ObserverInterface
 {
@@ -48,7 +51,8 @@ class HealthConfigSaved implements ObserverInterface
      */
     public function execute(Observer $observer)
     {
-        if (!$this->hasHopChanges((array)$observer->getEvent()->getData('changed_paths'))) {
+        $isShippingSection = substr((string)$observer->getEvent()->getName(), -strlen('_section_shipping')) === '_section_shipping';
+        if (!$isShippingSection && !$this->hasHopChanges((array)$observer->getEvent()->getData('changed_paths'))) {
             return;
         }
         try {

@@ -40,6 +40,10 @@ class CredentialStateTest extends TestCase
             $this->cache[$id] = $data;
             return true;
         });
+        $cache->method('remove')->willReturnCallback(function ($id) {
+            unset($this->cache[$id]);
+            return true;
+        });
 
         $storage = $this->createMock(ResultStorage::class);
         $storage->method('load')->willReturnCallback(fn () => $this->row);
@@ -105,6 +109,17 @@ class CredentialStateTest extends TestCase
         // Ya estaba rechazado en la tabla: registrar rechazado de nuevo no escribe.
         $this->state->record('acct:a', CredentialState::REJECTED, 'x');
         $this->assertSame([], $this->saved);
+    }
+
+    public function testForgottenAccountIsWrittenAgain(): void
+    {
+        $this->state->record('acct:a', CredentialState::REJECTED, 'x');
+        // Runner::cleanUp borró la fila de la cuenta y la olvida en la caché.
+        $this->state->forget('acct:a');
+        $this->saved = [];
+
+        $this->state->record('acct:a', CredentialState::REJECTED, 'x');
+        $this->assertCount(1, $this->saved, 'la fila se vuelve a escribir');
     }
 
     public function testFailuresNeverBreakTheCaller(): void

@@ -19,7 +19,7 @@ class HealthConfigSavedTest extends TestCase
     /** @var array */
     private $runs = [];
 
-    private function save(array $changedPaths, $store = null)
+    private function save(array $changedPaths, $store = null, $section = 'carriers')
     {
         $runner = $this->createMock(Runner::class);
         $runner->method('run')->willReturnCallback(function ($storeIds = null) {
@@ -31,6 +31,7 @@ class HealthConfigSavedTest extends TestCase
         $storeManager->method('getStore')->willReturn($storeEntity);
 
         $event = new Event(['changed_paths' => $changedPaths, 'website' => '', 'store' => $store]);
+        $event->setName('admin_system_config_changed_section_' . $section);
         (new HealthConfigSaved($runner, $storeManager, $this->createMock(LoggerInterface::class)))
             ->execute(new Observer(['event' => $event]));
     }
@@ -39,6 +40,13 @@ class HealthConfigSavedTest extends TestCase
     {
         $this->save(['carriers/flatrate/price']);
         $this->assertSame([], $this->runs);
+    }
+
+    public function testSavingShippingSectionAlwaysChecks(): void
+    {
+        // Después de que Hop desbloquea la cuenta, alguien aprieta Guardar sin cambiar nada.
+        $this->save([], null, 'shipping');
+        $this->assertSame([null], $this->runs);
     }
 
     public function testHopChangeRunsChecksForAllStores(): void

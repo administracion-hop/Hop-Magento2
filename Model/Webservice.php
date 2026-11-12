@@ -274,6 +274,20 @@ class Webservice
     }
 
     /**
+     * Si la última llamada a Hop (la del despacho que se acaba de intentar) no se hizo o falló
+     * porque Hop rechazó las credenciales. No alcanza con isCredentialsRejected(), que vale para
+     * todo el proceso: un despacho que falla antes de llamar a Hop (por ejemplo, un pedido sin
+     * punto de retiro) no es de credenciales aunque antes, en ese proceso, haya habido un rechazo.
+     * createShipping() y createShippingMultibulto() ponen lastStatus en null al empezar.
+     *
+     * @return bool
+     */
+    public function wasRejectedByCredentials(): bool
+    {
+        return $this->credentialsRejected && $this->lastStatus === 401;
+    }
+
+    /**
      * @return string|null LOGIN_* del último inicio de sesión real, o null
      */
     public function getLastLoginResult()

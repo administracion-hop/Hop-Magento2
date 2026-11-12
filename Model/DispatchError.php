@@ -31,11 +31,14 @@ class DispatchError
      */
     const CODE_MULTIBULTO_PARTIAL = 'multibulto_partial';
     /**
-     * Hop rechazó el inicio de sesión (Webservice::isCredentialsRejected). Lo asigna quien
-     * despacha, no sale del texto: un 401 de una llamada con el inicio de sesión aceptado (por
-     * ejemplo, un vendedor que no corresponde al cliente) no es de credenciales, y marcarlo así
-     * lo reprogramaría con cada inicio de sesión bueno, para siempre. No se reintenta por tiempo:
-     * lo reprograma CredentialState, y no cuenta para los escalones de RETRY_DELAYS_MINUTES.
+     * Hop rechazó el inicio de sesión. Lo asigna quien despacha cuando
+     * Webservice::wasRejectedByCredentials(), y también PATTERNS cuando el error trae el texto
+     * que arma el propio módulo para ese rechazo ("rechazó las credenciales"). No sale de
+     * "Authorization fail" ni de un 401: Hop responde así también cuando acepta el inicio de
+     * sesión y rechaza la llamada (por ejemplo, un vendedor que no corresponde al cliente), y
+     * marcarlo como credenciales lo reprogramaría con cada inicio de sesión bueno, para siempre.
+     * No se reintenta por tiempo: lo reprograma CredentialState, y no cuenta para los escalones
+     * de RETRY_DELAYS_MINUTES.
      */
     const CODE_CREDENTIALS = 'credentials';
 
@@ -153,7 +156,6 @@ class DispatchError
         // cualquier otro, así que reintentar no sirve y "Enviar a HOP" no se ofrece.
         return $code !== self::CODE_MULTIBULTO_PARTIAL && $code !== self::CODE_REFERENCE_IN_USE;
     }
-
 
     /**
      * Minutos hasta el próximo reintento automático, o null si no hay que reintentar solo.

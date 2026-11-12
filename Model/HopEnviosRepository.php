@@ -115,7 +115,7 @@ class HopEnviosRepository
         // Los rechazos de credenciales no cuentan para los escalones de reintento por errores
         // del servidor de Hop: se reintentan cuando las credenciales vuelven a funcionar.
         $attempts = (int)$hopEnvios->getAttempts() + ($code === DispatchError::CODE_CREDENTIALS ? 0 : 1);
-        $delay = DispatchError::retryDelayMinutes(max($attempts, 1), $httpStatus, $code);
+        $delay = DispatchError::retryDelayMinutes($attempts, $httpStatus, $code);
 
         $hopEnvios->setStatusShipment(GenarateShipment::SHIPMENT_STATUS_FAILED);
         $hopEnvios->setLastError((string)$error);

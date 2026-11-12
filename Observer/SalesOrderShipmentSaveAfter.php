@@ -239,7 +239,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $hopEnvio,
                     $error,
                     $this->webservice->getLastStatus(),
-                    $this->webservice->isCredentialsRejected() ? DispatchError::CODE_CREDENTIALS : null
+                    $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
                 );
                 return false;
             } else {
@@ -270,7 +270,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $this->webservice->getLastStatus(),
                     $partial
                         ? DispatchError::CODE_MULTIBULTO_PARTIAL
-                        : ($this->webservice->isCredentialsRejected() ? DispatchError::CODE_CREDENTIALS : null)
+                        : ($this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null)
                 );
                 return false;
             }

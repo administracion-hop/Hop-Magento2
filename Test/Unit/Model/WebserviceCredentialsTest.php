@@ -134,6 +134,21 @@ class WebserviceCredentialsTest extends TestCase
         $this->assertSame([CredentialState::REJECTED], $this->recorded);
     }
 
+    public function testDispatchFailureWithoutCallingHopIsNotCredentials(): void
+    {
+        $this->responses = [$this->rejectedLogin()];
+        $this->webservice->isSellerActive();
+        $this->assertTrue($this->webservice->wasRejectedByCredentials());
+
+        // Otro despacho del mismo proceso falla antes de llamar a Hop (por ejemplo, sin punto de
+        // retiro): createShipping() pone lastStatus en null al empezar.
+        $lastStatus = new \ReflectionProperty($this->webservice, 'lastStatus');
+        $lastStatus->setAccessible(true);
+        $lastStatus->setValue($this->webservice, null);
+        $this->assertTrue($this->webservice->isCredentialsRejected());
+        $this->assertFalse($this->webservice->wasRejectedByCredentials());
+    }
+
     public function testRejectedWhenSavedTokenStopsWorking(): void
     {
         // Token guardado vigente: no hay inicio de sesión hasta que Hop responde 401.

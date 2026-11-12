@@ -181,7 +181,7 @@ class ShippingMethod extends AbstractHelper
                     $hopEnvios,
                     $error,
                     $this->webservice->getLastStatus(),
-                    $this->webservice->isCredentialsRejected() ? DispatchError::CODE_CREDENTIALS : null
+                    $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
                 );
                 return false;
             }

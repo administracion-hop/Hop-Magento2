@@ -11,6 +11,7 @@ use Magento\Sales\Model\Order;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 use Hop\Envios\Helper\ShippingMethod;
+use Hop\Envios\Model\CredentialRetryCriteria;
 use Hop\Envios\Model\DispatchError;
 use Magento\Sales\Api\OrderStatusHistoryRepositoryInterface;
 
@@ -142,8 +143,12 @@ class GenarateShipment
         $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
 
         // Un pedido cancelado o cerrado (reembolsado) no se despacha, aunque ya tenga envío de
-        // Magento: queda failed y sin reintento, a la vista para revisión manual.
-        if (in_array($order->getState(), [Order::STATE_CANCELED, Order::STATE_CLOSED], true)) {
+        // Magento: queda failed y sin reintento, a la vista para revisión manual. Los que esperan
+        // credenciales, además, siguen el criterio completo (ni completos, ni retenidos, ni de
+        // hace más de 30 días): el estado puede haber cambiado desde que se reprogramaron.
+        if (in_array($order->getState(), [Order::STATE_CANCELED, Order::STATE_CLOSED], true)
+            || ($byCredentials && !CredentialRetryCriteria::isOrderEligible($order))
+        ) {
             $this->logger->info(__('Orden %1 %2: no se reintenta el despacho a Hop', $hopEnvio->getOrderId(), $order->getState()));
             return;
         }

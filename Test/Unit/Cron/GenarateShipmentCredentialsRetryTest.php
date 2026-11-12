@@ -43,8 +43,12 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
     /** @var GenarateShipment */
     private $cron;
 
+    /** @var string fecha UTC del pedido */
+    private $createdAt;
+
     protected function setUp(): void
     {
+        $this->createdAt = gmdate('Y-m-d H:i:s', time() - 2 * 86400);
         $this->hopEnvio = $this->getMockBuilder(HopEnvios::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
         $this->hopEnvio->setData([
             'order_id' => 10,
@@ -57,6 +61,7 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         $this->order->method('load')->willReturnSelf();
         $this->order->method('getId')->willReturn(10);
         $this->order->method('canShip')->willReturn(false);
+        $this->order->method('getCreatedAt')->willReturnCallback(fn () => $this->createdAt);
         $this->order->method('addCommentToStatusHistory')->willReturnCallback(function ($comment) {
             $this->comments[] = (string)$comment;
             return $this->createMock(OrderStatusHistoryInterface::class);
@@ -131,7 +136,12 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
      */
     public static function closedStates(): array
     {
-        return ['cancelado' => [Order::STATE_CANCELED], 'cerrado' => [Order::STATE_CLOSED]];
+        return [
+            'cancelado' => [Order::STATE_CANCELED],
+            'cerrado' => [Order::STATE_CLOSED],
+            'completo' => [Order::STATE_COMPLETE],
+            'retenido' => [Order::STATE_HOLDED],
+        ];
     }
 
     /**
@@ -143,6 +153,16 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         $this->cron->execute();
 
         $this->assertSame(0, $this->dispatches);
+        $this->assertSame([], $this->comments);
+    }
+
+    public function testOldOrdersAreNotRetried(): void
+    {
+        $this->order->method('getState')->willReturn(Order::STATE_PROCESSING);
+        $this->createdAt = gmdate('Y-m-d H:i:s', time() - 45 * 86400);
+        $this->cron->execute();
+
+        $this->assertSame(0, $this->dispatches, 'un pedido de hace más de 30 días no se reintenta solo');
         $this->assertSame([], $this->comments);
     }
 

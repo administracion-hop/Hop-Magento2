@@ -127,8 +127,8 @@ class HopEnviosRepository
 
     /**
      * Reprograma para ya los despachos que fallaron por credenciales en estas vistas de tienda:
-     * los toma la próxima corrida de Cron/GenarateShipment (getRetryableFailed). No incluye los
-     * pedidos cancelados o cerrados; los resueltos mientras tanto ya no están en failed.
+     * los toma la próxima corrida de Cron/GenarateShipment (getRetryableFailed). Solo los que
+     * cumplen CredentialRetryCriteria; los resueltos mientras tanto ya no están en failed.
      *
      * @param int[] $storeIds
      * @return int cantidad de despachos reprogramados
@@ -143,10 +143,9 @@ class HopEnviosRepository
         $select = $connection->select()
             ->from(['h' => $table], ['entity_id'])
             ->join(['o' => $this->hopEnviosResource->getTable('sales_order')], 'o.entity_id = h.order_id', [])
-            ->where('h.status_shipment = ?', GenarateShipment::SHIPMENT_STATUS_FAILED)
             ->where('h.last_error_code = ?', DispatchError::CODE_CREDENTIALS)
-            ->where('o.store_id IN (?)', array_map('intval', $storeIds))
-            ->where('o.state NOT IN (?)', [\Magento\Sales\Model\Order::STATE_CANCELED, \Magento\Sales\Model\Order::STATE_CLOSED]);
+            ->where('o.store_id IN (?)', array_map('intval', $storeIds));
+        CredentialRetryCriteria::apply($select);
         $ids = $connection->fetchCol($select);
         if (!$ids) {
             return 0;

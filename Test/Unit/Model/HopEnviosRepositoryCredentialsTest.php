@@ -111,7 +111,8 @@ class HopEnviosRepositoryCredentialsTest extends TestCase
         $this->assertSame(GenarateShipment::SHIPMENT_STATUS_FAILED, $this->where['h.status_shipment = ?']);
         $this->assertSame(DispatchError::CODE_CREDENTIALS, $this->where['h.last_error_code = ?'], 'no los que fallaron por otro motivo');
         $this->assertSame([1, 2], $this->where['o.store_id IN (?)']);
-        $this->assertSame(['canceled', 'closed'], $this->where['o.state NOT IN (?)']);
+        $this->assertSame(['canceled', 'closed', 'complete', 'holded'], $this->where['o.state NOT IN (?)'], 'ni completos ni retenidos');
+        $this->assertEqualsWithDelta(time() - 30 * 86400, strtotime($this->where['o.created_at >= ?'] . ' UTC'), 5, 'solo los últimos 30 días');
 
         [$data, $where] = $this->updates[0];
         $this->assertEqualsWithDelta(time(), strtotime($data['next_retry_at'] . ' UTC'), 5, 'se reintentan en la próxima corrida');

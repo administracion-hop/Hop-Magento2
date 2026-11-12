@@ -104,9 +104,15 @@ resultado.
 
 No se reintentan:
 
-- los pedidos cancelados o cerrados,
+- los pedidos cancelados, cerrados, completos o retenidos,
+- los de hace más de 30 días,
 - los que ya se despacharon mientras tanto (por ejemplo, con **Enviar a HOP**),
 - los que fallaron por otro motivo (esos siguen como hasta ahora).
+
+Un pedido que se resolvió por fuera de Hop (otro transportista o retiro en el local) y no se
+canceló en Magento no tiene un envío en Hop con su referencia: si se reintentara, Hop crearía un
+envío real. Por eso no se reintentan los completos ni los de hace más de 30 días. Si alguno de
+esos igual tiene que salir por Hop, usá **Enviar a HOP**.
 
 Si el envío ya se había creado a mano en el panel de Hop, Hop avisa que la referencia del pedido
 ya está en uso y no se crea otro. En un pedido de un solo bulto el módulo intenta recuperar ese
@@ -152,7 +158,10 @@ vuelven a funcionar, aparece en la primera cotización, sin tener que guardar na
   estado: si alguien carga una contraseña mal y vuelve a la correcta, la cuenta correcta ya
   figuraba como buena. Los fallos anteriores a esta versión, que no guardaban el motivo, se
   reconocen una sola vez por el texto `Authorization fail` (parche `ClassifyCredentialFailures`):
-  se reintentan una vez y, si vuelven a fallar, quedan con el motivo que corresponda.
+  se reintentan una vez y, si vuelven a fallar, quedan con el motivo que corresponda. Qué pedidos
+  se reintentan lo decide un solo criterio, `Model/CredentialRetryCriteria.php`, para el parche,
+  la reprogramación y el reintento: fallidos, ni cancelados, cerrados, completos o retenidos, y
+  creados en los últimos 30 días.
 - **Guardado de la configuración.** Guardar la sección `shipping` (donde están las credenciales
   de Hop) corre las revisiones siempre, aunque no cambie nada: es lo que hace alguien después de
   que Hop le desbloquea la cuenta. Guardar la sección `carriers`, que tiene todos los

@@ -98,6 +98,14 @@ class Runner
                     $this->logger->error('Hop: error en la revisión de la cuenta: ' . $e->getMessage());
                 }
             }
+            // Las medidas no dependen de Hop: se revisan también en las vistas de tienda que
+            // todavía no tienen una cuenta (sin credenciales cargadas).
+            $withAccount = $accounts ? array_merge(...array_values($accounts)) : [];
+            foreach ($this->accountResolver->getActiveStoreIds() as $storeId) {
+                if (($storeIds === null || in_array($storeId, $storeIds, true)) && !in_array($storeId, $withAccount, true)) {
+                    $this->checkMeasures($storeId);
+                }
+            }
             if ($storeIds === null) {
                 $this->cleanUp(array_keys($accounts));
             }
@@ -183,7 +191,11 @@ class Runner
             if ($this->isNoResponse()) {
                 return;
             }
-            $this->storage->save($scope, Checks::TEST_QUOTE, Checks::SEVERITY_WARNING, (string)__('No se pudo probar la cotización: no hay puntos Hop cerca del código postal de origen %1.', $originZip), [$storeId]);
+            $this->storage->save($scope, Checks::TEST_QUOTE, Checks::SEVERITY_WARNING, (string)__(
+                'No se pudo probar la cotización: Hop no tiene puntos cerca del código postal de origen %1 en el país %2.',
+                $originZip,
+                (string)$this->helper->getStoreCountry($storeId)
+            ), [$storeId]);
             return;
         }
 

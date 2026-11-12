@@ -32,6 +32,9 @@ class RunnerTest extends TestCase
     /** @var int */
     private $withoutMeasures = 0;
 
+    /** @var array */
+    private $accounts = ['acct:a' => [1]];
+
     /** @var Runner */
     private $runner;
 
@@ -49,7 +52,7 @@ class RunnerTest extends TestCase
         $webservice->method('getLastStatus')->willReturnCallback(fn () => $this->hop['status']);
 
         $resolver = $this->createMock(AccountResolver::class);
-        $resolver->method('getAccounts')->willReturn(['acct:a' => [1]]);
+        $resolver->method('getAccounts')->willReturnCallback(fn () => $this->accounts);
         $resolver->method('getActiveStoreIds')->willReturn([1]);
 
         $storage = $this->createMock(ResultStorage::class);
@@ -152,6 +155,15 @@ class RunnerTest extends TestCase
         $this->runner->run();
         $this->assertSame(Checks::SEVERITY_WARNING, $this->savedStatus('store:1|measures'));
         $this->assertStringContainsString('12 productos', $this->saved['store:1|measures'][1]);
+    }
+
+    public function testMeasuresWithoutCredentials(): void
+    {
+        $this->accounts = [];
+        $this->withoutMeasures = 4;
+        $this->runner->run();
+        $this->assertSame(Checks::SEVERITY_WARNING, $this->savedStatus('store:1|measures'), 'las medidas no dependen de Hop');
+        $this->assertArrayNotHasKey('store:1|test_quote', $this->saved);
     }
 
     public function testSizeCategoryMakesMeasuresOk(): void

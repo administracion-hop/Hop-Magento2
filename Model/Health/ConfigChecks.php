@@ -56,12 +56,43 @@ class ConfigChecks
     public function run($storeId)
     {
         $results = [
+            Checks::CREDENTIALS_MISSING => $this->checkCredentialsMissing($storeId),
             Checks::DISPATCH_DATA => $this->checkDispatchData($storeId),
             Checks::DOCUMENT => $this->checkDocument($storeId),
             Checks::DEMO_MODE => $this->checkDemoMode($storeId),
             Checks::WEIGHT_UNIT => $this->checkWeightUnit($storeId),
         ];
         return array_filter($results);
+    }
+
+    /**
+     * 1a sin datos: sin credenciales cargadas no hay cuenta que revisar contra Hop, así que el
+     * problema se ve leyendo la configuración.
+     *
+     * @param int $storeId
+     * @return array|null
+     */
+    public function checkCredentialsMissing($storeId)
+    {
+        $fields = [
+            'Client ID' => $this->helper->getClientId($storeId),
+            'Client Secret' => $this->helper->getClientSecret($storeId),
+            (string)__('email') => $this->helper->getEmail($storeId),
+            (string)__('contraseña') => $this->helper->getPassword($storeId),
+        ];
+        $missing = [];
+        foreach ($fields as $label => $value) {
+            if ($value === null || trim((string)$value) === '') {
+                $missing[] = $label;
+            }
+        }
+        if (!$missing) {
+            return null;
+        }
+        return [
+            Checks::SEVERITY_ERROR,
+            (string)__('Faltan credenciales de Hop: %1. Sin ellas Hop no aparece en el checkout ni se despacha nada.', implode(', ', $missing)),
+        ];
     }
 
     /**

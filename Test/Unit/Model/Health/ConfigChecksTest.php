@@ -30,6 +30,7 @@ class ConfigChecksTest extends TestCase
             'seller_code' => 'MENZE', 'storage_code' => 'DEPOSITO', 'shipping_type' => 'E', 'days_offset' => '1',
             'taxvat' => false, 'vat_visible' => true, 'document_attribute' => 'customer_dni',
             'productivo' => true, 'design/head/demonotice' => false, 'general/locale/weight_unit' => 'kgs',
+            'client_id' => 'id', 'client_secret' => 'secret', 'email' => 'a@b.c', 'password' => 'clave',
         ];
         $helper = $this->createMock(HelperHop::class);
         $helper->method('getSellerCode')->willReturnCallback(fn () => $this->config['seller_code']);
@@ -39,6 +40,10 @@ class ConfigChecksTest extends TestCase
         $helper->method('useCustomerTaxvat')->willReturnCallback(fn () => $this->config['taxvat']);
         $helper->method('IsVAtShowToFrontend')->willReturnCallback(fn () => $this->config['vat_visible']);
         $helper->method('getCustomerDocumentAttribute')->willReturnCallback(fn () => $this->config['document_attribute']);
+        $helper->method('getClientId')->willReturnCallback(fn () => $this->config['client_id']);
+        $helper->method('getClientSecret')->willReturnCallback(fn () => $this->config['client_secret']);
+        $helper->method('getEmail')->willReturnCallback(fn () => $this->config['email']);
+        $helper->method('getPassword')->willReturnCallback(fn () => $this->config['password']);
         $helper->method('getProductivo')->willReturnCallback(fn () => $this->config['productivo']);
 
         $scopeConfig = $this->createMock(ScopeConfigInterface::class);
@@ -136,6 +141,17 @@ class ConfigChecksTest extends TestCase
         } else {
             $this->assertNull($result);
         }
+    }
+
+    public function testCredentialsMissing(): void
+    {
+        $this->config['client_id'] = '';
+        $this->config['password'] = null;
+        $result = $this->checks->checkCredentialsMissing(1);
+        $this->assertSame(Checks::SEVERITY_ERROR, $result[0]);
+        $this->assertStringContainsString('Client ID', $result[1]);
+        $this->assertStringContainsString('contraseña', $result[1]);
+        $this->assertStringNotContainsString('Client Secret', $result[1]);
     }
 
     public function testWeightUnit(): void

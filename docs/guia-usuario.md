@@ -12,6 +12,8 @@ Guías relacionadas:
 - [Envíos multibulto](multibulto-guia-admin.md): las cuatro formas de despachar un pedido,
   los envíos en varios bultos y qué hacer cuando un despacho falla.
 - [Configuración para Perú (Ubigeo)](peru-ubigeo.md): solo si la tienda vende a Perú.
+- [Verificador de configuración y conexión](verificador-guia.md): el aviso del panel que
+  dice qué falla en la configuración de Hop y cómo resolverlo.
 
 ---
 
@@ -319,6 +321,12 @@ Cómo se aplica:
 
 ## 7. Problemas frecuentes
 
+**Antes que nada, mirá el aviso del verificador.** Si la configuración de Hop o la conexión
+tienen un problema, arriba de todas las pantallas del panel aparece una franja roja (errores)
+o amarilla (advertencias) con el link al detalle, que dice qué falla, en qué vista de tienda
+y cómo resolverlo. También está en *Envíos Hop → Verificador*. Ver la
+[guía del verificador](verificador-guia.md).
+
 | Qué pasa | Qué revisar |
 |---|---|
 | Hop no aparece en el checkout | Que esté **Habilitado**, que las credenciales sean del modo correcto (productivo o sandbox) y que haya puntos para ese código postal. Poné *Mostrar mensaje de método no disponible* en **Sí** para ver el motivo. |
@@ -326,6 +334,8 @@ Cómo se aplica:
 | Hop cotiza un precio raro | Las medidas de los productos y el **Tamaño de categoría**. Recordá que el alto se suma y que todo se multiplica por la cantidad. |
 | El mapa del checkout no carga | La **Api Key Google Maps**. |
 | No aparece **Enviar a HOP** | El pedido no tiene punto asignado o ya fue despachado. Ver la [guía de multibulto](multibulto-guia-admin.md#el-botón-enviar-a-hop-no-aparece). |
-| El pedido no se despachó solo | Que su estado esté en **Estados para generación etiqueta** y que el cron de Magento esté corriendo. |
+| El pedido no se despachó solo | Que su estado esté en **Estados para generación etiqueta** y que el cron de Magento esté corriendo (el verificador avisa si no corre). |
+| El pedido dice "Hop rechazó las credenciales" | Las credenciales de Hop. Cuando vuelvan a funcionar, el pedido se reintenta solo (ver la [guía del verificador](verificador-guia.md#5-pedidos-que-fallaron-por-credenciales)). |
+| El pedido dice "Ya existe un envío en Hop con esta referencia" | El envío ya está creado en Hop: buscalo en el panel de Hop. No se puede reintentar desde Magento. |
 | El pedido no cambia de estado con los avisos de Hop | Que esté activado el **Manejo de estado de las ventas** (6.2) y que Hop tenga las claves (6.1). |
 | Hop no tiene el DNI del cliente | La opción de **número de documento** (2.1). |

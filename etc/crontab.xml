@@ -7,6 +7,9 @@
         <job name="hop_envios_genarate_shipment" instance="Hop\Envios\Cron\GenarateShipment" method="execute">
             <schedule>* * * * *</schedule>
         </job>
+        <job name="hop_envios_health_check" instance="Hop\Envios\Cron\HealthCheck" method="execute">
+            <schedule>0 */6 * * *</schedule>
+        </job>
         <job name="hop_envios_generate_shipping_labels" instance="Hop\Envios\Cron\GenerateShippingLabels" method="execute">
             <schedule>* * * * *</schedule>
         </job>

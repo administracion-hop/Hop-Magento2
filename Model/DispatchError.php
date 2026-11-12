@@ -30,6 +30,12 @@ class DispatchError
      * PATTERNS: lo asigna SalesOrderShipmentSaveAfter, y no se puede reintentar (ver isRetryable).
      */
     const CODE_MULTIBULTO_PARTIAL = 'multibulto_partial';
+    /**
+     * Hop rechazó las credenciales (401 después de reintentar el inicio de sesión). No se
+     * reintenta por tiempo: lo reprograma CredentialState cuando las credenciales vuelven a
+     * funcionar, y no cuenta para los escalones de RETRY_DELAYS_MINUTES.
+     */
+    const CODE_CREDENTIALS = 'credentials';
 
     /**
      * Espera antes de cada reintento automático de errores transitorios (5XX / sin
@@ -40,6 +46,8 @@ class DispatchError
     /** substring (case-insensitive) => código. Doc oficial salvo donde se indica. */
     const PATTERNS = [
         'reference id ya est' => self::CODE_REFERENCE_IN_USE,          // 1
+        'Authorization fail' => self::CODE_CREDENTIALS,                // 401 de Hop con token inválido (sandbox)
+        'rechazó las credenciales' => self::CODE_CREDENTIALS,          // del módulo: Webservice::getCredentialsRejectedMessage
         'client.id number' => self::CODE_CLIENT_ID,                    // 2
         'client.name' => self::CODE_CLIENT_DATA,                       // 4
         'client.telephone' => self::CODE_CLIENT_DATA,                  // 5
@@ -68,8 +76,12 @@ class DispatchError
             true,
         ],
         self::CODE_REFERENCE_IN_USE => [
-            'Ya existe un envío en Hop con esta referencia y el módulo no pudo recuperarlo solo. Buscalo en el panel de Hop antes de reintentar para no duplicarlo.',
+            'Ya existe un envío en Hop con esta referencia y el módulo no pudo recuperarlo solo. Hop no acepta otro envío con la misma referencia, así que no se puede reintentar desde Magento: buscalo en el panel de Hop.',
             false,
+        ],
+        self::CODE_CREDENTIALS => [
+            'Hop rechazó las credenciales de la cuenta. Revisá Client ID, Client Secret, email y contraseña en la configuración de Hop. Cuando vuelvan a funcionar, el pedido se reintenta solo.',
+            true,
         ],
         self::CODE_PACKAGE_SIZE => [
             'Hop no recibió las medidas del paquete. Elegí un "Tamaño de categoría" en la configuración de Hop, o completá alto, largo y ancho en los productos, y reintentá.',
@@ -136,7 +148,24 @@ class DispatchError
      */
     public static function isRetryable($code)
     {
-        return $code !== self::CODE_MULTIBULTO_PARTIAL;
+        // Referencia en uso: Hop ya tiene un envío con la referencia del pedido y rechaza
+        // cualquier otro, así que reintentar no sirve y "Enviar a HOP" no se ofrece.
+        return $code !== self::CODE_MULTIBULTO_PARTIAL && $code !== self::CODE_REFERENCE_IN_USE;
+    }
+
+    /**
+     * Código para un despacho fallido: el 401 (credenciales) manda sobre el texto.
+     *
+     * @param string|null $message
+     * @param int|null $httpStatus
+     * @return string|null
+     */
+    public static function classifyFailure($message, $httpStatus = null)
+    {
+        if ((int)$httpStatus === 401) {
+            return self::CODE_CREDENTIALS;
+        }
+        return self::classify($message);
     }
 
     /**
@@ -145,6 +174,8 @@ class DispatchError
      * respuesta (4XX, o un 2XX/3XX sin envío) o un error conocido son datos a corregir:
      * reintentar da el mismo rechazo hasta que alguien los arregle, así que quedan para
      * revisión manual.
+     *
+     * Credenciales (CODE_CREDENTIALS) también devuelve null: ese reintento no es por tiempo.
      *
      * @param int $attempts intentos fallidos contando el actual
      * @param int|null $httpStatus null/0 = sin respuesta (red, timeout) o excepción antes de llegar a Hop

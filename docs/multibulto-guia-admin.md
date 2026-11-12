@@ -343,6 +343,13 @@ Ningún bulto se creó. El pedido queda sin despachar y podés volver a intentar
 último envío otra vez una vez corregido el problema, o pedile al equipo técnico que revise
 el log del módulo para ver el motivo exacto.
 
+Dos casos tienen un tratamiento propio:
+
+- **Hop rechazó las credenciales**: el pedido se reintenta solo cuando las credenciales
+  vuelven a funcionar (ver la [guía del verificador](verificador-guia.md#5-pedidos-que-fallaron-por-credenciales)).
+- **La referencia del pedido ya está en uso en Hop**: el envío ya existe en Hop y no se
+  puede crear otro. El pedido no ofrece **Enviar a HOP**; buscá el envío en el panel de Hop.
+
 ### Creé un envío después de despachar y quedó sin etiqueta
 
 Es el límite de Hop descrito en la [sección 1](#la-regla-que-hay-que-tener-presente). Ese

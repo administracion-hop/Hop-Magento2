@@ -11,6 +11,8 @@ use Magento\Sales\Model\Order;
 use Hop\Envios\Model\HopEnviosRepository;
 use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
 use Hop\Envios\Helper\ShippingMethod;
+use Hop\Envios\Model\DispatchError;
+use Magento\Sales\Api\OrderStatusHistoryRepositoryInterface;
 
 class GenarateShipment
 {
@@ -55,6 +57,11 @@ class GenarateShipment
      */
     protected $shippingMethodHelper;
 
+    /**
+     * @var OrderStatusHistoryRepositoryInterface
+     */
+    protected $orderStatusHistoryRepository;
+
     const SHIPMENT_STATUS_PENDING = 'pending';
     const SHIPMENT_STATUS_PROCESING = 'processing';
     const SHIPMENT_STATUS_COMPLETED = 'completed';
@@ -69,7 +76,8 @@ class GenarateShipment
         ShipmentNotifier $shipmentNotifier,
         HopEnviosRepository $hopEnviosRepository,
         ShipmentCollectionFactory $shipmentCollectionFactory,
-        ShippingMethod $shippingMethodHelper
+        ShippingMethod $shippingMethodHelper,
+        OrderStatusHistoryRepositoryInterface $orderStatusHistoryRepository
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -79,6 +87,7 @@ class GenarateShipment
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->shipmentCollectionFactory = $shipmentCollectionFactory;
         $this->shippingMethodHelper = $shippingMethodHelper;
+        $this->orderStatusHistoryRepository = $orderStatusHistoryRepository;
     }
 
     /**
@@ -126,16 +135,31 @@ class GenarateShipment
      */
     protected function retryOrder($hopEnvio)
     {
+        $byCredentials = $hopEnvio->getLastErrorCode() === DispatchError::CODE_CREDENTIALS;
         $hopEnvio->setNextRetryAt(null);
         $this->hopEnviosRepository->save($hopEnvio);
 
         $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
+
+        // Un pedido cancelado o cerrado (reembolsado) no se despacha, aunque ya tenga envío de
+        // Magento: queda failed y sin reintento, a la vista para revisión manual.
+        if (in_array($order->getState(), [Order::STATE_CANCELED, Order::STATE_CLOSED], true)) {
+            $this->logger->info(__('Orden %1 %2: no se reintenta el despacho a Hop', $hopEnvio->getOrderId(), $order->getState()));
+            return;
+        }
+
         $this->logger->info(__('Reintento %1 de despacho a Hop para la orden %2', (int)$hopEnvio->getAttempts() + 1, $hopEnvio->getOrderId()));
 
         try {
             $hasShipments = $order->getId() && $this->shipmentCollectionFactory->create()
                 ->addFieldToFilter('order_id', $order->getId())
                 ->getSize() > 0;
+            if (!$hasShipments && (!$order->getId() || !$order->canShip())) {
+                // Mismo corte que processOrder(): no hay nada para despachar (por ejemplo, se
+                // resolvió a mano mientras tanto). No se comenta como reintento.
+                $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
+                return;
+            }
             if ($hasShipments) {
                 $this->shippingMethodHelper->retryDispatch($order);
             } else {
@@ -144,6 +168,35 @@ class GenarateShipment
             }
         } catch (\Exception $e) {
             $this->logger->error(__('Error reintentando el despacho de la orden ') . $hopEnvio->getOrderId() . ': ' . $e->getMessage());
+        }
+
+        if ($byCredentials && $order->getId()) {
+            $this->addCredentialsRetryComment($order);
+        }
+    }
+
+    /**
+     * Deja en el historial del pedido que se reintentó solo y con qué resultado. Se guarda el
+     * comentario solo, sin guardar el pedido, para no disparar los observers de la orden.
+     *
+     * @param Order $order
+     * @return void
+     */
+    protected function addCredentialsRetryComment($order)
+    {
+        try {
+            $hopEnvio = $this->hopEnviosRepository->getByOrderId((int)$order->getId());
+            $result = ($hopEnvio && $hopEnvio->getStatusShipment() === self::SHIPMENT_STATUS_COMPLETED)
+                ? __('Resultado: despachado a Hop.')
+                : __('Resultado: falló de nuevo. %1', $hopEnvio ? (string)$hopEnvio->getLastError() : '');
+            $history = $order->addCommentToStatusHistory(
+                __('Reintentado automáticamente al recuperarse las credenciales de Hop.') . ' ' . $result,
+                false,
+                false
+            );
+            $this->orderStatusHistoryRepository->save($history);
+        } catch (\Exception $e) {
+            $this->logger->error(__('No se pudo agregar el comentario de reintento a la orden %1: %2', $order->getId(), $e->getMessage()));
         }
     }
 

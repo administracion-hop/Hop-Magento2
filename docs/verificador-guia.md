@@ -118,7 +118,8 @@ Si el envío ya se había creado a mano en el panel de Hop, Hop avisa que la ref
 ya está en uso y no se crea otro. En un pedido de un solo bulto el módulo intenta recuperar ese
 envío (lo busca en Hop y compara el mail del comprador y el precio). Si no puede, o si es un
 multibulto, el pedido queda marcado *Ya existe un envío en Hop con esta referencia*, sin el
-botón **Enviar a HOP**: buscalo en el panel de Hop.
+botón **Enviar a HOP**: buscalo en el panel de Hop. Si Hop no responde al buscar ese envío, no se
+marca así: se vuelve a intentar más tarde, como cualquier falta de respuesta de Hop.
 
 Mientras las credenciales estén rechazadas, Hop no aparece en el checkout, como siempre. Apenas
 vuelven a funcionar, aparece en la primera cotización, sin tener que guardar nada en Magento.

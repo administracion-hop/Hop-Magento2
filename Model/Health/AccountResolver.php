@@ -110,11 +110,20 @@ class AccountResolver
      */
     public function getAccounts(?array $storeIds = null)
     {
+        $active = $this->getActiveStoreIds();
+        return $this->groupByAccount($storeIds === null ? $active : array_values(array_intersect($active, $storeIds)));
+    }
+
+    /**
+     * Agrupa por cuenta vistas de tienda ya filtradas (sin volver a leer cuáles están activas).
+     *
+     * @param int[] $storeIds
+     * @return array<string, int[]>
+     */
+    public function groupByAccount(array $storeIds)
+    {
         $accounts = [];
-        foreach ($this->getActiveStoreIds() as $storeId) {
-            if ($storeIds !== null && !in_array($storeId, $storeIds, true)) {
-                continue;
-            }
+        foreach ($storeIds as $storeId) {
             $key = $this->getAccountKey($storeId);
             if ($key !== null) {
                 $accounts[$key][] = $storeId;

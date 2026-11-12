@@ -36,6 +36,15 @@ class RunnerTest extends TestCase
     /** @var array */
     private $accounts = ['acct:a' => [1]];
 
+    /** @var array código de vendedor por vista de tienda */
+    private $sellerCodes = [];
+
+    /** @var array estado de Hop por código de vendedor */
+    private $sellerByCode = [];
+
+    /** @var int consultas del vendedor a Hop */
+    private $sellerCalls = 0;
+
     /** @var array filas que devuelve la tabla */
     private $rows = [];
 
@@ -53,14 +62,22 @@ class RunnerTest extends TestCase
         $webservice = $this->createMock(Webservice::class);
         $webservice->method('checkCredentials')->willReturnCallback(fn () => $this->hop['login']);
         $webservice->method('getLastLoginError')->willReturn('Nombre de usuario y/o contraseña incorrecta');
-        $webservice->method('getSellerStatus')->willReturnCallback(fn () => $this->hop['seller']);
+        $currentStore = null;
+        $webservice->method('setStoreId')->willReturnCallback(function ($storeId) use (&$currentStore) {
+            $currentStore = $storeId;
+        });
+        $webservice->method('getSellerStatus')->willReturnCallback(function () use (&$currentStore) {
+            $this->sellerCalls++;
+            $code = $this->sellerCodes[$currentStore] ?? 'MENZE';
+            return $this->sellerByCode[$code] ?? $this->hop['seller'];
+        });
         $webservice->method('getPickupPoints')->willReturnCallback(fn () => (object)['data' => $this->hop['points']]);
         $webservice->method('estimatePrice')->willReturnCallback(fn () => $this->hop['price']);
         $webservice->method('getLastStatus')->willReturnCallback(fn () => $this->hop['status']);
 
         $resolver = $this->createMock(AccountResolver::class);
         $resolver->method('getAccounts')->willReturnCallback(fn () => $this->accounts);
-        $resolver->method('getActiveStoreIds')->willReturn([1]);
+        $resolver->method('getActiveStoreIds')->willReturnCallback(fn () => array_merge(...array_values($this->accounts ?: ['x' => [1]])));
 
         $storage = $this->createMock(ResultStorage::class);
         $storage->method('save')->willReturnCallback(function ($scope, $code, $status, $message = null) {
@@ -75,7 +92,7 @@ class RunnerTest extends TestCase
         $helper->method('getOriginZipcode')->willReturnCallback(fn () => $this->config['origin']);
         $helper->method('getSizeCategory')->willReturnCallback(fn () => $this->config['size_category']);
         $helper->method('getStoreCountry')->willReturnCallback(fn () => $this->config['country']);
-        $helper->method('getSellerCode')->willReturn('MENZE');
+        $helper->method('getSellerCode')->willReturnCallback(fn ($storeId) => $this->sellerCodes[$storeId] ?? 'MENZE');
 
         $credentialState = $this->createMock(CredentialState::class);
         $credentialState->method('forget')->willReturnCallback(function ($key) {
@@ -98,7 +115,7 @@ class RunnerTest extends TestCase
     {
         $this->runner->run();
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|connection'));
-        $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|seller'));
+        $this->assertSame(Checks::STATUS_OK, $this->savedStatus('store:1|seller'));
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('store:1|test_quote'));
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('store:1|measures'));
     }
@@ -109,7 +126,7 @@ class RunnerTest extends TestCase
         $this->runner->run();
         $this->assertArrayNotHasKey('acct:a|credentials', $this->saved, 'la escribe solo CredentialState');
         $this->assertSame(Checks::STATUS_OK, $this->savedStatus('acct:a|connection'), 'Hop respondió');
-        $this->assertContains('acct:a|seller', $this->deleted);
+        $this->assertContains('store:1|seller', $this->deleted);
         $this->assertContains('store:1|test_quote', $this->deleted);
     }
 
@@ -117,8 +134,35 @@ class RunnerTest extends TestCase
     {
         $this->hop['seller'] = 'bloqueado';
         $this->runner->run();
-        $this->assertSame(Checks::SEVERITY_ERROR, $this->savedStatus('acct:a|seller'));
-        $this->assertStringContainsString('bloqueado', $this->saved['acct:a|seller'][1]);
+        $this->assertSame(Checks::SEVERITY_ERROR, $this->savedStatus('store:1|seller'));
+        $this->assertStringContainsString('bloqueado', $this->saved['store:1|seller'][1]);
+    }
+
+    public function testSellerIsCheckedPerStoreView(): void
+    {
+        // Dos vistas con las mismas credenciales y distinto código de vendedor.
+        $this->accounts = ['acct:a' => [1, 2]];
+        $this->sellerCodes = [1 => 'BUENO', 2 => 'MALO'];
+        $this->sellerByCode = ['BUENO' => 'active', 'MALO' => 'not_found'];
+        $this->runner->run();
+        $this->assertSame(Checks::STATUS_OK, $this->savedStatus('store:1|seller'));
+        $this->assertSame(Checks::SEVERITY_ERROR, $this->savedStatus('store:2|seller'));
+        $this->assertStringContainsString('MALO', $this->saved['store:2|seller'][1]);
+    }
+
+    public function testSameSellerCodeIsCheckedOnce(): void
+    {
+        $this->accounts = ['acct:a' => [1, 2]];
+        $this->runner->run();
+        $this->assertSame(1, $this->sellerCalls);
+    }
+
+    public function testEmptySellerCodeDoesNotCallHop(): void
+    {
+        $this->sellerCodes = [1 => ''];
+        $this->runner->run();
+        $this->assertSame(0, $this->sellerCalls);
+        $this->assertContains('store:1|seller', $this->deleted, 'ya lo avisa Datos para despachar');
     }
 
     public function testNoResponseIsWarningAndKeepsCredentials(): void

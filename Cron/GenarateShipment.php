@@ -138,6 +138,14 @@ class GenarateShipment
     {
         $byCredentials = $hopEnvio->getLastErrorCode() === DispatchError::CODE_CREDENTIALS;
         $hopEnvio->setNextRetryAt(null);
+        if ($byCredentials) {
+            // Se quita el motivo de credenciales: si el intento vuelve a fallar, markFailed deja el
+            // motivo nuevo; si no se llega a intentar (pedido que no se puede enviar, fuera del
+            // criterio), queda para revisión manual en vez de reprogramarse con cada inicio de
+            // sesión bueno.
+            $hopEnvio->setLastErrorCode(null);
+        }
+        $before = [$hopEnvio->getStatusShipment(), $hopEnvio->getLastError(), (int)$hopEnvio->getAttempts()];
         $this->hopEnviosRepository->save($hopEnvio);
 
         $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
@@ -176,24 +184,37 @@ class GenarateShipment
         }
 
         if ($byCredentials && $order->getId()) {
-            $this->addCredentialsRetryComment($order);
+            $this->addCredentialsRetryComment((int)$order->getId(), $before);
         }
     }
 
     /**
-     * Deja en el historial del pedido que se reintentó solo y con qué resultado. Se guarda el
-     * comentario solo, sin guardar el pedido, para no disparar los observers de la orden.
+     * Deja en el historial del pedido que se reintentó solo y con qué resultado, solo si el
+     * despacho llegó a intentarse (algo cambió en hop_envios). Se relee el pedido, porque el
+     * despacho lo cambia en otra instancia: el comentario tiene que llevar el estado actual. Se
+     * guarda el comentario solo, sin guardar el pedido, para no disparar los observers.
      *
-     * @param Order $order
+     * @param int $orderId
+     * @param array $before [estado, último error, intentos] antes del intento
      * @return void
      */
-    protected function addCredentialsRetryComment($order)
+    protected function addCredentialsRetryComment($orderId, array $before)
     {
         try {
-            $hopEnvio = $this->hopEnviosRepository->getByOrderId((int)$order->getId());
-            $result = ($hopEnvio && $hopEnvio->getStatusShipment() === self::SHIPMENT_STATUS_COMPLETED)
+            $hopEnvio = $this->hopEnviosRepository->getByOrderId($orderId);
+            if (!$hopEnvio) {
+                return;
+            }
+            $completed = $hopEnvio->getStatusShipment() === self::SHIPMENT_STATUS_COMPLETED;
+            $after = [$hopEnvio->getStatusShipment(), $hopEnvio->getLastError(), (int)$hopEnvio->getAttempts()];
+            if (!$completed && $after === $before && !$hopEnvio->getLastErrorCode()) {
+                // No se llegó a intentar el despacho: no hay resultado que comentar.
+                return;
+            }
+            $result = $completed
                 ? __('Resultado: despachado a Hop.')
-                : __('Resultado: falló de nuevo. %1', $hopEnvio ? (string)$hopEnvio->getLastError() : '');
+                : __('Resultado: falló de nuevo. %1', (string)$hopEnvio->getLastError());
+            $order = $this->orderFactory->create()->load($orderId);
             $history = $order->addCommentToStatusHistory(
                 __('Reintentado automáticamente al recuperarse las credenciales de Hop.') . ' ' . $result,
                 false,
@@ -201,7 +222,7 @@ class GenarateShipment
             );
             $this->orderStatusHistoryRepository->save($history);
         } catch (\Exception $e) {
-            $this->logger->error(__('No se pudo agregar el comentario de reintento a la orden %1: %2', $order->getId(), $e->getMessage()));
+            $this->logger->error(__('No se pudo agregar el comentario de reintento a la orden %1: %2', $orderId, $e->getMessage()));
         }
     }
 

@@ -35,6 +35,7 @@ class ReportTest extends TestCase
         $resolver = $this->createMock(AccountResolver::class);
         $resolver->method('getActiveStoreIds')->willReturn([1, 2]);
         $resolver->method('getAccounts')->willReturn(['acct:actual' => [1, 2]]);
+        $resolver->method('groupByAccount')->willReturn(['acct:actual' => [1, 2]]);
 
         $configChecks = $this->createMock(ConfigChecks::class);
         $configChecks->method('run')->willReturnCallback(fn ($storeId) => $this->configProblems[$storeId] ?? []);

@@ -80,8 +80,17 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
         $repository->method('getRetryableFailed')->willReturn($failed);
         $repository->method('getByOrderId')->willReturnCallback(function () {
             $after = clone $this->hopEnvio;
+            if ($this->dispatches === 0) {
+                return $after; // no se llegó a intentar: nada cambió
+            }
             $after->setStatusShipment($this->statusAfterRetry);
-            $after->setLastError($this->statusAfterRetry === GenarateShipment::SHIPMENT_STATUS_FAILED ? 'Hop rechazó las credenciales de inicio de sesión.' : null);
+            if ($this->statusAfterRetry === GenarateShipment::SHIPMENT_STATUS_FAILED) {
+                // markFailed vuelve a dejar el motivo.
+                $after->setLastError('Hop rechazó las credenciales de inicio de sesión.');
+                $after->setLastErrorCode(DispatchError::CODE_CREDENTIALS);
+            } else {
+                $after->setLastError(null);
+            }
             return $after;
         });
 
@@ -154,6 +163,18 @@ class GenarateShipmentCredentialsRetryTest extends TestCase
 
         $this->assertSame(0, $this->dispatches);
         $this->assertSame([], $this->comments);
+    }
+
+    public function testRetryClearsCredentialsReason(): void
+    {
+        // Si no se llega a intentar el despacho, el pedido no puede quedar con el motivo de
+        // credenciales: se reprogramaría con cada inicio de sesión bueno.
+        $this->order->method('getState')->willReturn(Order::STATE_PROCESSING);
+        $this->createdAt = gmdate('Y-m-d H:i:s', time() - 45 * 86400);
+        $this->cron->execute();
+
+        $this->assertNull($this->hopEnvio->getLastErrorCode());
+        $this->assertSame([], $this->comments, 'sin intento no hay comentario');
     }
 
     public function testOldOrdersAreNotRetried(): void

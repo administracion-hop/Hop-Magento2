@@ -189,7 +189,7 @@ class Report
                 $this->safely(function () use ($scope, $code, $severity, $message, $storeIds, $row) {
                     $this->storage->save($scope, $code, $severity, $message, $storeIds, $row);
                 });
-                $since = ($row && $row['status'] === $severity) ? $row['since'] : gmdate('Y-m-d H:i:s');
+                $since = gmdate('Y-m-d H:i:s');
             }
             $problems[] = $this->problem($code, $severity, $message, $storeIds, $since);
         }
@@ -216,7 +216,7 @@ class Report
     private function collectStored(array $activeStoreIds, array $rows)
     {
         $scopes = [];
-        foreach ($this->accountResolver->getAccounts() as $accountKey => $storeIds) {
+        foreach ($this->accountResolver->groupByAccount($activeStoreIds) as $accountKey => $storeIds) {
             $scopes[$accountKey] = $storeIds;
         }
         foreach ($activeStoreIds as $storeId) {

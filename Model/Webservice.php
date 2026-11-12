@@ -325,7 +325,7 @@ class Webservice
      */
     public function getSellerStatus()
     {
-        $response = $this->curl('GET', 'api.hopenvios.com.ar/api/v1/sellers/' . $this->_helper->getSellerCode($this->storeId));
+        $response = $this->curl('GET', 'api.hopenvios.com.ar/api/v1/sellers/' . rawurlencode((string)$this->_helper->getSellerCode($this->storeId)));
         if ($response === false || $this->lastStatus === 0 || $this->lastStatus >= 500 || $this->credentialsRejected) {
             return null;
         }
@@ -1026,6 +1026,15 @@ class Webservice
                 );
                 if ($found !== false) {
                     return $found;
+                }
+                if ($this->lastStatus === 0 || $this->lastStatus >= 500) {
+                    // Hop no respondió la búsqueda del envío existente: no se sabe si es de este
+                    // pedido. Se trata como falta de respuesta (reintento por tiempo, y "Enviar a
+                    // HOP" sigue disponible) y no como referencia en uso, que no se reintenta.
+                    $error = (string)__('Hop indicó que ya tiene un envío con la referencia de este pedido, pero no respondió al buscarlo para recuperarlo. Se vuelve a intentar.');
+                    $this->_helper->log($error, true);
+                    $this->messageManager->addErrorMessage($error);
+                    return ['error' => $error];
                 }
             }
 

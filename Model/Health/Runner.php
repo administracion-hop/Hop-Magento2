@@ -144,31 +144,57 @@ class Runner
         $this->storage->save($accountKey, Checks::CONNECTION, Checks::STATUS_OK, null, $storeIds);
         // 1a: la fila de credenciales la escribe solo CredentialState, desde Webservice::login().
 
+        // Versiones anteriores guardaban el vendedor por cuenta; ahora va por vista de tienda.
+        $this->storage->delete($accountKey, Checks::SELLER);
+
         if ($login === Webservice::LOGIN_REJECTED) {
             // Con credenciales rechazadas no se puede saber nada más de Hop.
-            $this->storage->delete($accountKey, Checks::SELLER);
             foreach ($storeIds as $storeId) {
+                $this->storage->delete(Checks::storeScope($storeId), Checks::SELLER);
                 $this->storage->delete(Checks::storeScope($storeId), Checks::TEST_QUOTE);
                 $this->checkMeasures($storeId);
             }
             return;
         }
 
-        // 1b
-        $sellerStatus = $this->webservice->getSellerStatus();
-        $sellerCode = (string)$this->helper->getSellerCode(reset($storeIds));
-        if ($sellerStatus === 'active') {
-            $this->storage->save($accountKey, Checks::SELLER, Checks::STATUS_OK, null, $storeIds);
-        } elseif ($sellerStatus === 'not_found') {
-            $this->storage->save($accountKey, Checks::SELLER, Checks::SEVERITY_ERROR, (string)__('Hop no encuentra el vendedor "%1": Hop no aparece en el checkout.', $sellerCode), $storeIds);
-        } elseif ($sellerStatus !== null) {
-            $this->storage->save($accountKey, Checks::SELLER, Checks::SEVERITY_ERROR, (string)__('Hop informa que el vendedor "%1" no está activo (estado: %2): Hop no aparece en el checkout.', $sellerCode, $sellerStatus), $storeIds);
-        }
-
+        $sellerStatuses = [];
         foreach ($storeIds as $storeId) {
+            $this->checkSeller($storeId, $sellerStatuses);
             $this->checkTestQuote($storeId);
             $this->checkMeasures($storeId);
         }
+    }
+
+    /**
+     * 1b. Vendedor, por vista de tienda: el código de vendedor se carga por vista y no forma
+     * parte de la cuenta. Un mismo código se consulta una sola vez.
+     *
+     * @param int $storeId
+     * @param array $sellerStatuses código => estado ya consultado en esta corrida
+     * @return void
+     */
+    private function checkSeller($storeId, array &$sellerStatuses)
+    {
+        $scope = Checks::storeScope($storeId);
+        $sellerCode = trim((string)$this->helper->getSellerCode($storeId));
+        if ($sellerCode === '') {
+            // Ya lo avisa "Datos para despachar".
+            $this->storage->delete($scope, Checks::SELLER);
+            return;
+        }
+        if (!array_key_exists($sellerCode, $sellerStatuses)) {
+            $this->webservice->setStoreId($storeId);
+            $sellerStatuses[$sellerCode] = $this->webservice->getSellerStatus();
+        }
+        $status = $sellerStatuses[$sellerCode];
+        if ($status === 'active') {
+            $this->storage->save($scope, Checks::SELLER, Checks::STATUS_OK, null, [$storeId]);
+        } elseif ($status === 'not_found') {
+            $this->storage->save($scope, Checks::SELLER, Checks::SEVERITY_ERROR, (string)__('Hop no encuentra el vendedor "%1": Hop no aparece en el checkout.', $sellerCode), [$storeId]);
+        } elseif ($status !== null) {
+            $this->storage->save($scope, Checks::SELLER, Checks::SEVERITY_ERROR, (string)__('Hop informa que el vendedor "%1" no está activo (estado: %2): Hop no aparece en el checkout.', $sellerCode, $status), [$storeId]);
+        }
+        // null: Hop no respondió; queda el resultado anterior.
     }
 
     /**

@@ -1,0 +1,47 @@
+<?php
+/** @var \Hop\Envios\Block\Adminhtml\Health\Detail $block */
+/** @var \Magento\Framework\Escaper $escaper */
+$problems = $block->getProblems();
+?>
+<div class="hop-health-detail">
+    <?php if (!$problems): ?>
+        <div class="message message-success success">
+            <div><?= $escaper->escapeHtml(__('No hay problemas en la configuración ni en la conexión con Hop.')) ?></div>
+        </div>
+    <?php else: ?>
+        <p>
+            <?= $escaper->escapeHtml(__('Las revisiones de configuración se actualizan al recargar esta pantalla. Las que consultan a Hop o al catálogo (credenciales, vendedor, conexión, cotización de prueba y medidas) se actualizan al guardar la configuración de Hop y cada 6 horas.')) ?>
+            <a href="<?= $escaper->escapeUrl($block->getConfigUrl()) ?>"><?= $escaper->escapeHtml(__('Ir a la configuración de Hop')) ?></a>
+        </p>
+        <table class="data-grid hop-health-table">
+            <thead>
+            <tr>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Tipo')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Qué falla')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Vista de tienda')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Desde')) ?></th>
+                <th class="data-grid-th"><?= $escaper->escapeHtml(__('Cómo resolverlo')) ?></th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($problems as $problem): ?>
+                <?php $isError = $block->isError($problem); ?>
+                <tr data-hop-check="<?= $escaper->escapeHtmlAttr($problem['code']) ?>">
+                    <td>
+                        <span class="hop-health-badge hop-health-badge-<?= $isError ? 'error' : 'warning' ?>">
+                            <?= $escaper->escapeHtml($isError ? __('Error') : __('Advertencia')) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <strong><?= $escaper->escapeHtml($problem['title']) ?></strong><br>
+                        <?= $escaper->escapeHtml($problem['message']) ?>
+                    </td>
+                    <td><?= $escaper->escapeHtml(implode(', ', $block->getStoreLabels($problem['store_ids']))) ?></td>
+                    <td><?= $escaper->escapeHtml($block->formatSince($problem['since'])) ?></td>
+                    <td><?= $escaper->escapeHtml($problem['fix']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+</div>

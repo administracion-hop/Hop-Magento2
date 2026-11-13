@@ -50,7 +50,8 @@
             "PRIMARY": true
         },
         "index": {
-            "HOP_ENVIOS_ORDER_ID": true
+            "HOP_ENVIOS_ORDER_ID": true,
+            "HOP_ENVIOS_STATUS_SHIPMENT_LAST_ERROR_CODE": true
         }
     },
     "hop_pickup_points": {
@@ -175,6 +176,22 @@
         },
         "index": {
             "SALES_ORDER_GRID_HOP_DISPATCH_STATUS": true
+        }
+    },
+    "hop_envios_health_check": {
+        "column": {
+            "entity_id": true,
+            "scope_key": true,
+            "check_code": true,
+            "status": true,
+            "message": true,
+            "store_ids": true,
+            "since": true,
+            "checked_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HOP_ENVIOS_HEALTH_CHECK_SCOPE_KEY_CHECK_CODE": true
         }
     }
 }

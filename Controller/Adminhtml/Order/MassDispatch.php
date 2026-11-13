@@ -202,10 +202,12 @@ class MassDispatch extends Action implements HttpPostActionInterface
             return (string)__('ya despachado');
         }
 
-        // Multibulto con bultos rechazados: el envío ya existe en Hop y no admite sumar bultos,
-        // así que reintentar no manda nada. Mismo criterio que oculta "Enviar a HOP" en el pedido.
+        // Multibulto con bultos rechazados o referencia ya en uso: el envío ya existe en Hop y
+        // reintentar no manda nada. Mismo criterio que oculta "Enviar a HOP" en el pedido.
         if ($hopEnvios && !DispatchError::isRetryable($hopEnvios->getLastErrorCode())) {
-            return (string)__('ya creado en Hop con bultos rechazados');
+            return $hopEnvios->getLastErrorCode() === DispatchError::CODE_REFERENCE_IN_USE
+                ? (string)__('ya existe en Hop un envío con su referencia')
+                : (string)__('ya creado en Hop con bultos rechazados');
         }
 
         // Con envíos parciales el despacho lo hace SalesOrderShipmentSaveAfter al completar el

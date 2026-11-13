@@ -251,6 +251,8 @@ class WebserviceCredentialsTest extends TestCase
             'activo' => [[200, '{"data":{"status":"active"}}'], 'active'],
             'bloqueado' => [[200, '{"data":{"status":"bloqueado"}}'], 'bloqueado'],
             'no existe' => [[404, '{"message":"Not Found"}'], 'not_found'],
+            'no existe, envuelto por Hop en un 400' => [[400, '{"errors":[{"status":400,"detail":"Client error: `GET https:\/\/sandbox-gven.hopenvios.com.ar\/api\/sellers\/NOEXISTE` resulted in a `404 Not Found` response:\n\"Seller does not exist\"\n","data":null}]}'], 'not_found'],
+            'otro 400' => [[400, '{"errors":[{"status":400,"detail":"Bad Request"}]}'], null],
             'llamada rechazada' => [[403, '{"message":"Forbidden"}'], null],
             'demasiados pedidos' => [[429, '{"message":"Too Many Attempts."}'], null],
         ];

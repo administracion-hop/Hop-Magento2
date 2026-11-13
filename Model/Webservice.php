@@ -329,7 +329,10 @@ class Webservice
         if ($response === false || $this->lastStatus === 0 || $this->lastStatus >= 500 || $this->credentialsRejected) {
             return null;
         }
-        if ($this->lastStatus === 404) {
+        // Hop envuelve el 404 de su servicio interno en un 400 con el texto "Seller does not exist".
+        if ($this->lastStatus === 404
+            || ($this->lastStatus === 400 && stripos((string)$response, 'Seller does not exist') !== false)
+        ) {
             return 'not_found';
         }
         if ($this->lastStatus < 200 || $this->lastStatus >= 300) {

@@ -100,8 +100,6 @@ class LabelGeneratorPlugin
 
                         $curlHttpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
 
-                        curl_close($curl);
-
                         // Hop's label_url routinely 403s for ~1 minute after dispatch while the
                         // file propagates to S3/CloudFront. Must throw (not just log) so this
                         // fails loud instead of writing an empty file and silently degrading
@@ -120,7 +118,6 @@ class LabelGeneratorPlugin
                                 ob_start();
                                 imagejpeg($img, null, 95);
                                 $normalized = ob_get_clean();
-                                imagedestroy($img);
                                 if ($normalized && strlen($normalized) > 100) {
                                     $imageData = $normalized;
                                 }
@@ -207,8 +204,6 @@ class LabelGeneratorPlugin
 
                     $curlHttpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
 
-                    curl_close($curl);
-
                     // Hop's label_url routinely 403s for ~1 minute after dispatch while the file
                     // propagates to S3/CloudFront. Must throw (not swallow) so the caller treats
                     // this as a failed attempt and retries later — silently continuing here used
@@ -228,7 +223,6 @@ class LabelGeneratorPlugin
                             ob_start();
                             imagejpeg($img, null, 95);
                             $normalized = ob_get_clean();
-                            imagedestroy($img);
                             if ($normalized && strlen($normalized) > 100) {
                                 $imageData = $normalized;
                             }

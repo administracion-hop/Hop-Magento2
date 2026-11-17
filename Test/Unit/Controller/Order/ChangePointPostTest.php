@@ -16,6 +16,7 @@ use Magento\Framework\Message\ManagerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Controller\AbstractController\OrderViewAuthorizationInterface;
 use Magento\Sales\Model\Order;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -56,11 +57,9 @@ class ChangePointPostTest extends TestCase
             ['point_id', null, ' point-new '],
         ]);
 
-        $this->customerSession = $this->getMockBuilder(CustomerSession::class)
+        $this->customerSession = $this->getMockBuilder(CustomerSessionWithData::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['isLoggedIn', 'getCustomerId', 'getData'])
-            // setData is resolved by SessionManager::__call() onto the session storage
-            ->addMethods(['setData'])
+            ->onlyMethods(['isLoggedIn', 'getCustomerId', 'getData', 'setData'])
             ->getMock();
         $this->customerSession->method('getCustomerId')->willReturn(7);
         $this->customerSession->method('getData')->willReturnCallback(fn ($key) => $this->sessionData[$key] ?? null);
@@ -177,6 +176,7 @@ class ChangePointPostTest extends TestCase
     /**
      * @dataProvider unquotedCodes
      */
+    #[DataProvider('unquotedCodes')]
     public function testRejectionsBeforeQuotingDontSpendAttempts(string $code): void
     {
         $this->customerSession->method('isLoggedIn')->willReturn(true);

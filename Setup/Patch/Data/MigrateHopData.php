@@ -110,6 +110,8 @@ class MigrateHopData implements DataPatchInterface
         } finally {
             $this->moduleDataSetup->getConnection()->endSetup();
         }
+
+        return $this;
     }
 
     /**

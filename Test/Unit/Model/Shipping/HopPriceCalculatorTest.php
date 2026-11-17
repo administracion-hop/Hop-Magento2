@@ -6,6 +6,7 @@ use Hop\Envios\Helper\Data as HopHelper;
 use Hop\Envios\Model\Shipping\HopPriceCalculator;
 use Hop\Envios\Model\Webservice;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class HopPriceCalculatorTest extends TestCase
@@ -90,6 +91,7 @@ class HopPriceCalculatorTest extends TestCase
     /**
      * @dataProvider adjustmentCases
      */
+    #[DataProvider('adjustmentCases')]
     public function testAdjustMatchesLegacyCarrier(float $cost, $percentageRate, $fixedValue): void
     {
         $this->configure($percentageRate, $fixedValue);

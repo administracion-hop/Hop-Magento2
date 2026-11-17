@@ -8,6 +8,7 @@ use Hop\Envios\Model\PickupPoint\DispatchStatus;
 use Magento\Framework\DataObject;
 use Magento\Sales\Model\ResourceModel\Order\Shipment\Collection as ShipmentCollection;
 use Magento\Sales\Model\ResourceModel\Order\Shipment\CollectionFactory as ShipmentCollectionFactory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DispatchStatusTest extends TestCase
@@ -58,6 +59,7 @@ class DispatchStatusTest extends TestCase
     /**
      * @dataProvider dispatchStartedCases
      */
+    #[DataProvider('dispatchStartedCases')]
     public function testHasDispatchStarted(?string $status, ?string $errorCode, int $shipments, bool $expected): void
     {
         $this->repository->method('getByOrderId')->with(10)->willReturn(

@@ -5,6 +5,7 @@ namespace Hop\Envios\Test\Unit\Model\PickupPoint;
 use Hop\Envios\Model\PickupPoint\ChangeEligibility;
 use Hop\Envios\Model\PickupPoint\DispatchStatus;
 use Magento\Sales\Model\Order;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class ChangeEligibilityTest extends TestCase
@@ -110,6 +111,7 @@ class ChangeEligibilityTest extends TestCase
     /**
      * @dataProvider closedStates
      */
+    #[DataProvider('closedStates')]
     public function testCanceledOrClosedOrder(string $state): void
     {
         $this->assertSame(
@@ -126,6 +128,7 @@ class ChangeEligibilityTest extends TestCase
     /**
      * @dataProvider openStates
      */
+    #[DataProvider('openStates')]
     public function testHoldedAndPaymentReviewAreAllowed(string $state): void
     {
         $this->dispatchStatus->method('hasDispatchStarted')->willReturn(false);

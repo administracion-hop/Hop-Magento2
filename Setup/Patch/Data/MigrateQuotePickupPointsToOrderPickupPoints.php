@@ -113,6 +113,8 @@ class MigrateQuotePickupPointsToOrderPickupPoints implements DataPatchInterface
         } finally {
             $this->moduleDataSetup->getConnection()->endSetup();
         }
+
+        return $this;
     }
 
     /**

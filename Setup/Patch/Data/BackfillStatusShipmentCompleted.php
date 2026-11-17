@@ -71,6 +71,8 @@ class BackfillStatusShipmentCompleted implements DataPatchInterface
         } finally {
             $this->moduleDataSetup->getConnection()->endSetup();
         }
+
+        return $this;
     }
 
     public static function getDependencies()

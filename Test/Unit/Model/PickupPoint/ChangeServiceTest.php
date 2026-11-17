@@ -17,6 +17,7 @@ use Magento\Framework\DataObject;
 use Magento\Sales\Api\Data\OrderStatusHistoryInterface;
 use Magento\Sales\Api\OrderStatusHistoryRepositoryInterface;
 use Magento\Sales\Model\Order;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -259,6 +260,7 @@ class ChangeServiceTest extends TestCase
     /**
      * @dataProvider eligibilityResults
      */
+    #[DataProvider('eligibilityResults')]
     public function testIneligibleOrdersAreRejectedBeforeAnythingElse(string $eligibility, string $expectedCode): void
     {
         $eligibilityMock = $this->createMock(ChangeEligibility::class);

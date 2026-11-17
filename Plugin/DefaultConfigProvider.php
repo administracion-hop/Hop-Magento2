@@ -59,7 +59,7 @@ class DefaultConfigProvider
         $api_key = $this->_helper->getApiKey();
 
         if(!empty($api_key)){
-            $config['hop']['api_key'] = !empty($api_key) ? $api_key : '';
+            $config['hop']['api_key'] = $api_key;
         }
 
         // Load hop_data from selected pickup point if exists

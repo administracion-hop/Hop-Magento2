@@ -3,6 +3,7 @@
 namespace Hop\Envios\Cron;
 
 use Magento\Sales\Model\OrderFactory;
+use Magento\Sales\Model\ResourceModel\Order as OrderResource;
 use Magento\Sales\Model\Order\ShipmentFactory;
 use Magento\Framework\DB\TransactionFactory;
 use Psr\Log\LoggerInterface;
@@ -61,6 +62,11 @@ class GenarateShipment
     /** Hop rechazó el despacho. Con next_retry_at se reintenta solo; sin él, espera revisión manual. */
     const SHIPMENT_STATUS_FAILED = 'failed';
 
+    /**
+     * @var OrderResource
+     */
+    protected $orderResource;
+
     public function __construct(
         OrderFactory $orderFactory,
         ShipmentFactory $shipmentFactory,
@@ -69,7 +75,8 @@ class GenarateShipment
         ShipmentNotifier $shipmentNotifier,
         HopEnviosRepository $hopEnviosRepository,
         ShipmentCollectionFactory $shipmentCollectionFactory,
-        ShippingMethod $shippingMethodHelper
+        ShippingMethod $shippingMethodHelper,
+        OrderResource $orderResource
     ) {
         $this->orderFactory = $orderFactory;
         $this->shipmentFactory = $shipmentFactory;
@@ -79,6 +86,7 @@ class GenarateShipment
         $this->hopEnviosRepository = $hopEnviosRepository;
         $this->shipmentCollectionFactory = $shipmentCollectionFactory;
         $this->shippingMethodHelper = $shippingMethodHelper;
+        $this->orderResource = $orderResource;
     }
 
     /**
@@ -129,7 +137,8 @@ class GenarateShipment
         $hopEnvio->setNextRetryAt(null);
         $this->hopEnviosRepository->save($hopEnvio);
 
-        $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
+        $order = $this->orderFactory->create();
+        $this->orderResource->load($order, $hopEnvio->getOrderId());
         $this->logger->info(__('Reintento %1 de despacho a Hop para la orden %2', (int)$hopEnvio->getAttempts() + 1, $hopEnvio->getOrderId()));
 
         try {
@@ -163,7 +172,8 @@ class GenarateShipment
      */
     protected function processOrder($hopEnvio)
     {
-        $order = $this->orderFactory->create()->load($hopEnvio->getOrderId());
+        $order = $this->orderFactory->create();
+        $this->orderResource->load($order, $hopEnvio->getOrderId());
 
         if (!$order->getId() || !$order->canShip()) {
             $this->logger->warning(__('Orden no lista para envío o no existe: ') . $hopEnvio->getOrderId());
@@ -224,12 +234,13 @@ class GenarateShipment
             // The observer calls the Hop API and writes info_hop (or hop_envios_shipment).
             // Transacción nueva por orden: la compartida acumulaba los objetos de las órdenes
             // anteriores y los volvía a guardar, re-disparando su despacho a Hop.
-            $this->transactionFactory->create()->addObject($shipment)
-                ->addObject($order->save())
+            $transaction = $this->transactionFactory->create()->addObject($shipment);
+            $this->orderResource->save($order);
+            $transaction->addObject($order)
                 ->save();
 
             $this->updateOrderStatus($order);
-            $order->save();
+            $this->orderResource->save($order);
 
             // Tracking + label already written above by SalesOrderShipmentSaveAfter,
             // fired synchronously by the transaction save. Just notify the customer.

@@ -7,6 +7,7 @@ use Hop\Envios\Model\Config\Source\UbigeoSourceOption;
 use Hop\Envios\Model\Ubigeo\Source\PeruDistritoSource;
 use Hop\Envios\Model\Ubigeo\Source\PeruProvinciaSource;
 use Magento\Customer\Setup\CustomerSetup;
+use Magento\Customer\Model\ResourceModel\Attribute as AttributeResource;
 use Magento\Customer\Setup\CustomerSetupFactory;
 use Magento\Eav\Model\Cache\Type as EavCacheType;
 use Magento\Framework\App\Cache\TypeListInterface;
@@ -35,7 +36,8 @@ class PeruAddressAttributesManager
         private readonly WriterInterface $configWriter,
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly ReinitableConfigInterface $reinitableConfig,
-        private readonly TypeListInterface $cacheTypeList
+        private readonly TypeListInterface $cacheTypeList,
+        private readonly AttributeResource $attributeResource
     ) {
     }
 
@@ -101,7 +103,7 @@ class PeruAddressAttributesManager
                         'used_in_forms',
                         ['adminhtml_customer_address', 'customer_address_edit', 'customer_register_address']
                     );
-                    $attribute->save();
+                    $this->attributeResource->save($attribute);
                 }
 
                 $sortOrder += 10;

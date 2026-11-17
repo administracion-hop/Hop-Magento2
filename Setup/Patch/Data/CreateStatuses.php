@@ -53,6 +53,8 @@ class CreateStatuses implements DataPatchInterface
             $this->createStatus($code, $label);
         }
         $this->moduleDataSetup->getConnection()->endSetup();
+
+        return $this;
     }
 
     /**

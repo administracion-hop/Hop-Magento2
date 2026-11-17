@@ -13,6 +13,7 @@ use Magento\Quote\Model\Quote;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Directory\Model\Region;
+use Magento\Directory\Model\ResourceModel\Region as RegionResource;
 use Magento\Shipping\Helper\Data as ShippingData;
 use Hop\Envios\Logger\LoggerInterface;
 use Magento\Framework\Module\Manager as ModuleManager;
@@ -92,6 +93,11 @@ class Data extends AbstractHelper
 
 
     /**
+     * @var RegionResource
+     */
+    protected $regionResource;
+
+    /**
      * Data constructor.
      * @param ScopeConfigInterface $scopeConfig
      * @param StoreManagerInterface $storeManagerInterface
@@ -104,6 +110,7 @@ class Data extends AbstractHelper
      * @param ModuleManager $moduleManager
      * @param PeruDistritoCollectionFactory $peruDistritoCollectionFactory
      * @param PeruProvinciaResource $peruProvinciaResource
+     * @param RegionResource $regionResource
      */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -116,7 +123,8 @@ class Data extends AbstractHelper
         ShippingData $shippingHelper,
         ModuleManager $moduleManager,
         PeruDistritoCollectionFactory $peruDistritoCollectionFactory,
-        PeruProvinciaResource $peruProvinciaResource
+        PeruProvinciaResource $peruProvinciaResource,
+        RegionResource $regionResource
     ) {
         $this->_scopeConfig             = $scopeConfig;
         $this->_storeManagerInterface   = $storeManagerInterface;
@@ -129,6 +137,7 @@ class Data extends AbstractHelper
         $this->moduleManager            = $moduleManager;
         $this->peruDistritoCollectionFactory = $peruDistritoCollectionFactory;
         $this->peruProvinciaResource     = $peruProvinciaResource;
+        $this->regionResource = $regionResource;
     }
 
     /**
@@ -253,7 +262,8 @@ class Data extends AbstractHelper
     {
         if(is_int($regionId))
         {
-            $provincia = $this->_region->load($regionId);
+            $this->regionResource->load($this->_region, $regionId);
+            $provincia = $this->_region;
 
             $regionId = $provincia->getDefaultName() ? $provincia->getDefaultName() : $regionId;
         }
@@ -275,7 +285,7 @@ class Data extends AbstractHelper
      */
     public function getProductivo($storeId = null)
     {
-        return (boolean) $this->getConfigValue('shipping/hop/modo_productivo', $storeId);
+        return (bool) $this->getConfigValue('shipping/hop/modo_productivo', $storeId);
     }
 
     /**

@@ -115,7 +115,9 @@ class LabelGeneratorPlugin
 
                         // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
                         if ($imageData && function_exists('imagecreatefromstring')) {
-                            $img = @imagecreatefromstring($imageData);
+                            $img = $this->withoutWarnings(static function () use ($imageData) {
+                                return imagecreatefromstring($imageData);
+                            });
                             if ($img !== false) {
                                 ob_start();
                                 imagejpeg($img, null, 95);
@@ -183,7 +185,7 @@ class LabelGeneratorPlugin
         \Magento\Shipping\Model\Shipping\LabelGenerator $subject,
         array $labelsContent = []
     ) {
-        $mediaPath = BP . '/pub/media/Hop/';
+        $mediaPath = $this->_filesystem->getDirectoryRead(DirectoryList::ROOT)->getAbsolutePath('pub/media/Hop/');
 
         if (!file_exists($mediaPath) || !is_dir($mediaPath)) {
             mkdir($mediaPath, 0775, true);
@@ -223,7 +225,9 @@ class LabelGeneratorPlugin
 
                     // Normalize CMYK→RGB via GD so Zend_Pdf_Image can embed the JPEG.
                     if (function_exists('imagecreatefromstring')) {
-                        $img = @imagecreatefromstring($imageData);
+                        $img = $this->withoutWarnings(static function () use ($imageData) {
+                            return imagecreatefromstring($imageData);
+                        });
                         if ($img !== false) {
                             ob_start();
                             imagejpeg($img, null, 95);
@@ -244,7 +248,9 @@ class LabelGeneratorPlugin
                         );
                     }
 
-                    $gis = @getimagesize($filePath);
+                    $gis = $this->withoutWarnings(static function () use ($filePath) {
+                        return getimagesize($filePath);
+                    });
 
                     if ($gis === false) {
                         throw new \Magento\Framework\Exception\LocalizedException(
@@ -273,6 +279,24 @@ class LabelGeneratorPlugin
         }
 
         return [$labelsContent];
+    }
+
+    /**
+     * Read image data without emitting warnings for invalid input.
+     *
+     * @param callable $operation
+     * @return mixed
+     */
+    private function withoutWarnings(callable $operation)
+    {
+        set_error_handler(static function () {
+            return true;
+        }, E_WARNING);
+        try {
+            return $operation();
+        } finally {
+            restore_error_handler();
+        }
     }
 
 }

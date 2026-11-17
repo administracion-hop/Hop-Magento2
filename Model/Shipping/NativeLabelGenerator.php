@@ -4,6 +4,7 @@ namespace Hop\Envios\Model\Shipping;
 
 use Hop\Envios\Helper\Data as HopHelper;
 use Magento\Framework\DataObject;
+use Magento\Sales\Model\ResourceModel\Order\Shipment as ShipmentResource;
 use Magento\Shipping\Model\CarrierFactory;
 use Magento\Shipping\Model\Shipping\LabelGenerator;
 
@@ -51,15 +52,26 @@ class NativeLabelGenerator
     private $labelGenerator;
 
     /**
+     * @var ShipmentResource
+     */
+    private $shipmentResource;
+
+    /**
      * @param HopHelper $helper
      * @param CarrierFactory $carrierFactory
      * @param LabelGenerator $labelGenerator
+     * @param ShipmentResource $shipmentResource
      */
-    public function __construct(HopHelper $helper, CarrierFactory $carrierFactory, LabelGenerator $labelGenerator)
-    {
+    public function __construct(
+        HopHelper $helper,
+        CarrierFactory $carrierFactory,
+        LabelGenerator $labelGenerator,
+        ShipmentResource $shipmentResource
+    ) {
         $this->helper = $helper;
         $this->carrierFactory = $carrierFactory;
         $this->labelGenerator = $labelGenerator;
+        $this->shipmentResource = $shipmentResource;
     }
 
     /**
@@ -120,7 +132,7 @@ class NativeLabelGenerator
 
             $outputPdf = $this->labelGenerator->combineLabelsPdf($labelsContent);
             $shipment->setShippingLabel($outputPdf->render());
-            $shipment->save();
+            $this->shipmentResource->save($shipment);
             return (bool)$shipment->getShippingLabel();
         } catch (\Exception $e) {
             $this->helper->log('NativeLabelGenerator: ' . $e->getMessage(), true);

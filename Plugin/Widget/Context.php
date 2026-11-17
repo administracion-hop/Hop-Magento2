@@ -3,6 +3,7 @@ namespace Hop\Envios\Plugin\Widget;
 
 use Magento\Backend\Block\Widget\Context AS Subject;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\ResourceModel\Order as OrderResource;
 use Hop\Envios\Helper\Data as DataHop;
 use Hop\Envios\Model\HopEnviosRepository;
 use Hop\Envios\Model\PickupPoint\DispatchStatus;
@@ -56,6 +57,11 @@ class Context
     protected $dispatchStatus;
 
     /**
+     * @var OrderResource
+     */
+    protected $orderResource;
+
+    /**
      * Context constructor.
      * @param Order $order
      * @param DataHop $helperHop
@@ -64,6 +70,7 @@ class Context
      * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
      * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param DispatchStatus $dispatchStatus
+     * @param OrderResource $orderResource
      */
     public function __construct(
         Order $order,
@@ -72,7 +79,8 @@ class Context
         HopEnviosRepository $hopEnviosRepository,
         HopEnviosShipmentRepository $hopEnviosShipmentRepository,
         OrderPickupPointRepository $orderPickupPointRepository,
-        DispatchStatus $dispatchStatus
+        DispatchStatus $dispatchStatus,
+        OrderResource $orderResource
     )
     {
         $this->order = $order;
@@ -82,6 +90,7 @@ class Context
         $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
         $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->dispatchStatus = $dispatchStatus;
+        $this->orderResource = $orderResource;
     }
 
     /**
@@ -97,7 +106,8 @@ class Context
         if($this->helperHop->isActive() && $subject->getRequest()->getFullActionName() == 'sales_order_view')
         {
             $orderId    = (int)$subject->getRequest()->getParam('order_id');
-            $order      = $this->order->load($orderId);
+            $this->orderResource->load($this->order, $orderId);
+            $order = $this->order;
             if ($order->getShippingMethod() === 'hop_hop')
             {
                 $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);

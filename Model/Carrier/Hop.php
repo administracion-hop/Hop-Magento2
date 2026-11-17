@@ -3,6 +3,7 @@
 namespace Hop\Envios\Model\Carrier;
 
 use Exception;
+use Magento\Catalog\Model\ResourceModel\Product as ProductResource;
 use Magento\Backend\App\Area\FrontNameResolver;
 use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Customer\Api\AddressRepositoryInterface;
@@ -52,6 +53,16 @@ use Hop\Envios\Model\Shipping\HopPriceCalculator;
  */
 class Hop extends AbstractCarrierOnline implements CarrierInterface
 {
+    /**
+     * @var StatusFactory
+     */
+    protected $trackStatusFactory;
+
+    /**
+     * @var ProductResource
+     */
+    protected $productResource;
+
     const CARRIER_CODE = 'hop';
 
     /**
@@ -219,9 +230,11 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
         HopEnviosShipmentRepository $hopEnviosShipmentRepository,
         HopPriceCalculator $priceCalculator,
         LastPickupPoint $lastPickupPoint,
+        ProductResource $productResource,
         array $data = []
     ) {
         $this->priceCalculator = $priceCalculator;
+        $this->productResource = $productResource;
         $this->_rateResultFactory = $rateFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         $this->_helper            = $hopHelper;
@@ -677,7 +690,7 @@ class Hop extends AbstractCarrierOnline implements CarrierInterface
     protected function getMeasure($product, $measureCode, $qty, $storeId = null)
     {
         $attributeCode = $this->_helper->getMeasureCode($measureCode, $storeId);
-        return (int) $product->getResource()->getAttributeRawValue(
+        return (int) $this->productResource->getAttributeRawValue(
             $product->getId(),
             $attributeCode,
             $product->getStoreId()

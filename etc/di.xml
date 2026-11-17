@@ -27,13 +27,18 @@
     <type name="Magento\Shipping\Model\Shipping\LabelGenerator">
         <plugin name="hop_envios_label_generator" type="Hop\Envios\Plugin\Shipping\LabelGeneratorPlugin" />
     </type>
-    <type name="Hop\Envios\Logger\Logger">
+    <virtualType name="Hop\Envios\Logger\Monolog" type="Monolog\Logger">
         <arguments>
             <argument name="name" xsi:type="string">hop_envios</argument>
             <argument name="handlers" xsi:type="array">
                 <item name="message_handler" xsi:type="object">Hop\Envios\Logger\Handler\MessageHandler</item>
                 <item name="error_handler" xsi:type="object">Hop\Envios\Logger\Handler\ErrorHandler</item>
             </argument>
+        </arguments>
+    </virtualType>
+    <type name="Hop\Envios\Logger\Logger">
+        <arguments>
+            <argument name="logger" xsi:type="object">Hop\Envios\Logger\Monolog</argument>
         </arguments>
     </type>
     <preference for="Hop\Envios\Logger\LoggerInterface" type="Hop\Envios\Logger\Logger"/>

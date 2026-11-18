@@ -51,6 +51,12 @@
         <index referenceId="HOP_ENVIOS_ORDER_ID" indexType="btree">
             <column name="order_id"/>
         </index>
+        <!-- La tarea de despacho busca cada minuto los fallidos que esperan credenciales
+             (ver Model/Health/CredentialRetryScheduler). -->
+        <index referenceId="HOP_ENVIOS_STATUS_SHIPMENT_LAST_ERROR_CODE" indexType="btree">
+            <column name="status_shipment"/>
+            <column name="last_error_code"/>
+        </index>
     </table>
 
     <table name="hop_pickup_points" resource="default" engine="innodb" comment="HOP Pickup Points Table">
@@ -213,6 +219,26 @@
         <index referenceId="HOP_PERU_DISTRITO_PROVINCIA_ID" indexType="btree">
             <column name="provincia_id"/>
         </index>
+    </table>
+
+    <!-- Resultados del verificador de configuración (ver Model/Health). scope_key es la cuenta de
+         Hop (acct:<hash>), la vista de tienda (store:<id>) o global. -->
+    <table name="hop_envios_health_check" resource="default" engine="innodb" comment="Hop Envios Health Check Results">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true" comment="ID"/>
+        <column xsi:type="varchar" name="scope_key" length="80" nullable="false" comment="Cuenta, vista de tienda o global"/>
+        <column xsi:type="varchar" name="check_code" length="32" nullable="false" comment="Revisión"/>
+        <column xsi:type="varchar" name="status" length="16" nullable="false" comment="ok, error o warning"/>
+        <column xsi:type="text" name="message" nullable="true" comment="Detalle del problema"/>
+        <column xsi:type="text" name="store_ids" nullable="true" comment="Vistas de tienda afectadas, separadas por coma"/>
+        <column xsi:type="timestamp" name="since" nullable="true" comment="Desde cuándo tiene este estado"/>
+        <column xsi:type="timestamp" name="checked_at" nullable="true" comment="Última revisión"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="HOP_ENVIOS_HEALTH_CHECK_SCOPE_KEY_CHECK_CODE">
+            <column name="scope_key"/>
+            <column name="check_code"/>
+        </constraint>
     </table>
 
 </schema>

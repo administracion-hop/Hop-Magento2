@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <!-- En el detalle la franja sobra: la tabla ya muestra todo. -->
+        <referenceBlock name="hop_health_notice" remove="true"/>
+        <referenceContainer name="content">
+            <block class="Hop\Envios\Block\Adminhtml\Health\Detail" name="hop_health_detail"/>
+        </referenceContainer>
+    </body>
+</page>

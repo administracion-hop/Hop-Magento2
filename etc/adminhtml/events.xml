@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- La configuración de Hop está en dos secciones (etc/adminhtml/system.xml): carriers y shipping. -->
+    <event name="admin_system_config_changed_section_carriers">
+        <observer name="hop_envios_health_config_saved" instance="Hop\Envios\Observer\HealthConfigSaved"/>
+    </event>
+    <event name="admin_system_config_changed_section_shipping">
+        <observer name="hop_envios_health_config_saved" instance="Hop\Envios\Observer\HealthConfigSaved"/>
+    </event>
+</config>

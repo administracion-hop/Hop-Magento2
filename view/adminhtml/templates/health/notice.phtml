@@ -1,0 +1,23 @@
+<?php
+/** @var \Hop\Envios\Block\Adminhtml\Health\Notice $block */
+/** @var \Magento\Framework\Escaper $escaper */
+$counts = $block->getCounts();
+$hasErrors = $counts['errors'] > 0;
+$parts = [];
+if ($counts['errors']) {
+    $parts[] = $counts['errors'] === 1 ? __('1 error') : __('%1 errores', $counts['errors']);
+}
+if ($counts['warnings']) {
+    $parts[] = $counts['warnings'] === 1 ? __('1 advertencia') : __('%1 advertencias', $counts['warnings']);
+}
+?>
+<div class="messages hop-health-notice">
+    <div class="message <?= $hasErrors ? 'message-error error' : 'message-warning warning' ?>"
+         data-hop-health="<?= $hasErrors ? 'error' : 'warning' ?>">
+        <div>
+            <strong><?= $escaper->escapeHtml(__('Envíos Hop:')) ?></strong>
+            <?= $escaper->escapeHtml(__('la configuración tiene %1.', implode((string)__(' y '), $parts))) ?>
+            <a href="<?= $escaper->escapeUrl($block->getDetailUrl()) ?>"><?= $escaper->escapeHtml(__('Ver qué falla y cómo resolverlo')) ?></a>
+        </div>
+    </div>
+</div>

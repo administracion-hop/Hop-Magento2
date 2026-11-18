@@ -125,8 +125,12 @@ class ShippingInfo extends Template
         $instruction = DispatchError::getInstruction($hopEnvios->getLastErrorCode());
         $isFailed = $status === GenarateShipment::SHIPMENT_STATUS_FAILED;
         $canRetry = DispatchError::isRetryable($hopEnvios->getLastErrorCode());
-        if ($isFailed && !$canRetry) {
+        if ($isFailed && $hopEnvios->getLastErrorCode() === DispatchError::CODE_MULTIBULTO_PARTIAL) {
             $labels[$status] = __('Despacho parcial: Hop rechazó bultos');
+        } elseif ($isFailed && $hopEnvios->getLastErrorCode() === DispatchError::CODE_REFERENCE_IN_USE) {
+            $labels[$status] = __('Ya existe un envío en Hop con esta referencia');
+        } elseif ($isFailed && $hopEnvios->getLastErrorCode() === DispatchError::CODE_CREDENTIALS) {
+            $labels[$status] = __('Error al despachar: Hop rechazó las credenciales');
         }
 
         return [
@@ -134,6 +138,7 @@ class ShippingInfo extends Template
             'status_label' => $labels[$status] ?? $status,
             'is_failed' => $isFailed,
             'can_retry' => $canRetry,
+            'waits_for_credentials' => $hopEnvios->getLastErrorCode() === DispatchError::CODE_CREDENTIALS,
             'last_error' => $hopEnvios->getLastError(),
             'attempts' => (int)$hopEnvios->getAttempts(),
             'max_attempts' => count(DispatchError::RETRY_DELAYS_MINUTES) + 1,

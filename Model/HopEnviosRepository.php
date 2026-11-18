@@ -111,8 +111,10 @@ class HopEnviosRepository
      */
     public function markFailed(HopEnvios $hopEnvios, $error, $httpStatus = null, $code = null)
     {
-        $attempts = (int)$hopEnvios->getAttempts() + 1;
         $code = $code ?: DispatchError::classify((string)$error);
+        // Los rechazos de credenciales no cuentan para los escalones de reintento por errores
+        // del servidor de Hop: se reintentan cuando las credenciales vuelven a funcionar.
+        $attempts = (int)$hopEnvios->getAttempts() + ($code === DispatchError::CODE_CREDENTIALS ? 0 : 1);
         $delay = DispatchError::retryDelayMinutes($attempts, $httpStatus, $code);
 
         $hopEnvios->setStatusShipment(GenarateShipment::SHIPMENT_STATUS_FAILED);
@@ -121,6 +123,56 @@ class HopEnviosRepository
         $hopEnvios->setAttempts($attempts);
         $hopEnvios->setNextRetryAt($delay ? gmdate('Y-m-d H:i:s', time() + $delay * 60) : null);
         $this->save($hopEnvios);
+    }
+
+    /**
+     * Vistas de tienda con despachos que esperan credenciales y cumplen CredentialRetryCriteria.
+     *
+     * @return int[]
+     */
+    public function getStoresWaitingForCredentials()
+    {
+        $connection = $this->hopEnviosResource->getConnection();
+        $select = $connection->select()
+            ->distinct()
+            ->from(['h' => $this->hopEnviosResource->getMainTable()], [])
+            ->join(['o' => $this->hopEnviosResource->getTable('sales_order')], 'o.entity_id = h.order_id', ['o.store_id'])
+            ->where('h.last_error_code = ?', DispatchError::CODE_CREDENTIALS)
+            ->where('h.next_retry_at IS NULL');
+        CredentialRetryCriteria::apply($select);
+        return array_map('intval', $connection->fetchCol($select));
+    }
+
+    /**
+     * Reprograma para ya los despachos que fallaron por credenciales en estas vistas de tienda:
+     * los toma la próxima corrida de Cron/GenarateShipment (getRetryableFailed). Solo los que
+     * cumplen CredentialRetryCriteria; los resueltos mientras tanto ya no están en failed.
+     *
+     * @param int[] $storeIds
+     * @return int cantidad de despachos reprogramados
+     */
+    public function scheduleCredentialRetries(array $storeIds)
+    {
+        if (!$storeIds) {
+            return 0;
+        }
+        $connection = $this->hopEnviosResource->getConnection();
+        $table = $this->hopEnviosResource->getMainTable();
+        $select = $connection->select()
+            ->from(['h' => $table], ['entity_id'])
+            ->join(['o' => $this->hopEnviosResource->getTable('sales_order')], 'o.entity_id = h.order_id', [])
+            ->where('h.last_error_code = ?', DispatchError::CODE_CREDENTIALS)
+            ->where('o.store_id IN (?)', array_map('intval', $storeIds));
+        CredentialRetryCriteria::apply($select);
+        $ids = $connection->fetchCol($select);
+        if (!$ids) {
+            return 0;
+        }
+        return $connection->update(
+            $table,
+            ['next_retry_at' => gmdate('Y-m-d H:i:s')],
+            ['entity_id IN (?)' => $ids]
+        );
     }
 
     /**

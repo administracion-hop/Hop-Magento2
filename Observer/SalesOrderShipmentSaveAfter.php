@@ -235,7 +235,12 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     ? $result['error']
                     : __('No se pudo generar el envío en Hop: el pedido no tiene punto de retiro (No Hop Data).');
                 $this->helper->log('Hop API error (single): ' . $error, true);
-                $this->hopEnviosRepository->markFailed($hopEnvio, $error, $this->webservice->getLastStatus());
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    $error,
+                    $this->webservice->getLastStatus(),
+                    $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
+                );
                 return false;
             } else {
                 $ok = $this->webservice->createShippingMultibulto(
@@ -263,7 +268,9 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $hopEnvio,
                     $this->webservice->getLastMultibultoError() ?: __('No se pudo generar el envío multibulto en Hop.'),
                     $this->webservice->getLastStatus(),
-                    $partial ? DispatchError::CODE_MULTIBULTO_PARTIAL : null
+                    $partial
+                        ? DispatchError::CODE_MULTIBULTO_PARTIAL
+                        : ($this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null)
                 );
                 return false;
             }

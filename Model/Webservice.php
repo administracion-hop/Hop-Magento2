@@ -15,6 +15,8 @@ use Magento\Framework\Phrase;
 use Hop\Envios\Model\OrderPickupPointRepository;
 use Magento\Framework\HTTP\Client\CurlFactory;
 use Hop\Envios\Model\HopEnviosShipmentRepository;
+use Hop\Envios\Model\Health\AccountResolver;
+use Hop\Envios\Model\Health\CredentialState;
 
 /**
  * Class Webservice
@@ -26,6 +28,13 @@ use Hop\Envios\Model\HopEnviosShipmentRepository;
  */
 class Webservice
 {
+    /** Hop aceptó las credenciales y entregó un token. */
+    const LOGIN_OK = 'ok';
+    /** Hop respondió y rechazó las credenciales. */
+    const LOGIN_REJECTED = 'rejected';
+    /** Hop no respondió (red, timeout, error del servidor): no dice nada de las credenciales. */
+    const LOGIN_UNREACHABLE = 'unreachable';
+
     /**
      * @var string
      */
@@ -139,6 +148,49 @@ class Webservice
     protected $lastStatus = null;
 
     /**
+     * Hop rechazó las credenciales en este proceso (una carga de página o una corrida de una
+     * tarea programada). Mientras esté en true no se vuelve a llamar a Hop: con credenciales
+     * rechazadas cada cotización hacía hasta cinco llamadas. Se reinicia al cambiar de vista de
+     * tienda y en la revisión de credenciales. No dura más que el proceso a propósito: si
+     * durara, sería una pausa del checkout, que se descartó.
+     *
+     * @var bool
+     */
+    protected $credentialsRejected = false;
+
+    /**
+     * Resultado del último inicio de sesión real contra Hop (LOGIN_*), o null si no hubo.
+     *
+     * @var string|null
+     */
+    protected $lastLoginResult = null;
+
+    /**
+     * Mensaje de Hop del último inicio de sesión rechazado.
+     *
+     * @var string|null
+     */
+    protected $lastLoginError = null;
+
+    /**
+     * Timeout en segundos de las llamadas a Hop; null usa el del cliente HTTP. Lo fija la
+     * revisión para que un Hop caído no deje colgado el guardado de la configuración.
+     *
+     * @var int|null
+     */
+    protected $requestTimeout = null;
+
+    /**
+     * @var CredentialState
+     */
+    protected $credentialState;
+
+    /**
+     * @var AccountResolver
+     */
+    protected $accountResolver;
+
+    /**
      * Webservice constructor.
      * @param HelperHop $helperHop
      * @param PointCollectionFactory $pointCollectionFactory
@@ -151,6 +203,8 @@ class Webservice
      * @param OrderPickupPointRepository $orderPickupPointRepository
      * @param CurlFactory $httpClientFactory
      * @param HopEnviosShipmentRepository $hopEnviosShipmentRepository
+     * @param CredentialState $credentialState
+     * @param AccountResolver $accountResolver
      */
     public function __construct(
         HelperHop $helperHop,
@@ -163,7 +217,9 @@ class Webservice
         TokenResourceModel $tokenResourceModel,
         OrderPickupPointRepository $orderPickupPointRepository,
         CurlFactory $httpClientFactory,
-        HopEnviosShipmentRepository $hopEnviosShipmentRepository
+        HopEnviosShipmentRepository $hopEnviosShipmentRepository,
+        CredentialState $credentialState,
+        AccountResolver $accountResolver
     ) {
         $this->_helper = $helperHop;
         $this->pointCollectionFactory = $pointCollectionFactory;
@@ -176,6 +232,8 @@ class Webservice
         $this->orderPickupPointRepository = $orderPickupPointRepository;
         $this->httpClientFactory = $httpClientFactory;
         $this->hopEnviosShipmentRepository = $hopEnviosShipmentRepository;
+        $this->credentialState = $credentialState;
+        $this->accountResolver = $accountResolver;
     }
 
     /**
@@ -192,7 +250,135 @@ class Webservice
             $this->initialized = false;
             $this->_accessToken = null;
             $this->_tokenType = null;
+            $this->credentialsRejected = false;
         }
+    }
+
+    /**
+     * @param int|null $seconds
+     * @return void
+     */
+    public function setRequestTimeout($seconds): void
+    {
+        $this->requestTimeout = $seconds ? (int)$seconds : null;
+    }
+
+    /**
+     * Si Hop rechazó las credenciales en este proceso.
+     *
+     * @return bool
+     */
+    public function isCredentialsRejected(): bool
+    {
+        return $this->credentialsRejected;
+    }
+
+    /**
+     * Si la última llamada a Hop (la del despacho que se acaba de intentar) no se hizo o falló
+     * porque Hop rechazó las credenciales. No alcanza con isCredentialsRejected(), que vale para
+     * todo el proceso: un despacho que falla antes de llamar a Hop (por ejemplo, un pedido sin
+     * punto de retiro) no es de credenciales aunque antes, en ese proceso, haya habido un rechazo.
+     * createShipping() y createShippingMultibulto() ponen lastStatus en null al empezar.
+     *
+     * @return bool
+     */
+    public function wasRejectedByCredentials(): bool
+    {
+        return $this->credentialsRejected && $this->lastStatus === 401;
+    }
+
+    /**
+     * @return string|null LOGIN_* del último inicio de sesión real, o null
+     */
+    public function getLastLoginResult()
+    {
+        return $this->lastLoginResult;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getLastLoginError()
+    {
+        return $this->lastLoginError;
+    }
+
+    /**
+     * Revisión de credenciales: inicia sesión de nuevo en Hop, sin usar el token guardado
+     * (login() devuelve true sin consultar a Hop si hay uno vigente).
+     *
+     * @return string LOGIN_*
+     */
+    public function checkCredentials()
+    {
+        $this->credentialsRejected = false;
+        $this->loadCredentials();
+        $this->initialized = $this->login(true);
+        return $this->lastLoginResult ?: self::LOGIN_UNREACHABLE;
+    }
+
+    /**
+     * Estado del vendedor en Hop.
+     *
+     * @return string|null el estado que informa Hop ('active', 'bloqueado', ...), 'not_found' si
+     *     Hop no conoce el vendedor, o null si Hop no respondió o rechazó las credenciales
+     */
+    public function getSellerStatus()
+    {
+        $response = $this->curl('GET', 'api.hopenvios.com.ar/api/v1/sellers/' . rawurlencode((string)$this->_helper->getSellerCode($this->storeId)));
+        if ($response === false || $this->lastStatus === 0 || $this->lastStatus >= 500 || $this->credentialsRejected) {
+            return null;
+        }
+        // Hop envuelve el 404 de su servicio interno en un 400 con el texto "Seller does not exist".
+        if ($this->lastStatus === 404
+            || ($this->lastStatus === 400 && stripos((string)$response, 'Seller does not exist') !== false)
+        ) {
+            return 'not_found';
+        }
+        if ($this->lastStatus < 200 || $this->lastStatus >= 300) {
+            // 401, 403, 429...: no se sabe nada del vendedor.
+            return null;
+        }
+        $decoded = json_decode($response, true);
+        return !empty($decoded['data']['status']) ? (string)$decoded['data']['status'] : 'not_found';
+    }
+
+    /**
+     * @return void
+     */
+    protected function loadCredentials(): void
+    {
+        $this->_clientId     = $this->_helper->getClientId($this->storeId);
+        $this->_clientSecret = $this->_helper->getClientSecret($this->storeId);
+        $this->_email        = $this->_helper->getEmail($this->storeId);
+        $this->_password     = $this->_helper->getPassword($this->storeId);
+        $this->pickupPointsApiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
+    }
+
+    /**
+     * @return string|null
+     */
+    protected function getAccountKey()
+    {
+        return $this->accountResolver->buildKey(
+            $this->_clientId,
+            $this->_clientSecret,
+            $this->_email,
+            $this->_password,
+            $this->_helper->getProductivo($this->storeId)
+        );
+    }
+
+    /**
+     * @return \Magento\Framework\HTTP\Client\Curl
+     */
+    protected function createHttpClient()
+    {
+        $client = $this->httpClientFactory->create();
+        if ($this->requestTimeout) {
+            $client->setTimeout($this->requestTimeout);
+        }
+        return $client;
     }
 
     /**
@@ -206,11 +392,10 @@ class Webservice
         if ($this->initialized) {
             return;
         }
-        $this->_clientId     = $this->_helper->getClientId($this->storeId);
-        $this->_clientSecret = $this->_helper->getClientSecret($this->storeId);
-        $this->_email        = $this->_helper->getEmail($this->storeId);
-        $this->_password     = $this->_helper->getPassword($this->storeId);
-        $this->pickupPointsApiVersion = $this->_helper->getPickupPointsApiVersion($this->storeId);
+        $this->loadCredentials();
+        if ($this->credentialsRejected) {
+            return;
+        }
         if ($this->login()) {
             $this->initialized = true;
         }
@@ -231,6 +416,13 @@ class Webservice
         $retry = false;
         $response = false;
 
+        // Corte en el primer rechazo: ya se sabe que Hop va a responder 401.
+        if ($this->credentialsRejected) {
+            $this->lastStatus = 401;
+            $this->_helper->log('Hop rechazó las credenciales en este proceso: no se llama a ' . $path, true);
+            return false;
+        }
+
         do {
             $entorno = $this->_helper->getProductivo($this->storeId) ? '' : 'sandbox-';
             $url = "https://" . $entorno . $path;
@@ -240,7 +432,7 @@ class Webservice
             $this->_helper->log('API URL: ' . $url);
 
             try {
-                $client = $this->httpClientFactory->create();
+                $client = $this->createHttpClient();
                 $client->addHeader('Authorization', 'Bearer ' . $this->_accessToken);
                 $client->addHeader('Content-Type', 'application/json');
 
@@ -252,6 +444,16 @@ class Webservice
 
                 if (!$retry && $client->getStatus() === 401) {
                     $this->login(true);
+                    if ($this->credentialsRejected) {
+                        $this->lastStatus = 401;
+                        return false;
+                    }
+                    if ($this->lastLoginResult === self::LOGIN_UNREACHABLE) {
+                        // El token venció y Hop no responde al inicio de sesión: es una falta de
+                        // respuesta (reintento por tiempo), no un rechazo de credenciales.
+                        $this->lastStatus = 0;
+                        return false;
+                    }
                     $retry = true;
                     continue;
                 }
@@ -300,27 +502,54 @@ class Webservice
         ]);
 
         try {
-            $client = $this->httpClientFactory->create();
+            $client = $this->createHttpClient();
             $client->post($url, '');
+            $status = (int)$client->getStatus();
             $response = json_decode($client->getBody(), true);
         } catch (\Exception $e) {
-            $error = 'Se produjo un error al solicitar cotización: ' . $e->getMessage();
+            $error = 'Se produjo un error al iniciar sesión en Hop: ' . $e->getMessage();
             $this->_helper->log($error, true);
+            $this->lastLoginResult = self::LOGIN_UNREACHABLE;
             return false;
         }
 
-        if (!empty($response['errors'])) {
-            $error = __('Error al iniciar sesión en Hop: ');
-            try {
-                $error .= $this->get_login_error_messagges($response['errors']);
-            } catch (\Exception $e) {
-                $error .= __('No se pudo procesar el mensaje de error: ') . $e->getMessage();
+        $hasToken = is_array($response) && !empty($response['access_token']);
+        // Rechazo: un 401, o cualquier otra respuesta con los errores de Hop (por ejemplo, una
+        // cuenta bloqueada o datos de acceso vacíos), salvo 429 y 5xx. Una respuesta sin el
+        // formato de errores de Hop (un 403 o 404 de un intermediario, algo que no es JSON) no
+        // dice nada de las credenciales.
+        $hasHopErrors = is_array($response) && !empty($response['errors']) && is_array($response['errors']);
+        $isRejection = $status === 401
+            || ($hasHopErrors && $status !== 429 && $status < 500);
+        if (!$hasToken && !$isRejection) {
+            $this->_helper->log(__('Hop no respondió al inicio de sesión (HTTP %1)', $status), true);
+            $this->lastLoginResult = self::LOGIN_UNREACHABLE;
+            return false;
+        }
+
+        if (!$hasToken) {
+            $detail = '';
+            if (!empty($response['errors'])) {
+                try {
+                    $detail = $this->get_login_error_messagges($response['errors']);
+                } catch (\Exception $e) {
+                    $detail = __('No se pudo procesar el mensaje de error: ') . $e->getMessage();
+                }
             }
-            $this->_helper->log($error, true);
+            $detail = $detail ?: (string)__('Hop no entregó un token (HTTP %1)', $status);
+            $this->_helper->log(__('Error al iniciar sesión en Hop: ') . $detail, true);
+            $this->lastLoginResult = self::LOGIN_REJECTED;
+            $this->lastLoginError = $detail;
+            $this->credentialsRejected = true;
+            $this->credentialState->record($this->getAccountKey(), CredentialState::REJECTED, $detail);
             return false;
         }
         $this->_tokenType = isset($response['token_type']) ? $response['token_type'] : null;
-        $this->_accessToken = isset($response['access_token']) ? $response['access_token'] : null;
+        $this->_accessToken = $response['access_token'];
+        $this->lastLoginResult = self::LOGIN_OK;
+        $this->lastLoginError = null;
+        $this->credentialsRejected = false;
+        $this->credentialState->record($this->getAccountKey(), CredentialState::OK);
 
         try {
             $this->saveNewToken(
@@ -635,7 +864,8 @@ class Webservice
         $weight = $package['weight'] ?? 0;
         $value = $package['value'] ?? 0;
 
-        $sizeCategory = $this->_helper->getSizeCategory($this->storeId);
+        // La cotización de prueba del verificador puede forzar un tamaño de categoría.
+        $sizeCategory = $package['size_category'] ?? $this->_helper->getSizeCategory($this->storeId);
         $queryParams = [
             'origin_zipcode'  => $originZipCode,
             'destiny_zipcode' => $destinyZipCode,
@@ -802,6 +1032,28 @@ class Webservice
                 if ($found !== false) {
                     return $found;
                 }
+                if ($this->credentialsRejected) {
+                    // La búsqueda falló porque Hop rechazó las credenciales: el pedido espera a que
+                    // vuelvan a funcionar (wasRejectedByCredentials con lastStatus 401).
+                    $this->lastStatus = 401;
+                    $error = $this->getCredentialsRejectedMessage();
+                    $this->_helper->log($error, true);
+                    $this->messageManager->addErrorMessage($error);
+                    return ['error' => $error];
+                }
+                if ($this->lastStatus !== 404 && ($this->lastStatus < 200 || $this->lastStatus >= 300)) {
+                    // Hop no respondió la búsqueda del envío existente (sin respuesta, 429, 5xx u
+                    // otro error): no se sabe si es de este pedido. Se trata como falta de respuesta
+                    // (reintento por tiempo, y "Enviar a HOP" sigue disponible) y no como
+                    // referencia en uso, que no se reintenta.
+                    $error = (string)__('Hop indicó que ya tiene un envío con la referencia de este pedido, pero no respondió al buscarlo para recuperarlo. Se vuelve a intentar.');
+                    // Como falta de respuesta: así markFailed agenda el reintento por tiempo
+                    // (con un 429 u otro 4XX no lo haría).
+                    $this->lastStatus = 0;
+                    $this->_helper->log($error, true);
+                    $this->messageManager->addErrorMessage($error);
+                    return ['error' => $error];
+                }
             }
 
             $error = __('Hubo un error al enviar su pedido a Hop: ');
@@ -817,6 +1069,8 @@ class Webservice
                 }
             } else if (is_string($responseObject)) {
                 $error_list[] = $responseObject . ".";
+            } else if ($responseJson === false && $this->credentialsRejected) {
+                $error_list[] = $this->getCredentialsRejectedMessage();
             } else if ($responseJson === false) {
                 $error_list[] = __('Sin respuesta de la API de Hop (error de conexión o timeout).');
             }
@@ -828,6 +1082,17 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * @return string
+     */
+    protected function getCredentialsRejectedMessage()
+    {
+        return (string)__(
+            'Hop rechazó las credenciales de inicio de sesión%1.',
+            $this->lastLoginError ? ' (' . rtrim($this->lastLoginError, '.') . ')' : ''
+        );
     }
 
     /**
@@ -938,6 +1203,14 @@ class Webservice
 
         $this->_helper->log('Request POST multibulto: ' . $url);
         $this->_helper->log($responseJson);
+
+        if ($responseJson === false && $this->credentialsRejected) {
+            $error = $this->getCredentialsRejectedMessage();
+            $this->_helper->log('[multibulto] ' . $error, true);
+            $this->messageManager->addErrorMessage(__('Error en respuesta multibulto de Hop: %1', $error));
+            $this->lastMultibultoError = (string)__('Error en respuesta multibulto de Hop: %1', $error);
+            return false;
+        }
 
         $responseArray = json_decode($responseJson, true);
         if (!is_array($responseArray)) {

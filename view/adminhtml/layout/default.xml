@@ -3,4 +3,10 @@
     <head>
         <css src="Hop_Envios::css/hop.css"/>
     </head>
+    <body>
+        <!-- Franja del verificador de configuración (ver Block/Adminhtml/Health/Notice). -->
+        <referenceContainer name="notifications">
+            <block class="Hop\Envios\Block\Adminhtml\Health\Notice" name="hop_health_notice"/>
+        </referenceContainer>
+    </body>
 </page>

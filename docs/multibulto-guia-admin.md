@@ -241,18 +241,30 @@ muchos pedidos a la vez.
 
 ### La columna "Despacho Hop"
 
-Muestra en qué quedó cada pedido con Hop y se puede usar como filtro.
+Muestra en qué quedó cada pedido con Hop y se puede usar como filtro. Para encontrar los
+pedidos que necesitan atención, filtrá por **Ya existe en Hop** o por **Error al despachar**.
 
 | Valor | Qué significa |
 |-------|---------------|
 | **Despachado** | Hop aceptó el envío. Las etiquetas ya están disponibles (o lo estarán en un minuto, ver [sección 4](#4-las-etiquetas-y-el-minuto-de-espera)). |
 | **Parcial** | Multibulto en el que Hop rechazó uno o más bultos. Los aceptados ya existen en Hop con su etiqueta; los rechazados no se pueden reintentar desde Magento (ver [sección 7](#7-cuando-algo-sale-mal)). |
-| **No despachado** | Hop todavía no tiene el envío: está pendiente, o falló y se puede volver a intentar. |
+| **Ya existe en Hop** | El despacho falló porque Hop ya tiene un envío con la referencia del pedido. El envío existe en Hop, pero Magento no lo tiene registrado: buscalo en el panel de Hop (ver [sección 7](#apareció-un-error-general-error-en-respuesta-multibulto-de-hop)). |
+| **Error al despachar** | El despacho falló por cualquier otro motivo: credenciales rechazadas, datos del pedido o un error del servidor de Hop. Aparece también mientras el pedido espera un reintento automático. El motivo está en el bloque Hop del pedido. |
+| **No despachado** | Hop todavía no tiene el envío y no hay un fallo registrado: el pedido está pendiente o en proceso de despacho (también mientras se reintenta, o si el despacho automático se cortó por un error interno de Magento y vuelve a intentarse solo). |
 | **No aplica** | El pedido no usa el método de envío Hop. |
 
+Si un pedido cumple más de una condición, se muestra el primer valor de la tabla que se
+cumple.
+
+Un pedido cancelado o cerrado cuyo despacho había fallado sigue mostrando **Error al
+despachar** o **Ya existe en Hop**, aunque ya no se reintenta. Para ver solo los que
+necesitan atención, combiná el filtro de **Despacho Hop** con el de **Estado** del pedido.
+
 La columna se actualiza sola cada vez que cambia el estado del despacho, sea por el botón,
-por la acción masiva o por el despacho automático. Los pedidos anteriores a esta versión del
-módulo se completan al actualizarlo.
+por la acción masiva, por el despacho automático o por un reintento: un pedido con **Error al
+despachar** pasa a **Despachado** cuando Hop lo acepta, o cambia de valor si vuelve a fallar
+por otro motivo. Los pedidos anteriores a esta versión del módulo se completan al
+actualizarlo, también los que ya tenían un despacho fallido.
 
 ### Acción "Despachar a Hop"
 

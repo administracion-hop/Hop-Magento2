@@ -33,42 +33,52 @@ class DispatchStatusExpression extends \Zend_Db_Expr
 {
     public const DISPATCHED = 'dispatched';
     public const PARTIAL = 'partial';
+    public const EXISTS_IN_HOP = 'exists_in_hop';
+    public const FAILED = 'failed';
     public const PENDING = 'pending';
     public const NOT_APPLICABLE = 'na';
 
     /**
      * Requiere el alias `sales_order` en el SELECT (el mainTableName del agregador).
      *
+     * Los WHEN se evalúan en orden y gana el primero que se cumple: No aplica, Despachado,
+     * Parcial, Ya existe en Hop, Error al despachar, No despachado. Los dos fallidos miran
+     * status_shipment = 'failed' y no sólo el código: el reintento por credenciales borra el
+     * código antes de intentar (sigue en failed, "Error al despachar"), y un pedido en
+     * processing con un error viejo todavía no falló de nuevo ("No despachado").
+     *
      * @param ResourceConnection $resource
      */
     public function __construct(ResourceConnection $resource)
     {
         $table = $resource->getTableName('hop_envios');
+        $exists = static function (string $condition) use ($table): string {
+            return "EXISTS (SELECT 1 FROM {$table} AS hop_envios"
+                . " WHERE hop_envios.order_id = sales_order.entity_id AND {$condition})";
+        };
 
         parent::__construct(sprintf(
             "CASE"
             . " WHEN sales_order.shipping_method IS NULL OR sales_order.shipping_method <> 'hop_hop'"
             . " THEN '%s'"
-            . " WHEN EXISTS ("
-            . "SELECT 1 FROM %s AS hop_envios"
-            . " WHERE hop_envios.order_id = sales_order.entity_id"
-            . " AND hop_envios.status_shipment = 'completed'"
-            . ")"
-            . " THEN '%s'"
-            . " WHEN EXISTS ("
-            . "SELECT 1 FROM %s AS hop_envios"
-            . " WHERE hop_envios.order_id = sales_order.entity_id"
-            . " AND hop_envios.last_error_code = '%s'"
-            . ")"
-            . " THEN '%s'"
+            . " WHEN %s THEN '%s'"
+            . " WHEN %s THEN '%s'"
+            . " WHEN %s THEN '%s'"
+            . " WHEN %s THEN '%s'"
             . " ELSE '%s'"
             . " END",
             self::NOT_APPLICABLE,
-            $table,
+            $exists("hop_envios.status_shipment = 'completed'"),
             self::DISPATCHED,
-            $table,
-            DispatchError::CODE_MULTIBULTO_PARTIAL,
+            $exists(sprintf("hop_envios.last_error_code = '%s'", DispatchError::CODE_MULTIBULTO_PARTIAL)),
             self::PARTIAL,
+            $exists(sprintf(
+                "hop_envios.status_shipment = 'failed' AND hop_envios.last_error_code = '%s'",
+                DispatchError::CODE_REFERENCE_IN_USE
+            )),
+            self::EXISTS_IN_HOP,
+            $exists("hop_envios.status_shipment = 'failed'"),
+            self::FAILED,
             self::PENDING
         ));
     }

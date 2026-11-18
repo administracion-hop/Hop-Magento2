@@ -254,7 +254,7 @@ pedidos que necesitan atención, filtrá por **Ya existe en Hop** o por **Error 
 | **No aplica** | El pedido no usa el método de envío Hop. |
 
 Si un pedido cumple más de una condición, se muestra el primer valor de la tabla que se
-cumple.
+cumple; la excepción es **No aplica**, que tiene prioridad sobre todos los demás.
 
 Un pedido cancelado o cerrado cuyo despacho había fallado sigue mostrando **Error al
 despachar** o **Ya existe en Hop**, aunque ya no se reintenta. Para ver solo los que

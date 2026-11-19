@@ -317,12 +317,10 @@ class LabelPdf
             $white = imagecolorallocate($background, 255, 255, 255);
             imagefill($background, 0, 0, $white);
             imagecopy($background, $image, 0, 0, 0, 0, $width, $height);
-            imagedestroy($image);
             $image = $background;
         }
 
         $result = imagejpeg($image, $destPath, 95);
-        imagedestroy($image);
 
         if (!$result) {
             throw new \Exception('Failed to save image as JPEG');

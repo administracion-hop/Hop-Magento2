@@ -275,7 +275,7 @@ class Data extends AbstractHelper
      */
     public function getProductivo($storeId = null)
     {
-        return (boolean) $this->getConfigValue('shipping/hop/modo_productivo', $storeId);
+        return (bool) $this->getConfigValue('shipping/hop/modo_productivo', $storeId);
     }
 
     /**

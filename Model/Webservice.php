@@ -148,6 +148,13 @@ class Webservice
     protected $lastStatus = null;
 
     /**
+     * HTTP status real de la última página de error del servidor de Hop (ver isServerErrorPage).
+     *
+     * @var int|null
+     */
+    protected $serverErrorStatus = null;
+
+    /**
      * Hop rechazó las credenciales en este proceso (una carga de página o una corrida de una
      * tarea programada). Mientras esté en true no se vuelve a llamar a Hop: con credenciales
      * rechazadas cada cotización hacía hasta cinco llamadas. Se reinicia al cambiar de vista de
@@ -1018,6 +1025,13 @@ class Webservice
         $this->_helper->log('Request POST: ' . $url);
         $this->_helper->log($responseObject, false, true);
 
+        if ($this->isServerErrorPage($responseJson)) {
+            $error = $this->serverErrorPageMessage();
+            $this->_helper->log($error, true);
+            $this->messageManager->addErrorMessage($error);
+            return ['error' => $error];
+        }
+
         if (isset($responseObject->tracking_nro)) {
             return $responseJson;
         } else {
@@ -1082,6 +1096,47 @@ class Webservice
                 'error' => $error
             );
         }
+    }
+
+    /**
+     * Si la respuesta del despacho es un error del servidor de Hop aunque venga con un 4xx: un
+     * cuerpo que no es JSON (por ejemplo, la página "502 Bad Gateway" de un intermediario con
+     * código 400). Hop responde sus rechazos siempre en JSON; una página así no dice nada del
+     * pedido, así que se trata como falta de respuesta y se reintenta por tiempo, como un 5xx.
+     *
+     * Quedan afuera el 429 (Hop pide frenar, no reintentar) y el 401 (lo resuelve curl()
+     * iniciando sesión de nuevo). Mismo criterio que login() para las credenciales.
+     *
+     * Si devuelve true deja lastStatus en 0 para que markFailed() agende el reintento: el
+     * código real queda en el mensaje (serverErrorPageMessage) y en el registro de Hop.
+     *
+     * @param string|false $body
+     * @return bool
+     */
+    protected function isServerErrorPage($body)
+    {
+        $status = (int)$this->lastStatus;
+        if (!is_string($body) || $status < 400 || $status >= 500 || $status === 401 || $status === 429) {
+            return false;
+        }
+        json_decode($body);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return false;
+        }
+        $this->serverErrorStatus = $status;
+        $this->lastStatus = 0;
+        return true;
+    }
+
+    /**
+     * @return string
+     */
+    protected function serverErrorPageMessage()
+    {
+        return (string)__(
+            'Hop respondió con un error de su servidor (HTTP %1) en lugar de su respuesta habitual. Es un problema de Hop, no del pedido.',
+            $this->serverErrorStatus
+        );
     }
 
     /**
@@ -1209,6 +1264,14 @@ class Webservice
             $this->_helper->log('[multibulto] ' . $error, true);
             $this->messageManager->addErrorMessage(__('Error en respuesta multibulto de Hop: %1', $error));
             $this->lastMultibultoError = (string)__('Error en respuesta multibulto de Hop: %1', $error);
+            return false;
+        }
+
+        if ($this->isServerErrorPage($responseJson)) {
+            $error = (string)__('Error en respuesta multibulto de Hop: %1', $this->serverErrorPageMessage());
+            $this->_helper->log('[multibulto] ' . $error, true);
+            $this->messageManager->addErrorMessage($error);
+            $this->lastMultibultoError = $error;
             return false;
         }
 

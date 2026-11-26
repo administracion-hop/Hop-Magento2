@@ -151,7 +151,7 @@ class WebserviceServerErrorResponseTest extends TestCase
         $this->assertSame($retries ? 1 : null, $this->retryDelay((string)$result['error']));
         $this->assertStringNotContainsString('<html', (string)$result['error'], 'la página no va al mensaje que ve el admin');
         if ($statusForMarkFailed === 0) {
-            $this->assertStringContainsString('error de su servidor (HTTP ' . $status . ')', (string)$result['error']);
+            $this->assertStringContainsString('una página de error (HTTP ' . $status . ')', (string)$result['error']);
         }
     }
 
@@ -170,7 +170,7 @@ class WebserviceServerErrorResponseTest extends TestCase
         $this->assertSame($statusForMarkFailed, $this->webservice->getLastStatus());
         $this->assertSame($retries ? 1 : null, $this->retryDelay($error));
         if ($statusForMarkFailed === 0) {
-            $this->assertStringContainsString('error de su servidor (HTTP ' . $status . ')', $error);
+            $this->assertStringContainsString('una página de error (HTTP ' . $status . ')', $error);
             $this->assertStringNotContainsString('<html', $error);
         }
     }

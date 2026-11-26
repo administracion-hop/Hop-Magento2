@@ -159,7 +159,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
 
             if (empty($unprocessed)) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: shipment already processed for this Hop envio');
-                return $this->settleAlreadySent($hopEnvio, $existingRecords);
+                return $this->settleAlreadySent($hopEnvio, $existingRecords, $shipments);
             }
 
             // Ya despachado por el camino directo (createShipmentData, sin envío de Magento): no
@@ -293,15 +293,18 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      * a Hop" muestren el motivo en lugar de un error sin explicación.
      *
      * - Algún bulto rechazado: es un multibulto aceptado a medias ("Parcial").
-     * - Todos los bultos con número de seguimiento: Hop aceptó todo ("Despachado").
+     * - Todos los bultos con número de seguimiento: Hop aceptó todo ("Despachado"). Como en el
+     *   despacho que sale bien, cada envío de Magento recibe su número de seguimiento (si no lo
+     *   tiene) y su etiqueta.
      * - Otra cosa: no se toca; queda para revisión manual.
      *
      * @param \Hop\Envios\Model\HopEnvios $hopEnvio
      * @param \Hop\Envios\Model\HopEnviosShipment[] $records
+     * @param \Magento\Sales\Model\Order\Shipment[] $shipments envíos de Magento del pedido
      * @return bool|null mismo contrato que dispatch(): true = despachado, false = parcial,
      *     null = no había nada que registrar
      */
-    private function settleAlreadySent($hopEnvio, array $records)
+    private function settleAlreadySent($hopEnvio, array $records, array $shipments)
     {
         $status = $hopEnvio->getStatusShipment();
         if (!$records
@@ -334,6 +337,21 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         if ($tracked === count($records)) {
             $this->helper->log('[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId() . ': bultos ya aceptados por Hop, se registra como despachado');
             $this->hopEnviosRepository->markCompleted($hopEnvio);
+            $trackingByShipment = [];
+            foreach ($records as $record) {
+                $trackingByShipment[(int)$record->getShipmentId()] = $record->getTrackingNro();
+            }
+            foreach ($shipments as $s) {
+                $tracking = $trackingByShipment[(int)$s->getId()] ?? null;
+                $hasTrack = false;
+                foreach ($s->getAllTracks() as $track) {
+                    $hasTrack = $hasTrack || $track->getTrackNumber() === $tracking;
+                }
+                if ($tracking && !$hasTrack) {
+                    $this->addTrackToShipment($s, $tracking);
+                }
+                $this->nativeLabelGenerator->generate($s);
+            }
             return true;
         }
         return null;

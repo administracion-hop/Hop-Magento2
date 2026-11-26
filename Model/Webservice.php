@@ -1134,7 +1134,7 @@ class Webservice
     protected function serverErrorPageMessage()
     {
         return (string)__(
-            'Hop respondió con un error de su servidor (HTTP %1) en lugar de su respuesta habitual. Es un problema de Hop, no del pedido.',
+            'Hop respondió con una página de error (HTTP %1) en lugar de su respuesta habitual. No es un rechazo del pedido: suele ser un problema temporal del servidor de Hop. Si se repite después de los reintentos automáticos, avisale al equipo técnico.',
             $this->serverErrorStatus
         );
     }

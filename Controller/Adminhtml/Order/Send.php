@@ -89,17 +89,24 @@ class Send extends \Magento\Backend\App\Action
             }
 
             $errorsBefore = $this->countErrorMessages();
+            $before = $this->dispatchState($orderId);
             if ($this->shippingMethodHelper->retryDispatch($order)) {
                 $this->messageManager->addSuccessMessage(
                     __('Orden enviada a Hop correctamente.')
                 );
 
-            } elseif ($this->countErrorMessages() === $errorsBefore && ($reason = $this->lastError($orderId))) {
+            } elseif ($this->countErrorMessages() === $errorsBefore
+                && ($after = $this->dispatchState($orderId))
+                && $after !== $before
+                && $after['status'] === 'failed'
+                && $after['error'] !== ''
+            ) {
                 // El despacho no llamó a Hop (por ejemplo, los envíos ya se habían mandado todos y
                 // se registró lo que había pasado), así que Webservice no dejó ningún aviso: se
-                // muestra el motivo guardado.
+                // muestra el motivo que registró este intento. Si el intento no registró nada, el
+                // motivo guardado es de un fallo anterior y no explica este.
                 $this->messageManager->addErrorMessage(
-                    __('Error al enviar la orden a Hop: %1', $reason)
+                    __('Error al enviar la orden a Hop: %1', $after['error'])
                 );
             } else {
                 $this->messageManager->addErrorMessage(
@@ -131,15 +138,24 @@ class Send extends \Magento\Backend\App\Action
     }
 
     /**
-     * Motivo del último fallo, releído después del intento (lo escribe markFailed()).
+     * Estado del despacho, leído de la base (lo escribe markFailed() durante el intento): se
+     * compara antes y después para saber si el motivo guardado es de este intento.
      *
      * @param int $orderId
-     * @return string
+     * @return array|null [status, error, code, attempts]
      */
-    private function lastError($orderId)
+    private function dispatchState($orderId)
     {
         $hopEnvios = $this->hopEnviosRepository->getByOrderId((int)$orderId);
-        return $hopEnvios ? (string)$hopEnvios->getLastError() : '';
+        if (!$hopEnvios) {
+            return null;
+        }
+        return [
+            'status' => (string)$hopEnvios->getStatusShipment(),
+            'error' => (string)$hopEnvios->getLastError(),
+            'code' => (string)$hopEnvios->getLastErrorCode(),
+            'attempts' => (int)$hopEnvios->getAttempts(),
+        ];
     }
 
     /**

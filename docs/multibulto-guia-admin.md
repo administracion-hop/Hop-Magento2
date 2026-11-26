@@ -361,12 +361,14 @@ el log del módulo para ver el motivo exacto.
 
 Tres casos tienen un tratamiento propio:
 
-- **Hop respondió con un error de su servidor**: el mensaje dice *Hop respondió con un error
-  de su servidor (HTTP N) en lugar de su respuesta habitual*. Pasa cuando Hop está caído o
-  con problemas y responde una página de error (por ejemplo, *502 Bad Gateway*), aunque venga
-  con un código 4xx. No es un problema del pedido: se reintenta solo a los 1, 10 y 30
-  minutos, igual que ante cualquier error del servidor de Hop. Si después del tercer intento
-  sigue fallando, queda en **Error al despachar** y se puede reintentar con **Enviar a HOP**.
+- **Hop respondió con una página de error**: el mensaje dice *Hop respondió con una página de
+  error (HTTP N) en lugar de su respuesta habitual*. Suele pasar cuando Hop está caído o con
+  problemas y responde una página de error (por ejemplo, *502 Bad Gateway*), aunque venga con
+  un código 4xx. No es un rechazo del pedido: se reintenta solo a los 1, 10 y 30 minutos,
+  igual que ante cualquier error del servidor de Hop. Si después del tercer intento sigue
+  fallando, queda en **Error al despachar** y se puede reintentar con **Enviar a HOP**; si se
+  repite, avisale al equipo técnico, porque también puede ser un problema de configuración
+  (por ejemplo, el ambiente de Hop equivocado).
 - **Hop rechazó las credenciales**: el pedido se reintenta solo cuando las credenciales
   vuelven a funcionar (ver la [guía del verificador](verificador-guia.md#5-pedidos-que-fallaron-por-credenciales)).
 - **La referencia del pedido ya está en uso en Hop**: el envío ya existe en Hop y no se

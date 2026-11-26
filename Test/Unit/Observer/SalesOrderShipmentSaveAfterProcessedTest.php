@@ -45,6 +45,15 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
     /** @var Shipment[] */
     private $shipments;
 
+    /** @var array números de seguimiento que ya tiene cada envío de Magento, por id */
+    private $existingTracks = [];
+
+    /** @var array [id de envío, número] de cada seguimiento agregado */
+    private $addedTracks = [];
+
+    /** @var int[] envíos a los que se les generó la etiqueta */
+    private $labels = [];
+
     protected function setUp(): void
     {
         $helper = $this->createMock(Data::class);
@@ -69,15 +78,30 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->webservice->expects($this->never())->method('createShipping');
         $this->webservice->expects($this->never())->method('createShippingMultibulto');
 
+        $trackFactory = $this->getMockBuilder(TrackFactory::class)->disableOriginalConstructor()->onlyMethods(['create'])->getMock();
+        $trackFactory->method('create')->willReturnCallback(
+            fn () => $this->getMockBuilder(\Magento\Sales\Model\Order\Shipment\Track::class)->disableOriginalConstructor()->onlyMethods(['save'])->getMock()
+        );
+        $trackResource = $this->createMock(TrackResource::class);
+        $trackResource->method('save')->willReturnCallback(function ($track) use ($trackResource) {
+            $this->addedTracks[] = [(int)$track->getParentId(), $track->getTrackNumber()];
+            return $trackResource;
+        });
+        $labels = $this->createMock(NativeLabelGenerator::class);
+        $labels->method('generate')->willReturnCallback(function ($shipment) {
+            $this->labels[] = (int)$shipment->getId();
+            return true;
+        });
+
         $this->observer = new SalesOrderShipmentSaveAfter(
             $helper,
             $this->hopEnviosRepository,
             $bultos,
             $this->webservice,
             $collectionFactory,
-            $this->createMock(TrackFactory::class),
-            $this->createMock(TrackResource::class),
-            $this->createMock(NativeLabelGenerator::class)
+            $trackFactory,
+            $trackResource,
+            $labels
         );
     }
 
@@ -104,7 +128,10 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $shipment = $this->createMock(Shipment::class);
         $shipment->method('getId')->willReturn($id);
         $shipment->method('getOrder')->willReturn($order);
-        $shipment->method('getAllTracks')->willReturn([]);
+        $shipment->method('getAllTracks')->willReturnCallback(fn () => array_map(
+            fn ($number) => new \Magento\Framework\DataObject(['track_number' => $number]),
+            $this->existingTracks[$id] ?? []
+        ));
         return $shipment;
     }
 
@@ -147,6 +174,8 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->hopEnviosRepository->expects($this->never())->method('markCompleted');
 
         $this->assertFalse($this->observer->dispatch($this->shipments[1]));
+        $this->assertSame([], $this->addedTracks, 'un parcial no toca los envíos');
+        $this->assertSame([], $this->labels);
     }
 
     public function testAllBultosAcceptedIsRecordedAsDispatched(): void
@@ -158,6 +187,18 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->hopEnviosRepository->expects($this->never())->method('markFailed');
 
         $this->assertTrue($this->observer->dispatch($this->shipments[1]));
+        $this->assertSame([[101, 'HOP123'], [102, 'HOP124']], $this->addedTracks, 'cada envío recibe su número de seguimiento');
+        $this->assertSame([101, 102], $this->labels, 'y su etiqueta, como en el despacho que sale bien');
+    }
+
+    public function testAcceptedBultoDoesNotDuplicateAnExistingTrack(): void
+    {
+        $this->hopEnvio->setStatusShipment('pending');
+        $this->records = [$this->bulto(101, 'completed', 'HOP123'), $this->bulto(102, 'completed', 'HOP124')];
+        $this->existingTracks = [101 => ['HOP123']];
+
+        $this->assertTrue($this->observer->dispatch($this->shipments[1]));
+        $this->assertSame([[102, 'HOP124']], $this->addedTracks);
     }
 
     /**

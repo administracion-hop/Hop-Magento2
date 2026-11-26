@@ -293,7 +293,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      * a Hop" muestren el motivo en lugar de un error sin explicación.
      *
      * - Algún bulto rechazado: es un multibulto aceptado a medias ("Parcial").
-     * - Todos los bultos con número de seguimiento: Hop aceptó todo ("Despachado"). Como en el
+     * - Todos los bultos mandados con número de seguimiento: Hop aceptó todo ("Despachado"). Como en el
      *   despacho que sale bien, cada envío de Magento recibe su número de seguimiento (si no lo
      *   tiene) y su etiqueta.
      * - Otra cosa: no se toca; queda para revisión manual.
@@ -314,13 +314,18 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             return null;
         }
 
+        // Solo cuentan los bultos que se mandaron a Hop: los envíos agregados después del despacho
+        // quedan como 'unsupported' y nunca llegaron a Hop.
+        $sent = 0;
         $rejected = 0;
         $tracked = 0;
         foreach ($records as $record) {
             if ($record->getStatus() === GenarateShipment::SHIPMENT_STATUS_FAILED) {
+                $sent++;
                 $rejected++;
-            } elseif ($record->getTrackingNro()) {
-                $tracked++;
+            } elseif ($record->getStatus() === GenarateShipment::SHIPMENT_STATUS_COMPLETED) {
+                $sent++;
+                $tracked += $record->getTrackingNro() ? 1 : 0;
             }
         }
 
@@ -332,17 +337,13 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             );
             $this->hopEnviosRepository->markFailed(
                 $hopEnvio,
-                __(
-                    'Ya creado en Hop con bultos rechazados: %1 de %2 bultos rechazados por Hop.',
-                    $rejected,
-                    count($records)
-                ),
+                DispatchError::multibultoPartialMessage($rejected, $sent),
                 null,
                 DispatchError::CODE_MULTIBULTO_PARTIAL
             );
             return false;
         }
-        if ($tracked === count($records)) {
+        if ($sent && $tracked === $sent) {
             $this->helper->log(
                 '[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId()
                 . ': bultos ya aceptados por Hop, se registra como despachado'

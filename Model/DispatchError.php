@@ -145,6 +145,26 @@ class DispatchError
     }
 
     /**
+     * Motivo de un multibulto que Hop aceptó a medias, con cuántos bultos rechazó.
+     *
+     * Lo usan el despacho (SalesOrderShipmentSaveAfter) y el parche que repara los multibultos
+     * trabados (RepairStuckMultibultoDispatch), para que el mismo estado tenga el mismo texto.
+     * Cuenta solo los bultos que se mandaron a Hop, no los envíos agregados después.
+     *
+     * @param int $rejected bultos rechazados
+     * @param int $sent bultos mandados a Hop
+     * @return string
+     */
+    public static function multibultoPartialMessage($rejected, $sent)
+    {
+        return (string)__(
+            'Ya creado en Hop con bultos rechazados: %1 de %2 bultos rechazados por Hop.',
+            (int)$rejected,
+            (int)$sent
+        );
+    }
+
+    /**
      * Si el despacho se puede volver a intentar (solo o con "Enviar a HOP").
      *
      * @param string|null $code

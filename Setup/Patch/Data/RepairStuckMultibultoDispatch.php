@@ -77,22 +77,42 @@ class RepairStuckMultibultoDispatch implements DataPatchInterface, NonTransactio
             $hopTable
         );
 
-        $orderIds = array_map('intval', $connection->fetchCol(
-            sprintf('SELECT DISTINCT order_id FROM %s WHERE %s', $hopTable, $stuck)
+        // Se esperan pocos: se actualizan de a uno, con el mismo motivo que deja el despacho
+        // (DispatchError::multibultoPartialMessage), que cuenta solo los bultos mandados a Hop.
+        $rows = $connection->fetchAll(sprintf(
+            'SELECT %1$s.entity_id, %1$s.order_id,'
+            . " (SELECT COUNT(*) FROM %2\$s AS b WHERE b.hop_envio_id = %1\$s.entity_id AND b.status = 'failed')"
+            . ' AS rejected,'
+            . " (SELECT COUNT(*) FROM %2\$s AS b WHERE b.hop_envio_id = %1\$s.entity_id"
+            . " AND b.status IN ('completed', 'failed')) AS sent"
+            . ' FROM %1$s WHERE %3$s',
+            $hopTable,
+            $bultoTable,
+            $stuck
         ));
-        if (!$orderIds) {
+        if (!$rows) {
             return $this;
         }
 
-        $instruction = DispatchError::getInstruction(DispatchError::CODE_MULTIBULTO_PARTIAL);
-        $connection->query(
-            sprintf(
-                'UPDATE %s SET status_shipment = ?, last_error_code = ?, last_error = ?, next_retry_at = NULL WHERE %s',
-                $hopTable,
-                $stuck
-            ),
-            ['failed', DispatchError::CODE_MULTIBULTO_PARTIAL, $instruction[0]]
-        );
+        $orderIds = [];
+        foreach ($rows as $row) {
+            $connection->query(
+                sprintf(
+                    'UPDATE %s SET status_shipment = ?, last_error_code = ?, last_error = ?, next_retry_at = NULL'
+                    . ' WHERE entity_id = ? AND %s',
+                    $hopTable,
+                    $stuck
+                ),
+                [
+                    'failed',
+                    DispatchError::CODE_MULTIBULTO_PARTIAL,
+                    DispatchError::multibultoPartialMessage($row['rejected'], $row['sent']),
+                    (int)$row['entity_id'],
+                ]
+            );
+            $orderIds[(int)$row['order_id']] = (int)$row['order_id'];
+        }
+        $orderIds = array_values($orderIds);
 
         $gridSql = sprintf(
             'UPDATE %s AS grid'

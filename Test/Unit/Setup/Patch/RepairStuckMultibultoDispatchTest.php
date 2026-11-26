@@ -59,6 +59,11 @@ class RepairStuckMultibultoDispatchTest extends TestCase
             $statement->execute($bind);
             return $statement->fetchAll(\PDO::FETCH_COLUMN);
         });
+        $connection->method('fetchAll')->willReturnCallback(function ($sql, $bind = []) {
+            $statement = $this->db->prepare((string)$sql);
+            $statement->execute($bind);
+            return $statement->fetchAll(\PDO::FETCH_ASSOC);
+        });
         $connection->method('query')->willReturnCallback(function ($sql, $bind = []) {
             $sql = (string)$sql;
             if (strpos($sql, 'sales_order_grid') !== false) {
@@ -114,15 +119,21 @@ class RepairStuckMultibultoDispatchTest extends TestCase
         // Como IS000000051: bulto 1 aceptado, bulto 2 rechazado, despacho pendiente.
         $this->order(1, 'pending', null, ['completed', 'failed'], Status::PENDING);
         $this->order(2, 'processing', null, ['failed', 'failed'], Status::PENDING);
+        // Un envío agregado después del despacho no cuenta como bulto mandado.
+        $this->order(3, 'pending', null, ['completed', 'failed', 'unsupported'], Status::PENDING);
+        $expected = [
+            1 => 'Ya creado en Hop con bultos rechazados: 1 de 2 bultos rechazados por Hop.',
+            2 => 'Ya creado en Hop con bultos rechazados: 2 de 2 bultos rechazados por Hop.',
+            3 => 'Ya creado en Hop con bultos rechazados: 1 de 2 bultos rechazados por Hop.',
+        ];
 
         $this->patch->apply();
 
-        foreach ([1, 2] as $orderId) {
+        foreach ($expected as $orderId => $message) {
             $row = $this->row($orderId);
             $this->assertSame('failed', $row['status_shipment']);
             $this->assertSame(DispatchError::CODE_MULTIBULTO_PARTIAL, $row['last_error_code']);
-            $instruction = DispatchError::getInstruction(DispatchError::CODE_MULTIBULTO_PARTIAL)[0];
-            $this->assertSame($instruction, $row['last_error']);
+            $this->assertSame($message, $row['last_error'], 'el mismo motivo que deja el despacho');
             $this->assertSame(
                 Status::PARTIAL,
                 $row['hop_dispatch_status'],

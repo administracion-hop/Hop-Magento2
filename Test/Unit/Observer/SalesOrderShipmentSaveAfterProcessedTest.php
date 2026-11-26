@@ -242,10 +242,31 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->assertNull($this->observer->dispatch($this->shipments[1]));
     }
 
-    public function testBultosWithoutTrackingOrRejectionAreLeftForManualReview(): void
+    public function testShipmentAddedAfterDispatchIsNotCountedAsSent(): void
+    {
+        $this->shipments[] = $this->shipment(103);
+        $this->hopEnvio->setStatusShipment('pending');
+        $this->records = [
+            $this->bulto(101, 'completed', 'HOP123'),
+            $this->bulto(102, 'failed', null),
+            $this->bulto(103, 'unsupported', null),
+        ];
+
+        $this->hopEnviosRepository->expects($this->once())->method('markFailed')
+            ->with(
+                $this->hopEnvio,
+                'Ya creado en Hop con bultos rechazados: 1 de 2 bultos rechazados por Hop.',
+                null,
+                DispatchError::CODE_MULTIBULTO_PARTIAL
+            );
+
+        $this->assertFalse($this->observer->dispatch($this->shipments[2]));
+    }
+
+    public function testAcceptedBultoWithoutTrackingIsLeftForManualReview(): void
     {
         $this->hopEnvio->setStatusShipment('pending');
-        $this->records = [$this->bulto(101, 'completed', 'HOP123'), $this->bulto(102, 'unsupported', null)];
+        $this->records = [$this->bulto(101, 'completed', 'HOP123'), $this->bulto(102, 'completed', null)];
 
         $this->hopEnviosRepository->expects($this->never())->method('markFailed');
         $this->hopEnviosRepository->expects($this->never())->method('markCompleted');

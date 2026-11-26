@@ -78,9 +78,15 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->webservice->expects($this->never())->method('createShipping');
         $this->webservice->expects($this->never())->method('createShippingMultibulto');
 
-        $trackFactory = $this->getMockBuilder(TrackFactory::class)->disableOriginalConstructor()->onlyMethods(['create'])->getMock();
+        $trackFactory = $this->getMockBuilder(TrackFactory::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['create'])
+            ->getMock();
         $trackFactory->method('create')->willReturnCallback(
-            fn () => $this->getMockBuilder(\Magento\Sales\Model\Order\Shipment\Track::class)->disableOriginalConstructor()->onlyMethods(['save'])->getMock()
+            fn () => $this->getMockBuilder(\Magento\Sales\Model\Order\Shipment\Track::class)
+                ->disableOriginalConstructor()
+                ->onlyMethods(['save'])
+                ->getMock()
         );
         $trackResource = $this->createMock(TrackResource::class);
         $trackResource->method('save')->willReturnCallback(function ($track) use ($trackResource) {
@@ -167,7 +173,9 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markFailed')
             ->with(
                 $this->hopEnvio,
-                $this->callback(fn ($error) => str_contains((string)$error, 'Ya creado en Hop con bultos rechazados: 1 de 2')),
+                $this->callback(
+                    fn ($error) => str_contains((string)$error, 'Ya creado en Hop con bultos rechazados: 1 de 2')
+                ),
                 null,
                 DispatchError::CODE_MULTIBULTO_PARTIAL
             );
@@ -187,7 +195,11 @@ class SalesOrderShipmentSaveAfterProcessedTest extends TestCase
         $this->hopEnviosRepository->expects($this->never())->method('markFailed');
 
         $this->assertTrue($this->observer->dispatch($this->shipments[1]));
-        $this->assertSame([[101, 'HOP123'], [102, 'HOP124']], $this->addedTracks, 'cada envío recibe su número de seguimiento');
+        $this->assertSame(
+            [[101, 'HOP123'], [102, 'HOP124']],
+            $this->addedTracks,
+            'cada envío recibe su número de seguimiento'
+        );
         $this->assertSame([101, 102], $this->labels, 'y su etiqueta, como en el despacho que sale bien');
     }
 

@@ -22,9 +22,7 @@ use Magento\Framework\Setup\Patch\NonTransactionableInterface;
  * setup:upgrade.
  *
  * @version 1.0.0
- * @author Hop Envíos <https://hopenvios.com.ar>
  * @copyright Copyright (c) 2025 Hop Envíos
- * @package Hop\Envios\Setup\Patch\Data
  */
 class RefreshHopDispatchStatusFailures implements DataPatchInterface, NonTransactionableInterface
 {
@@ -56,6 +54,8 @@ class RefreshHopDispatchStatusFailures implements DataPatchInterface, NonTransac
     }
 
     /**
+     * Aplica el parche.
+     *
      * @return $this
      */
     public function apply()
@@ -90,8 +90,10 @@ class RefreshHopDispatchStatusFailures implements DataPatchInterface, NonTransac
     }
 
     /**
-     * En una instalación nueva corre después del backfill general, que llena la columna en
-     * todos los pedidos; éste sólo corrige los fallidos.
+     * Corre después del backfill general.
+     *
+     * En una instalación nueva, el backfill llena la columna en todos los pedidos; éste sólo
+     * corrige los fallidos.
      *
      * @return array
      */
@@ -101,6 +103,8 @@ class RefreshHopDispatchStatusFailures implements DataPatchInterface, NonTransac
     }
 
     /**
+     * Sin nombres anteriores.
+     *
      * @return array
      */
     public function getAliases()

@@ -130,7 +130,9 @@ class Send extends \Magento\Backend\App\Action
     }
 
     /**
-     * @return int avisos de error pendientes de mostrar
+     * Cantidad de avisos de error pendientes de mostrar.
+     *
+     * @return int
      */
     private function countErrorMessages()
     {
@@ -138,8 +140,10 @@ class Send extends \Magento\Backend\App\Action
     }
 
     /**
-     * Estado del despacho, leído de la base (lo escribe markFailed() durante el intento): se
-     * compara antes y después para saber si el motivo guardado es de este intento.
+     * Estado del despacho, leído de la base.
+     *
+     * Lo escribe markFailed() durante el intento: se compara antes y después para saber si el
+     * motivo guardado es de este intento.
      *
      * @param int $orderId
      * @return array|null [status, error, code, attempts]

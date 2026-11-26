@@ -325,17 +325,28 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         }
 
         if ($rejected) {
-            $this->helper->log('[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId() . ': bultos ya procesados con rechazos, se registra como multibulto parcial', true);
+            $this->helper->log(
+                '[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId()
+                . ': bultos ya procesados con rechazos, se registra como multibulto parcial',
+                true
+            );
             $this->hopEnviosRepository->markFailed(
                 $hopEnvio,
-                __('Ya creado en Hop con bultos rechazados: %1 de %2 bultos rechazados por Hop.', $rejected, count($records)),
+                __(
+                    'Ya creado en Hop con bultos rechazados: %1 de %2 bultos rechazados por Hop.',
+                    $rejected,
+                    count($records)
+                ),
                 null,
                 DispatchError::CODE_MULTIBULTO_PARTIAL
             );
             return false;
         }
         if ($tracked === count($records)) {
-            $this->helper->log('[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId() . ': bultos ya aceptados por Hop, se registra como despachado');
+            $this->helper->log(
+                '[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId()
+                . ': bultos ya aceptados por Hop, se registra como despachado'
+            );
             $this->hopEnviosRepository->markCompleted($hopEnvio);
             $trackingByShipment = [];
             foreach ($records as $record) {

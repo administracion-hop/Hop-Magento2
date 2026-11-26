@@ -1129,11 +1129,16 @@ class Webservice
     }
 
     /**
+     * Mensaje para el admin cuando Hop respondió una página de error (ver isServerErrorPage).
+     *
+     * El texto va en una sola línea para que se pueda traducir.
+     *
      * @return string
      */
     protected function serverErrorPageMessage()
     {
         return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
             'Hop respondió con una página de error (HTTP %1) en lugar de su respuesta habitual. No es un rechazo del pedido: suele ser un problema temporal del servidor de Hop. Si se repite después de los reintentos automáticos, avisale al equipo técnico.',
             $this->serverErrorStatus
         );

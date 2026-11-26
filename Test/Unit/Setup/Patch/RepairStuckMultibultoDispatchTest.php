@@ -94,8 +94,10 @@ class RepairStuckMultibultoDispatchTest extends TestCase
         $this->db->prepare('INSERT INTO hop_envios VALUES (?, ?, ?, NULL, ?, NULL)')
             ->execute([$orderId, $orderId, $status, $code]);
         foreach ($bultos as $i => $bultoStatus) {
-            $this->db->prepare('INSERT INTO hop_envios_shipment (hop_envio_id, shipment_id, status, tracking_nro) VALUES (?, ?, ?, ?)')
-                ->execute([$orderId, $orderId * 10 + $i, $bultoStatus, $bultoStatus === 'completed' ? 'HOP' . $i : null]);
+            $tracking = $bultoStatus === 'completed' ? 'HOP' . $i : null;
+            $this->db->prepare(
+                'INSERT INTO hop_envios_shipment (hop_envio_id, shipment_id, status, tracking_nro) VALUES (?, ?, ?, ?)'
+            )->execute([$orderId, $orderId * 10 + $i, $bultoStatus, $tracking]);
         }
     }
 
@@ -119,8 +121,13 @@ class RepairStuckMultibultoDispatchTest extends TestCase
             $row = $this->row($orderId);
             $this->assertSame('failed', $row['status_shipment']);
             $this->assertSame(DispatchError::CODE_MULTIBULTO_PARTIAL, $row['last_error_code']);
-            $this->assertSame(DispatchError::getInstruction(DispatchError::CODE_MULTIBULTO_PARTIAL)[0], $row['last_error']);
-            $this->assertSame(Status::PARTIAL, $row['hop_dispatch_status'], 'la grilla pasa a Parcial sin guardar el pedido');
+            $instruction = DispatchError::getInstruction(DispatchError::CODE_MULTIBULTO_PARTIAL)[0];
+            $this->assertSame($instruction, $row['last_error']);
+            $this->assertSame(
+                Status::PARTIAL,
+                $row['hop_dispatch_status'],
+                'la grilla pasa a Parcial sin guardar el pedido'
+            );
         }
     }
 
@@ -131,9 +138,24 @@ class RepairStuckMultibultoDispatchTest extends TestCase
     {
         return [
             'pendiente sin bultos' => ['pending', null, [], Status::PENDING],
-            'pendiente con todos los bultos aceptados' => ['pending', null, ['completed', 'completed'], Status::PENDING],
-            'ya parcial' => ['failed', DispatchError::CODE_MULTIBULTO_PARTIAL, ['completed', 'failed'], Status::PARTIAL],
-            'despachado con un bulto agregado después' => ['completed', null, ['completed', 'unsupported'], Status::DISPATCHED],
+            'pendiente con todos los bultos aceptados' => [
+                'pending',
+                null,
+                ['completed', 'completed'],
+                Status::PENDING,
+            ],
+            'ya parcial' => [
+                'failed',
+                DispatchError::CODE_MULTIBULTO_PARTIAL,
+                ['completed', 'failed'],
+                Status::PARTIAL,
+            ],
+            'despachado con un bulto agregado después' => [
+                'completed',
+                null,
+                ['completed', 'unsupported'],
+                Status::DISPATCHED,
+            ],
             'error al despachar' => ['failed', 'credentials', [], Status::FAILED],
         ];
     }
@@ -141,8 +163,12 @@ class RepairStuckMultibultoDispatchTest extends TestCase
     /**
      * @dataProvider untouchedProvider
      */
-    public function testOtherDispatchesAreNotTouched(string $status, ?string $code, array $bultos, string $gridValue): void
-    {
+    public function testOtherDispatchesAreNotTouched(
+        string $status,
+        ?string $code,
+        array $bultos,
+        string $gridValue
+    ): void {
         $this->order(1, $status, $code, $bultos, $gridValue);
         $before = $this->row(1);
 

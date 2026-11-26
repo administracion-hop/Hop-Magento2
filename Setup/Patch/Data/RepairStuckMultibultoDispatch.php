@@ -26,9 +26,7 @@ use Magento\Framework\Setup\Patch\NonTransactionableInterface;
  * setup:upgrade.
  *
  * @version 1.0.0
- * @author Hop Envíos <https://hopenvios.com.ar>
  * @copyright Copyright (c) 2025 Hop Envíos
- * @package Hop\Envios\Setup\Patch\Data
  */
 class RepairStuckMultibultoDispatch implements DataPatchInterface, NonTransactionableInterface
 {
@@ -60,6 +58,8 @@ class RepairStuckMultibultoDispatch implements DataPatchInterface, NonTransactio
     }
 
     /**
+     * Aplica el parche.
+     *
      * @return $this
      */
     public function apply()
@@ -121,6 +121,8 @@ class RepairStuckMultibultoDispatch implements DataPatchInterface, NonTransactio
     }
 
     /**
+     * Sin nombres anteriores.
+     *
      * @return array
      */
     public function getAliases()

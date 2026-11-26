@@ -31,7 +31,8 @@ use PHPUnit\Framework\TestCase;
  */
 class WebserviceServerErrorResponseTest extends TestCase
 {
-    private const BAD_GATEWAY = '<html><head><title>502 Bad Gateway</title></head><body><center><h1>502 Bad Gateway</h1></center></body></html>';
+    private const BAD_GATEWAY = '<html><head><title>502 Bad Gateway</title></head>'
+        . '<body><center><h1>502 Bad Gateway</h1></center></body></html>';
 
     /** @var array cola de respuestas de Hop: [status, body] */
     private $responses = [];
@@ -76,7 +77,10 @@ class WebserviceServerErrorResponseTest extends TestCase
         $tokenCollectionFactory->method('create')->willReturn($tokenCollection);
         $tokenFactory = $this->createMock(TokenFactory::class);
         $tokenFactory->method('create')->willReturnCallback(
-            fn () => $this->getMockBuilder(\Hop\Envios\Model\Token::class)->disableOriginalConstructor()->onlyMethods(['save'])->getMock()
+            fn () => $this->getMockBuilder(\Hop\Envios\Model\Token::class)
+                ->disableOriginalConstructor()
+                ->onlyMethods(['save'])
+                ->getMock()
         );
 
         $pickupPoints = $this->createMock(OrderPickupPointRepository::class);
@@ -130,8 +134,19 @@ class WebserviceServerErrorResponseTest extends TestCase
             'página 502 Bad Gateway con código 400' => [400, self::BAD_GATEWAY, true, 0],
             'página de error con código 403' => [403, '<html>Forbidden</html>', true, 0],
             'cuerpo vacío con código 400' => [400, '', true, 0],
-            'rechazo de Hop con su formato (falta el documento)' => [400, '{"message":"Error de validación","errors":{"client.id_number":["El campo client.id number es obligatorio."]}}', false, 400],
-            'rechazo de Hop 422 con su formato' => [422, '{"package.weight":["El campo package.weight es obligatorio."]}', false, 422],
+            'rechazo de Hop con su formato (falta el documento)' => [
+                400,
+                '{"message":"Error de validación","errors":'
+                    . '{"client.id_number":["El campo client.id number es obligatorio."]}}',
+                false,
+                400,
+            ],
+            'rechazo de Hop 422 con su formato' => [
+                422,
+                '{"package.weight":["El campo package.weight es obligatorio."]}',
+                false,
+                422,
+            ],
             'demasiadas consultas con página de error' => [429, '<html>Too Many Requests</html>', false, 429],
             'error 502 del servidor, como hoy' => [502, self::BAD_GATEWAY, true, 502],
         ];
@@ -149,7 +164,11 @@ class WebserviceServerErrorResponseTest extends TestCase
         $this->assertIsArray($result);
         $this->assertSame($statusForMarkFailed, $this->webservice->getLastStatus());
         $this->assertSame($retries ? 1 : null, $this->retryDelay((string)$result['error']));
-        $this->assertStringNotContainsString('<html', (string)$result['error'], 'la página no va al mensaje que ve el admin');
+        $this->assertStringNotContainsString(
+            '<html',
+            (string)$result['error'],
+            'la página no va al mensaje que ve el admin'
+        );
         if ($statusForMarkFailed === 0) {
             $this->assertStringContainsString('una página de error (HTTP ' . $status . ')', (string)$result['error']);
         }

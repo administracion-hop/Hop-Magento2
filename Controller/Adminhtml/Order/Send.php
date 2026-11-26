@@ -7,6 +7,8 @@ use Magento\Framework\Controller\Result\RedirectFactory;
 use Hop\Envios\Logger\LoggerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Hop\Envios\Helper\ShippingMethod;
+use Hop\Envios\Model\HopEnviosRepository;
+use Magento\Framework\Message\MessageInterface;
 
 class Send extends \Magento\Backend\App\Action
 {
@@ -31,6 +33,11 @@ class Send extends \Magento\Backend\App\Action
     protected $shippingMethodHelper;
 
     /**
+     * @var HopEnviosRepository
+     */
+    protected $hopEnviosRepository;
+
+    /**
      * Constructor
      */
     public function __construct(
@@ -39,12 +46,14 @@ class Send extends \Magento\Backend\App\Action
         LoggerInterface $logger,
         OrderRepositoryInterface $orderRepository,
         ShippingMethod $shippingMethodHelper,
+        HopEnviosRepository $hopEnviosRepository
     ) {
         parent::__construct($context);
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->logger = $logger;
         $this->orderRepository = $orderRepository;
         $this->shippingMethodHelper = $shippingMethodHelper;
+        $this->hopEnviosRepository = $hopEnviosRepository;
     }
 
     /**
@@ -79,11 +88,19 @@ class Send extends \Magento\Backend\App\Action
                 return $this->redirectBack($orderId);
             }
 
+            $errorsBefore = $this->countErrorMessages();
             if ($this->shippingMethodHelper->retryDispatch($order)) {
                 $this->messageManager->addSuccessMessage(
                     __('Orden enviada a Hop correctamente.')
                 );
 
+            } elseif ($this->countErrorMessages() === $errorsBefore && ($reason = $this->lastError($orderId))) {
+                // El despacho no llamó a Hop (por ejemplo, los envíos ya se habían mandado todos y
+                // se registró lo que había pasado), así que Webservice no dejó ningún aviso: se
+                // muestra el motivo guardado.
+                $this->messageManager->addErrorMessage(
+                    __('Error al enviar la orden a Hop: %1', $reason)
+                );
             } else {
                 $this->messageManager->addErrorMessage(
                     __('Error al enviar la orden a Hop')
@@ -103,6 +120,26 @@ class Send extends \Magento\Backend\App\Action
         }
 
         return $this->redirectBack(null);
+    }
+
+    /**
+     * @return int avisos de error pendientes de mostrar
+     */
+    private function countErrorMessages()
+    {
+        return (int)$this->messageManager->getMessages(false)->getCountByType(MessageInterface::TYPE_ERROR);
+    }
+
+    /**
+     * Motivo del último fallo, releído después del intento (lo escribe markFailed()).
+     *
+     * @param int $orderId
+     * @return string
+     */
+    private function lastError($orderId)
+    {
+        $hopEnvios = $this->hopEnviosRepository->getByOrderId((int)$orderId);
+        return $hopEnvios ? (string)$hopEnvios->getLastError() : '';
     }
 
     /**

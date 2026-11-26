@@ -159,7 +159,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
 
             if (empty($unprocessed)) {
                 $this->helper->log('[ShipmentSaveAfter] EXIT: shipment already processed for this Hop envio');
-                return null;
+                return $this->settleAlreadySent($hopEnvio, $existingRecords);
             }
 
             // Ya despachado por el camino directo (createShipmentData, sin envío de Magento): no
@@ -281,6 +281,60 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 $this->hopEnviosRepository->markFailed($hopEnvio, $e->getMessage());
                 return false;
             }
+        }
+        return null;
+    }
+
+    /**
+     * Todos los envíos de Magento del pedido ya se mandaron a Hop, pero el despacho no quedó
+     * registrado como despachado ni como fallido (las versiones anteriores a la tarea 18065 no
+     * registraban el fallo de un multibulto y lo dejaban pendiente). No se llama a Hop: se
+     * registra lo que ya pasó, según los bultos, para que la grilla, "Enviar a HOP" y "Despachar
+     * a Hop" muestren el motivo en lugar de un error sin explicación.
+     *
+     * - Algún bulto rechazado: es un multibulto aceptado a medias ("Parcial").
+     * - Todos los bultos con número de seguimiento: Hop aceptó todo ("Despachado").
+     * - Otra cosa: no se toca; queda para revisión manual.
+     *
+     * @param \Hop\Envios\Model\HopEnvios $hopEnvio
+     * @param \Hop\Envios\Model\HopEnviosShipment[] $records
+     * @return bool|null mismo contrato que dispatch(): true = despachado, false = parcial,
+     *     null = no había nada que registrar
+     */
+    private function settleAlreadySent($hopEnvio, array $records)
+    {
+        $status = $hopEnvio->getStatusShipment();
+        if (!$records
+            || $status === GenarateShipment::SHIPMENT_STATUS_COMPLETED
+            || $status === GenarateShipment::SHIPMENT_STATUS_FAILED
+        ) {
+            return null;
+        }
+
+        $rejected = 0;
+        $tracked = 0;
+        foreach ($records as $record) {
+            if ($record->getStatus() === GenarateShipment::SHIPMENT_STATUS_FAILED) {
+                $rejected++;
+            } elseif ($record->getTrackingNro()) {
+                $tracked++;
+            }
+        }
+
+        if ($rejected) {
+            $this->helper->log('[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId() . ': bultos ya procesados con rechazos, se registra como multibulto parcial', true);
+            $this->hopEnviosRepository->markFailed(
+                $hopEnvio,
+                __('Ya creado en Hop con bultos rechazados: %1 de %2 bultos rechazados por Hop.', $rejected, count($records)),
+                null,
+                DispatchError::CODE_MULTIBULTO_PARTIAL
+            );
+            return false;
+        }
+        if ($tracked === count($records)) {
+            $this->helper->log('[ShipmentSaveAfter] order ' . $hopEnvio->getOrderId() . ': bultos ya aceptados por Hop, se registra como despachado');
+            $this->hopEnviosRepository->markCompleted($hopEnvio);
+            return true;
         }
         return null;
     }

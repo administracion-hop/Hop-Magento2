@@ -247,9 +247,9 @@ pedidos que necesitan atención, filtrá por **Ya existe en Hop** o por **Error 
 | Valor | Qué significa |
 |-------|---------------|
 | **Despachado** | Hop aceptó el envío. Las etiquetas ya están disponibles (o lo estarán en un minuto, ver [sección 4](#4-las-etiquetas-y-el-minuto-de-espera)). |
-| **Parcial** | Multibulto en el que Hop rechazó uno o más bultos. Los aceptados ya existen en Hop con su etiqueta; los rechazados no se pueden reintentar desde Magento (ver [sección 7](#7-cuando-algo-sale-mal)). |
+| **Parcial** | Multibulto en el que Hop rechazó uno o más bultos. Los aceptados ya existen en Hop con su etiqueta; los rechazados no se pueden reintentar desde Magento (ver [sección 7](#7-cuando-algo-sale-mal)). Incluye los multibultos despachados con versiones anteriores del módulo que habían quedado como **No despachado** aunque Hop ya tenía sus bultos. |
 | **Ya existe en Hop** | El despacho falló porque Hop ya tiene un envío con la referencia del pedido. El envío existe en Hop, pero Magento no lo tiene registrado: buscalo en el panel de Hop (ver [sección 7](#apareció-un-error-general-error-en-respuesta-multibulto-de-hop)). |
-| **Error al despachar** | El despacho falló por cualquier otro motivo: credenciales rechazadas, datos del pedido o un error del servidor de Hop. Aparece también mientras el pedido espera un reintento automático. El motivo está en el bloque Hop del pedido. |
+| **Error al despachar** | El despacho falló por cualquier otro motivo: credenciales rechazadas, datos del pedido o un error del servidor de Hop (también cuando Hop responde una página de error en lugar de su respuesta habitual). Aparece también mientras el pedido espera un reintento automático. El motivo está en el bloque Hop del pedido. |
 | **No despachado** | Hop todavía no tiene el envío y no hay un fallo registrado: el pedido está pendiente o en proceso de despacho (también mientras se reintenta, o si el despacho automático se cortó por un error interno de Magento y vuelve a intentarse solo). |
 | **No aplica** | El pedido no usa el método de envío Hop. |
 
@@ -264,7 +264,8 @@ La columna se actualiza sola cada vez que cambia el estado del despacho, sea por
 por la acción masiva, por el despacho automático o por un reintento: un pedido con **Error al
 despachar** pasa a **Despachado** cuando Hop lo acepta, o cambia de valor si vuelve a fallar
 por otro motivo. Los pedidos anteriores a esta versión del módulo se completan al
-actualizarlo, también los que ya tenían un despacho fallido.
+actualizarlo, también los que ya tenían un despacho fallido y los multibultos que habían
+quedado trabados en **No despachado** con bultos rechazados, que pasan a **Parcial**.
 
 ### Acción "Despachar a Hop"
 
@@ -276,7 +277,10 @@ pedido se despacha igual que con el botón **Enviar a HOP** del pedido.
 - Un pedido que falla no frena al resto. Al terminar ves un resumen con tres avisos:
   - **despachados**: los números de pedido que Hop aceptó;
   - **omitidos**: los que no se intentaron, con el motivo de cada uno;
-  - **con error**: los que Hop rechazó, con el motivo que devolvió Hop.
+  - **con error**: los que Hop rechazó, con el motivo que devolvió Hop. Un pedido cuyos
+    envíos ya se habían mandado todos a Hop no se vuelve a mandar: aparece acá con el motivo
+    *Ya creado en Hop con bultos rechazados* y pasa a **Parcial** (o, si Hop había aceptado
+    todos los bultos, aparece entre los despachados y pasa a **Despachado**).
 - Motivos por los que un pedido se omite:
 
 | Motivo en el aviso | Qué hacer |
@@ -355,8 +359,14 @@ Ningún bulto se creó. El pedido queda sin despachar y podés volver a intentar
 último envío otra vez una vez corregido el problema, o pedile al equipo técnico que revise
 el log del módulo para ver el motivo exacto.
 
-Dos casos tienen un tratamiento propio:
+Tres casos tienen un tratamiento propio:
 
+- **Hop respondió con un error de su servidor**: el mensaje dice *Hop respondió con un error
+  de su servidor (HTTP N) en lugar de su respuesta habitual*. Pasa cuando Hop está caído o
+  con problemas y responde una página de error (por ejemplo, *502 Bad Gateway*), aunque venga
+  con un código 4xx. No es un problema del pedido: se reintenta solo a los 1, 10 y 30
+  minutos, igual que ante cualquier error del servidor de Hop. Si después del tercer intento
+  sigue fallando, queda en **Error al despachar** y se puede reintentar con **Enviar a HOP**.
 - **Hop rechazó las credenciales**: el pedido se reintenta solo cuando las credenciales
   vuelven a funcionar (ver la [guía del verificador](verificador-guia.md#5-pedidos-que-fallaron-por-credenciales)).
 - **La referencia del pedido ya está en uso en Hop**: el envío ya existe en Hop y no se

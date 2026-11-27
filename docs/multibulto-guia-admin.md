@@ -398,7 +398,8 @@ etiquetas.
 Al actualizar el módulo, esos pedidos pasan a **Error al despachar** con el motivo *Marcado
 como despachado sin envío en Hop por una versión anterior del módulo*. Los pedidos cancelados
 o cerrados quedan como estaban. La actualización no se comunica con Hop y no los reintenta
-sola: el despacho automático por estado y el reintento automático tampoco los toman.
+sola: el despacho automático por estado, el reintento automático y cualquier otro cambio en el
+envío (un comentario, una etiqueta) tampoco los despachan.
 
 Para despacharlos, usá **Enviar a HOP** o **Despachar a Hop**. Antes de crear el envío, el
 módulo busca en Hop si ya existe uno con la referencia del pedido, porque Hop acepta un

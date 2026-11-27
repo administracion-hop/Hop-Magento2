@@ -138,10 +138,11 @@ class MassDispatch extends Action implements HttpPostActionInterface
             }
 
             try {
+                $before = $this->dispatchState($hopEnvios);
                 if ($this->shippingMethodHelper->retryDispatch($order)) {
                     $dispatched[] = $increment;
                 } else {
-                    $failed[] = $increment . ' (' . $this->lastError((int)$order->getId()) . ')';
+                    $failed[] = $increment . ' (' . $this->lastError((int)$order->getId(), $before) . ')';
                 }
             } catch (\Exception $e) {
                 // Un pedido roto no puede frenar el lote: se registra y se sigue.
@@ -224,13 +225,36 @@ class MassDispatch extends Action implements HttpPostActionInterface
      * que el registro que teníamos antes del intento todavía no lo tiene.
      *
      * @param int $orderId
+     * @param array|null $before estado del despacho antes del intento (dispatchState)
      * @return string
      */
-    private function lastError(int $orderId): string
+    private function lastError(int $orderId, ?array $before): string
     {
         $hopEnvios = $this->hopEnviosRepository->getByOrderId($orderId);
-        return $hopEnvios && $hopEnvios->getLastError()
-            ? (string)$hopEnvios->getLastError()
+        $after = $this->dispatchState($hopEnvios);
+        // Solo el motivo que registró este intento: si no registró nada, el guardado es de un
+        // fallo anterior y no explica este (mismo criterio que Order\Send).
+        return $after && $after !== $before && $after['status'] === 'failed' && $after['error'] !== ''
+            ? $after['error']
             : (string)__('error al enviar a Hop');
+    }
+
+    /**
+     * Estado del despacho, para saber si el motivo guardado es de este intento.
+     *
+     * @param \Hop\Envios\Model\HopEnvios|null $hopEnvios
+     * @return array|null
+     */
+    private function dispatchState($hopEnvios): ?array
+    {
+        if (!$hopEnvios) {
+            return null;
+        }
+        return [
+            'status' => (string)$hopEnvios->getStatusShipment(),
+            'error' => (string)$hopEnvios->getLastError(),
+            'code' => (string)$hopEnvios->getLastErrorCode(),
+            'attempts' => (int)$hopEnvios->getAttempts(),
+        ];
     }
 }

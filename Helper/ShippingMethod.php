@@ -205,6 +205,6 @@ class ShippingMethod extends AbstractHelper
             return $this->createShipmentData($order, true);
         }
 
-        return $this->shipmentDispatcher->dispatch(end($shipments)) === true;
+        return $this->shipmentDispatcher->dispatch(end($shipments), true) === true;
     }
 }

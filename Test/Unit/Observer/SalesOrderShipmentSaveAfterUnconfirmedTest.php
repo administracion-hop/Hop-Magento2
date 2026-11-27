@@ -52,10 +52,22 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
     /** @var string[] orden de los pasos: "bulto <id>", "seguimiento <id>", "etiqueta <id>" */
     private $steps = [];
 
+    /** @var array medidas de cada envío de Magento por id (getPackageDataForShipment) */
+    private $packages = [];
+
+    /** @var int|null id de envío cuyo bulto falla al guardarse */
+    private $failingBulto = null;
+
+    /** @var array [id de despacho, ids de envío] de cada borrado de bultos */
+    private $deleted = [];
+
     protected function setUp(): void
     {
         $helper = $this->createMock(Data::class);
         $helper->method('isActive')->willReturn(true);
+        $helper->method('getPackageDataForShipment')->willReturnCallback(
+            fn ($shipment) => $this->packages[(int)$shipment->getId()] ?? null
+        );
 
         $this->hopEnvio = $this->model(HopEnvios::class, [
             'entity_id' => 10,
@@ -73,11 +85,18 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $bultos->method('getByHopEnvioId')->willReturn([]);
         $bultos->method('saveForShipment')->willReturnCallback(
             function ($hopEnvioId, $shipmentId, $index, $shippingId, $tracking, $label) {
+                if ($shipmentId === $this->failingBulto) {
+                    throw new \Exception('no se pudo guardar el bulto');
+                }
                 $this->savedBultos[] = [$shipmentId, $index, $tracking, $label];
                 $this->steps[] = 'bulto ' . $shipmentId;
                 return $this->model(\Hop\Envios\Model\HopEnviosShipment::class, []);
             }
         );
+
+        $bultos->method('deleteForShipments')->willReturnCallback(function ($hopEnvioId, $ids) {
+            $this->deleted[] = [$hopEnvioId, $ids];
+        });
 
         // Desordenados a propósito: los bultos se asignan por id de envío, como en el despacho.
         $this->shipments = [$this->shipment(102), $this->shipment(101)];
@@ -176,7 +195,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markCompleted')->with($this->hopEnvio, null);
         $this->hopEnviosRepository->expects($this->never())->method('markFailed');
 
-        $this->assertTrue($this->observer->dispatch($this->shipments[0]));
+        $this->assertTrue($this->observer->dispatch($this->shipments[0], true));
         $this->assertSame(
             [[101, 0, 'HOP1', 'https://etiqueta/HOP1.jpeg'], [102, 1, 'HOP2', 'https://etiqueta/HOP2.jpeg']],
             $this->savedBultos,
@@ -203,7 +222,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markCompleted')
             ->with($this->hopEnvio, json_encode($this->row('HOP1')));
 
-        $this->assertTrue($this->observer->dispatch($this->shipments[0]));
+        $this->assertTrue($this->observer->dispatch($this->shipments[0], true));
         $this->assertSame([[101, 0, 'HOP1', 'https://etiqueta/HOP1.jpeg']], $this->savedBultos);
     }
 
@@ -250,7 +269,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markFailed')
             ->with($this->hopEnvio, $message, null, $code);
 
-        $this->assertFalse($this->observer->dispatch($this->shipments[0]));
+        $this->assertFalse($this->observer->dispatch($this->shipments[0], true));
         $this->assertSame([], $this->savedBultos);
         $this->assertSame([], $this->addedTracks);
     }
@@ -261,7 +280,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->webservice->expects($this->once())->method('createShippingMultibulto')->willReturn(true);
         $this->hopEnviosRepository->expects($this->once())->method('markCompleted')->with($this->hopEnvio);
 
-        $this->assertTrue($this->observer->dispatch($this->shipments[0]));
+        $this->assertTrue($this->observer->dispatch($this->shipments[0], true));
     }
 
     public function testSearchFailedByCredentialsSaysSo(): void
@@ -277,7 +296,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
                 DispatchError::CODE_UNCONFIRMED_DISPATCH
             );
 
-        $this->assertFalse($this->observer->dispatch($this->shipments[0]));
+        $this->assertFalse($this->observer->dispatch($this->shipments[0], true));
     }
 
     /**
@@ -288,6 +307,7 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         return [
             'sin respuesta: puede haberlo creado, sigue sin confirmar' => [0, DispatchError::CODE_UNCONFIRMED_DISPATCH],
             'error del servidor: sigue sin confirmar' => [502, DispatchError::CODE_UNCONFIRMED_DISPATCH],
+            'respuesta 2xx inesperada: sigue sin confirmar' => [200, DispatchError::CODE_UNCONFIRMED_DISPATCH],
             'Hop lo rechazó: no lo creó, código de siempre' => [400, null],
         ];
     }
@@ -307,7 +327,49 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markFailed')
             ->with($this->hopEnvio, 'falló', $status, $code);
 
-        $this->assertFalse($this->observer->dispatch($this->shipments[0]));
+        $this->assertFalse($this->observer->dispatch($this->shipments[0], true));
+    }
+
+    public function testAnyOtherShipmentSaveDoesNotDispatchIt(): void
+    {
+        // Un guardado del envío (un comentario, una etiqueta) dispara el observer sin que nadie
+        // haya pedido despachar: un pedido sin confirmar no se toca.
+        $this->webservice->expects($this->never())->method('findExistingShipment');
+        $this->webservice->expects($this->never())->method('createShippingMultibulto');
+        $this->hopEnviosRepository->expects($this->never())->method('markFailed');
+        $this->hopEnviosRepository->expects($this->never())->method('markCompleted');
+
+        $this->assertNull($this->observer->dispatch($this->shipments[0]));
+    }
+
+    public function testBultosAreMatchedByTheirDimensions(): void
+    {
+        // Hop devolvió el bulto grande con el número de seguimiento más bajo: las medidas mandan.
+        $this->packages = [
+            101 => ['length' => 30, 'height' => 3, 'width' => 20],
+            102 => ['length' => 60, 'height' => 6, 'width' => 40],
+        ];
+        $big = $this->row('HOP1')
+            + ['package_length' => '60.00', 'package_height' => '6.00', 'package_width' => '40.00'];
+        $small = $this->row('HOP2')
+            + ['package_length' => '30.00', 'package_height' => '3.00', 'package_width' => '20.00'];
+        $this->search(Webservice::EXISTING_FOUND, [$big, $small]);
+
+        $this->assertTrue($this->observer->dispatch($this->shipments[0], true));
+        $this->assertSame([101, 102], array_column($this->savedBultos, 0));
+        $this->assertSame(['HOP2', 'HOP1'], array_column($this->savedBultos, 2));
+    }
+
+    public function testRecoveryCutHalfwayLeavesNoBultos(): void
+    {
+        $this->failingBulto = 102;
+        $this->search(Webservice::EXISTING_FOUND, [$this->row('HOP1'), $this->row('HOP2')]);
+        $this->hopEnviosRepository->expects($this->never())->method('markCompleted');
+        $this->hopEnviosRepository->expects($this->once())->method('markFailed')
+            ->with($this->hopEnvio, 'no se pudo guardar el bulto', null, DispatchError::CODE_UNCONFIRMED_DISPATCH);
+
+        $this->assertFalse($this->observer->dispatch($this->shipments[0], true));
+        $this->assertSame([[10, [101]]], $this->deleted, 'se borra el bulto que alcanzó a guardarse');
     }
 
     public function testOtherFailuresDoNotSearchFirst(): void
@@ -316,6 +378,6 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->webservice->expects($this->never())->method('findExistingShipment');
         $this->webservice->expects($this->once())->method('createShippingMultibulto')->willReturn(true);
 
-        $this->assertTrue($this->observer->dispatch($this->shipments[0]));
+        $this->assertTrue($this->observer->dispatch($this->shipments[0], true));
     }
 }

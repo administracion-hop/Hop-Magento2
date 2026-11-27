@@ -314,6 +314,22 @@ class WebserviceFindExistingShipmentTest extends TestCase
         $this->assertSame(Webservice::EXISTING_ERROR, $result['result']);
     }
 
+    public function testReferenceInUseDoesNotRecoverAnAnnulledShipment(): void
+    {
+        $annulled = array_merge($this->row('399999934877191'), ['status' => 'ANU']);
+        $this->responses = [
+            self::LOGIN,
+            [400, '{"message":"El elemento reference id ya está en uso.",'
+                . '"errors":{"reference_id":["El elemento reference id ya está en uso."]}}'],
+            $this->search([$annulled]),
+        ];
+
+        $result = $this->webservice->createShipping($this->order());
+
+        $this->assertIsArray($result, 'un envío anulado no se toma como despachado');
+        $this->assertArrayHasKey('error', $result);
+    }
+
     /**
      * Lo que ya existía no cambia: cuando Hop responde "referencia ya en uso" al despachar un
      * envío, se recupera el que corresponde (mismo correo y precio).

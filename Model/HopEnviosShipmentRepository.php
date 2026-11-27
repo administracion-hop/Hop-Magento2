@@ -89,6 +89,27 @@ class HopEnviosShipmentRepository
     }
 
     /**
+     * Borra los registros de bultos de estos envíos de Magento para un despacho.
+     *
+     * Lo usa la recuperación de un despacho sin confirmar cuando se corta a mitad de guardar los
+     * bultos: si quedaran algunos, el próximo intento los tomaría por un despacho ya hecho.
+     *
+     * @param int $hopEnvioId
+     * @param int[] $shipmentIds
+     * @return void
+     */
+    public function deleteForShipments(int $hopEnvioId, array $shipmentIds): void
+    {
+        if (!$shipmentIds) {
+            return;
+        }
+        $this->resource->getConnection()->delete(
+            $this->resource->getMainTable(),
+            ['hop_envio_id = ?' => $hopEnvioId, 'shipment_id IN (?)' => array_map('intval', $shipmentIds)]
+        );
+    }
+
+    /**
      * @param HopEnviosShipment $record
      * @return void
      */

@@ -1400,8 +1400,8 @@ class Webservice
             return ['result' => self::EXISTING_ERROR, 'shipments' => []];
         }
         // Un envío anulado en Hop (estado ANU, "Anulado") no cuenta: no se va a entregar.
-        $live = array_values(array_filter($decoded['data'], static function ($row) {
-            return is_array($row) && !in_array(strtoupper((string)($row['status'] ?? '')), ['ANU', 'E-ANU'], true);
+        $live = array_values(array_filter($decoded['data'], function ($row) {
+            return is_array($row) && !$this->isAnnulled($row);
         }));
         if (!$live) {
             return ['result' => self::EXISTING_NONE, 'shipments' => []];
@@ -1460,10 +1460,21 @@ class Webservice
     }
 
     /**
+     * Si una fila de search_shipments es un envío anulado en Hop (no se va a entregar).
+     *
+     * @param array $shipment
+     * @return bool
+     */
+    private function isAnnulled(array $shipment): bool
+    {
+        return in_array(strtoupper((string)($shipment['status'] ?? '')), ['ANU', 'E-ANU'], true);
+    }
+
+    /**
      * Filas de search_shipments que corresponden al pedido.
      *
      * Corresponden las que tienen el mismo correo del cliente y el mismo precio estimado que el
-     * costo de envío del pedido.
+     * costo de envío del pedido. Un envío anulado nunca corresponde: no se va a entregar.
      *
      * @param array $rows
      * @param string $customerEmail
@@ -1473,8 +1484,9 @@ class Webservice
     private function matchingShipments(array $rows, $customerEmail, $shippingAmount): array
     {
         $expectedPrice = number_format((float)$shippingAmount, 2, '.', '');
-        return array_values(array_filter($rows, static function ($shipment) use ($customerEmail, $expectedPrice) {
+        return array_values(array_filter($rows, function ($shipment) use ($customerEmail, $expectedPrice) {
             return is_array($shipment)
+                && !$this->isAnnulled($shipment)
                 && isset($shipment['client_email'], $shipment['estimated_price'])
                 && $shipment['client_email'] === $customerEmail
                 && number_format((float)$shipment['estimated_price'], 2, '.', '') === $expectedPrice;

@@ -92,9 +92,11 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      * "Enviar a HOP") pueda repetir este camino sobre un envío de Magento ya creado.
      *
      * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @param bool $explicit lo pidió el admin o el cron ("Enviar a HOP", "Despachar a Hop", reintento),
+     *     no un guardado cualquiera del envío. Un despacho sin confirmar solo se despacha así.
      * @return bool|null true = despachado, false = Hop rechazó (queda failed), null = no aplicaba
      */
-    public function dispatch($shipment)
+    public function dispatch($shipment, bool $explicit = false)
     {
         try {
             $order = $shipment->getOrder();
@@ -231,6 +233,13 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             // crearlo se busca en Hop, porque Hop acepta un segundo multibulto con la misma
             // referencia y reintentar sin buscar podía duplicarlo.
             $searchFirst = $hopEnvio->getLastErrorCode() === DispatchError::CODE_UNCONFIRMED_DISPATCH;
+            if ($searchFirst && !$explicit) {
+                // Un guardado cualquiera del envío (un comentario, una etiqueta) no despacha un
+                // pedido sin confirmar: queda para "Enviar a HOP" o "Despachar a Hop".
+                $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId()
+                    . ': despacho sin confirmar, se despacha solo con "Enviar a HOP" o "Despachar a Hop"');
+                return null;
+            }
             if ($searchFirst) {
                 $recovered = $this->recoverUnconfirmedDispatch($order, $hopEnvio, $shipments);
                 if ($recovered !== null) {
@@ -410,7 +419,8 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
      * Código con el que se registra el fallo de un despacho.
      *
      * Si el despacho era uno sin confirmar (la búsqueda previa no encontró nada en Hop) y el fallo
-     * deja la duda de si Hop llegó a crear el envío (sin respuesta, página de error o 5xx), sigue
+     * deja la duda de si Hop llegó a crear el envío (sin respuesta, página de error, 5xx o un 2xx
+     * sin el resultado esperado), sigue
      * sin confirmar: no se reintenta solo y el próximo intento vuelve a buscar en Hop antes de crear,
      * porque Hop acepta un segundo multibulto con la misma referencia. Si Hop respondió (un rechazo)
      * o no se llegó a llamar, no creó nada y vale el código de siempre.
@@ -422,7 +432,10 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
     private function failureCode(bool $searchFirst, $code)
     {
         $status = $this->webservice->getLastStatus();
-        $uncertain = $status !== null && ((int)$status === 0 || (int)$status >= 500);
+        // Sin respuesta, página de error o 5xx; y también un 2xx sin el resultado esperado (Hop
+        // respondió que sí, pero no se pudo leer qué creó). Un 4xx de Hop es un rechazo: no creó nada.
+        $uncertain = $status !== null
+            && ((int)$status === 0 || (int)$status >= 500 || ((int)$status >= 200 && (int)$status < 300));
         return $searchFirst && $code === null && $uncertain ? DispatchError::CODE_UNCONFIRMED_DISPATCH : $code;
     }
 
@@ -483,7 +496,7 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 return false;
         }
 
-        $rows = $search['shipments'];
+        $rows = $this->rowsInShipmentOrder($order, $shipments, $search['shipments']);
         $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId() . ': despacho sin confirmar recuperado'
             . ' de Hop con ' . count($rows) . ' bulto(s), sin crear otro envío');
         // Como el despacho que sale bien: primero todos los bultos, después el despacho como
@@ -492,15 +505,24 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         // etiqueta guarda el envío de Magento y vuelve a disparar este observer, que con un bulto
         // guardado y otro no marcaría al segundo como agregado después.
         $hopEnvioId = (int)$hopEnvio->getEntityId();
-        foreach ($shipments as $i => $s) {
-            $this->hopEnviosShipmentRepository->saveForShipment(
-                $hopEnvioId,
-                (int)$s->getId(),
-                $i,
-                $rows[$i]['shipping_id'] ?? null,
-                $rows[$i]['tracking_nro'] ?? null,
-                $rows[$i]['label_url'] ?? null
-            );
+        $saved = [];
+        try {
+            foreach ($shipments as $i => $s) {
+                $this->hopEnviosShipmentRepository->saveForShipment(
+                    $hopEnvioId,
+                    (int)$s->getId(),
+                    $i,
+                    $rows[$i]['shipping_id'] ?? null,
+                    $rows[$i]['tracking_nro'] ?? null,
+                    $rows[$i]['label_url'] ?? null
+                );
+                $saved[] = (int)$s->getId();
+            }
+        } catch (\Exception $e) {
+            // Sin bultos a medias: el próximo intento los tomaría por un despacho ya hecho y no
+            // volvería a buscar en Hop.
+            $this->hopEnviosShipmentRepository->deleteForShipments($hopEnvioId, $saved);
+            throw $e;
         }
         $this->hopEnviosRepository->markCompleted(
             $hopEnvio,
@@ -513,6 +535,48 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             $this->nativeLabelGenerator->generate($s);
         }
         return true;
+    }
+
+    /**
+     * Ordena los bultos encontrados en Hop como los envíos de Magento.
+     *
+     * Hop no informa a qué bulto corresponde cada fila, pero sí sus medidas: si cada envío tiene
+     * tantas filas con sus mismas medidas como envíos con esas medidas hay, se asignan por medidas
+     * (y, entre iguales, por número de seguimiento). Si las medidas no alcanzan para decidir (no
+     * hay, o cambiaron desde el despacho), se asignan por número de seguimiento, que Hop asigna
+     * en el orden de los bultos.
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @param \Magento\Sales\Model\Order\Shipment[] $shipments ordenados por id
+     * @param array $rows ordenadas por número de seguimiento
+     * @return array una fila por envío, en el orden de $shipments
+     */
+    private function rowsInShipmentOrder($order, array $shipments, array $rows): array
+    {
+        $key = static function ($length, $height, $width) {
+            return sprintf('%.2f|%.2f|%.2f', (float)$length, (float)$height, (float)$width);
+        };
+        $rowsByKey = [];
+        foreach ($rows as $row) {
+            $k = $key($row['package_length'] ?? 0, $row['package_height'] ?? 0, $row['package_width'] ?? 0);
+            $rowsByKey[$k][] = $row;
+        }
+        $ordered = [];
+        foreach ($shipments as $s) {
+            $s->setOrder($order);
+            $package = $this->helper->getPackageDataForShipment($s, $order->getStoreId());
+            if (!is_array($package)
+                || empty($package['length']) || empty($package['height']) || empty($package['width'])
+            ) {
+                return $rows;
+            }
+            $k = $key($package['length'], $package['height'], $package['width']);
+            if (empty($rowsByKey[$k])) {
+                return $rows;
+            }
+            $ordered[] = array_shift($rowsByKey[$k]);
+        }
+        return $ordered;
     }
 
     /**

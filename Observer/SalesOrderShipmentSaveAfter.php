@@ -150,6 +150,17 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     ->getItems()
             );
 
+            // Magento dispara sales_order_shipment_save_after antes de guardar los artículos del
+            // envío (VersionControl\AbstractDb::processAfterSaves llama a afterSave() antes de
+            // processRelations()): la copia de este envío que acaba de leer la colección todavía no
+            // tiene artículos, y el bulto viajaba vacío a Hop (valor y peso 0, sin medidas), que
+            // rechazaba el multibulto entero. El envío que disparó el evento los tiene en memoria.
+            foreach ($shipments as $i => $loaded) {
+                if ((int)$loaded->getId() === (int)$shipment->getId()) {
+                    $shipments[$i] = $shipment;
+                }
+            }
+
             $unprocessed = array_values(array_filter(
                 $shipments,
                 static function ($s) use ($processedShipmentIds) {

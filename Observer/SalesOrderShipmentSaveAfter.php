@@ -149,7 +149,6 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     ->setOrderFilter($order)
                     ->getItems()
             );
-
             // Magento dispara sales_order_shipment_save_after antes de guardar los artículos del
             // envío (VersionControl\AbstractDb::processAfterSaves llama a afterSave() antes de
             // processRelations()): la copia de este envío que acaba de leer la colección todavía no
@@ -221,6 +220,16 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     );
                 }
                 return null;
+            }
+
+            // Despacho que una versión anterior marcó como despachado sin envío en Hop: antes de
+            // crearlo se busca en Hop, porque Hop acepta un segundo multibulto con la misma
+            // referencia y reintentar sin buscar podía duplicarlo.
+            if ($hopEnvio->getLastErrorCode() === DispatchError::CODE_UNCONFIRMED_DISPATCH) {
+                $recovered = $this->recoverUnconfirmedDispatch($order, $hopEnvio, $shipments);
+                if ($recovered !== null) {
+                    return $recovered;
+                }
             }
 
             if (count($shipments) === 1) {
@@ -378,6 +387,91 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             return true;
         }
         return null;
+    }
+
+    /**
+     * Busca en Hop el envío de un despacho sin confirmar antes de crearlo.
+     *
+     * - Hop tiene los bultos del pedido (mismo correo y precio, tantos como envíos de Magento):
+     *   se guardan sus números de seguimiento y etiquetas, sin crear otro envío ("Despachado").
+     * - Hop tiene envíos con la referencia que no corresponden, o más o menos bultos que envíos:
+     *   no se crea otro envío ("Ya existe en Hop", para revisarlo en el panel de Hop).
+     * - La búsqueda falla: no se crea nada; sigue sin confirmar, así que el próximo intento vuelve
+     *   a buscar. No se reintenta solo.
+     * - Hop no tiene envíos con la referencia: devuelve null y sigue el despacho normal.
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @param \Hop\Envios\Model\HopEnvios $hopEnvio
+     * @param \Magento\Sales\Model\Order\Shipment[] $shipments envíos de Magento del pedido
+     * @return bool|null mismo contrato que dispatch(); null = no existe en Hop, despachar normal
+     */
+    private function recoverUnconfirmedDispatch($order, $hopEnvio, array $shipments)
+    {
+        // Mismo orden en que el despacho arma los bultos.
+        usort($shipments, static function ($a, $b) {
+            return (int)$a->getId() <=> (int)$b->getId();
+        });
+        $search = $this->webservice->findExistingShipment($order, count($shipments));
+
+        switch ($search['result']) {
+            case Webservice::EXISTING_NONE:
+                $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId()
+                    . ': despacho sin confirmar y sin envío en Hop, se despacha normal');
+                return null;
+            case Webservice::EXISTING_ERROR:
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    DispatchError::existingSearchFailedMessage(),
+                    null,
+                    DispatchError::CODE_UNCONFIRMED_DISPATCH
+                );
+                return false;
+            case Webservice::EXISTING_MISMATCH:
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    DispatchError::existingMismatchMessage(),
+                    null,
+                    DispatchError::CODE_REFERENCE_IN_USE
+                );
+                return false;
+            case Webservice::EXISTING_AMBIGUOUS:
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    DispatchError::existingAmbiguousMessage(count($search['shipments']), count($shipments)),
+                    null,
+                    DispatchError::CODE_REFERENCE_IN_USE
+                );
+                return false;
+        }
+
+        $rows = $search['shipments'];
+        $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId() . ': despacho sin confirmar recuperado'
+            . ' de Hop con ' . count($rows) . ' bulto(s), sin crear otro envío');
+        $this->hopEnviosRepository->markCompleted(
+            $hopEnvio,
+            count($shipments) === 1 ? (string)json_encode($rows[0]) : null
+        );
+        // Primero todos los bultos y después seguimiento y etiquetas, como el despacho que sale
+        // bien: generar la etiqueta guarda el envío de Magento y vuelve a disparar este
+        // observer, que con un bulto guardado y otro no marcaría al segundo como agregado después.
+        $hopEnvioId = (int)$hopEnvio->getEntityId();
+        foreach ($shipments as $i => $s) {
+            $this->hopEnviosShipmentRepository->saveForShipment(
+                $hopEnvioId,
+                (int)$s->getId(),
+                $i,
+                $rows[$i]['shipping_id'] ?? null,
+                $rows[$i]['tracking_nro'] ?? null,
+                $rows[$i]['label_url'] ?? null
+            );
+        }
+        foreach ($shipments as $i => $s) {
+            if (!empty($rows[$i]['tracking_nro'])) {
+                $this->addTrackToShipment($s, $rows[$i]['tracking_nro']);
+            }
+            $this->nativeLabelGenerator->generate($s);
+        }
+        return true;
     }
 
     /**

@@ -41,6 +41,15 @@ class DispatchError
      * de RETRY_DELAYS_MINUTES.
      */
     const CODE_CREDENTIALS = 'credentials';
+    /**
+     * Despacho que una versión anterior a la tarea 18065 marcó como despachado sin que Hop creara
+     * el envío (sin bultos ni número de seguimiento). Lo asigna el parche
+     * ReopenDispatchWithoutHopRecord. Se puede reintentar, pero antes de crear el envío el
+     * despacho busca en Hop si ya existe uno con la referencia del pedido
+     * (SalesOrderShipmentSaveAfter): Hop acepta un segundo multibulto con la misma referencia, así
+     * que reintentar sin buscar podía duplicarlo. No se reintenta solo (ver retryDelayMinutes).
+     */
+    const CODE_UNCONFIRMED_DISPATCH = 'unconfirmed_dispatch';
 
     /**
      * Espera antes de cada reintento automático de errores transitorios (5XX / sin
@@ -115,6 +124,10 @@ class DispatchError
             'Falta un dato obligatorio en la configuración de Hop: código de vendedor (lo da Hop con las credenciales), código de almacenamiento (DEPOSITO), tipo de envío o días de preparación. Completalo y reintentá.',
             true,
         ],
+        self::CODE_UNCONFIRMED_DISPATCH => [
+            'Una versión anterior del módulo marcó este pedido como despachado aunque Hop no confirmó el envío. Apretá "Enviar a HOP": antes de crear el envío, el módulo busca en Hop si ya existe uno con la referencia del pedido y, si corresponde al pedido, lo recupera sin crear otro.',
+            false,
+        ],
         self::CODE_MULTIBULTO_PARTIAL => [
             'Hop rechazó uno o más bultos de este pedido. Los bultos aceptados ya están creados en Hop (sus etiquetas están en "Etiquetas HOP") y Hop no admite sumar bultos a un envío ya creado, así que no se puede reintentar desde Magento. Resolvé los bultos rechazados con Hop por fuera de Magento.',
             false,
@@ -142,6 +155,62 @@ class DispatchError
     public static function getInstruction($code)
     {
         return self::INSTRUCTIONS[$code] ?? null;
+    }
+
+    /**
+     * Motivo que deja el parche en los despachos marcados como despachados sin envío en Hop.
+     *
+     * @return string
+     */
+    public static function unconfirmedDispatchMessage()
+    {
+        return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
+            'Marcado como despachado sin envío en Hop por una versión anterior del módulo. Al reintentar con "Enviar a HOP", el módulo primero busca en Hop si el envío ya existe.'
+        );
+    }
+
+    /**
+     * Motivo cuando no se pudo buscar en Hop si el envío ya existía: no se creó ningún envío.
+     *
+     * @return string
+     */
+    public static function existingSearchFailedMessage()
+    {
+        return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
+            'No se pudo comprobar si el envío ya existía en Hop (Hop no respondió la búsqueda), así que no se creó ningún envío para no duplicarlo. Reintentá más tarde con "Enviar a HOP".'
+        );
+    }
+
+    /**
+     * Motivo cuando Hop tiene envíos con la referencia que no son del pedido (otro correo o punto).
+     *
+     * @return string
+     */
+    public static function existingMismatchMessage()
+    {
+        return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
+            'Hop ya tiene un envío con la referencia de este pedido, pero no corresponde al pedido (otro correo del cliente u otro punto de retiro). No se creó otro envío: buscalo en el panel de Hop.'
+        );
+    }
+
+    /**
+     * Motivo cuando Hop tiene más o menos bultos del pedido que envíos de Magento tiene el pedido.
+     *
+     * @param int $found bultos en Hop que corresponden al pedido
+     * @param int $expected envíos de Magento del pedido
+     * @return string
+     */
+    public static function existingAmbiguousMessage($found, $expected)
+    {
+        return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
+            'Hop tiene %1 bulto(s) con la referencia de este pedido y el pedido tiene %2 envío(s) de Magento, así que no se puede saber cuál corresponde. No se creó otro envío: revisalo en el panel de Hop.',
+            (int)$found,
+            (int)$expected
+        );
     }
 
     /**

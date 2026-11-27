@@ -154,6 +154,13 @@ class Webservice
      */
     protected $serverErrorStatus = null;
 
+    /** Resultados de findExistingShipment(). */
+    public const EXISTING_FOUND = 'found';
+    public const EXISTING_AMBIGUOUS = 'ambiguous';
+    public const EXISTING_MISMATCH = 'mismatch';
+    public const EXISTING_NONE = 'none';
+    public const EXISTING_ERROR = 'error';
+
     /**
      * Hop rechazó las credenciales en este proceso (una carga de página o una corrida de una
      * tarea programada). Mientras esté en true no se vuelve a llamar a Hop: con credenciales
@@ -1349,6 +1356,126 @@ class Webservice
     }
 
     /**
+     * Busca en Hop los bultos ya creados con la referencia del pedido, antes de crear su envío.
+     *
+     * Hop devuelve una fila por bulto (con número de seguimiento, etiqueta, correo del cliente y
+     * punto de retiro) y la lista vacía si no hay ninguno. Una referencia puede tener filas de
+     * otras tiendas o envíos duplicados: solo cuentan las del mismo correo del cliente y el mismo
+     * punto de retiro que el pedido (ver matchingShipmentsByPoint). No se compara el precio, como
+     * en findShipmentByReferenceId: Hop guarda su precio estimado, que no coincide con el costo de
+     * envío del pedido cuando la tienda cobra otro (envío gratis, valor fijo, promociones). No trae
+     * a qué bulto corresponde cada fila: se ordenan por número de seguimiento, que Hop asigna en el
+     * orden de los bultos.
+     *
+     * Resultados (clave 'result'):
+     * - EXISTING_FOUND: tantas filas que coinciden como bultos se esperaban ('shipments').
+     * - EXISTING_AMBIGUOUS: coinciden más o menos filas que bultos esperados.
+     * - EXISTING_MISMATCH: hay filas, pero ninguna corresponde al pedido.
+     * - EXISTING_NONE: Hop no tiene envíos con esa referencia.
+     * - EXISTING_ERROR: la búsqueda no se pudo hacer (sin respuesta, código que no es 2xx o
+     *   respuesta sin el formato esperado).
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @param int $expectedBultos envíos de Magento del pedido
+     * @return array ['result' => EXISTING_*, 'shipments' => array]
+     */
+    public function findExistingShipment($order, int $expectedBultos): array
+    {
+        $this->ensureInitialized();
+        $this->lastStatus = null;
+        $reference = $this->_helper->getSellerCode($this->storeId) . '-' . $order->getIncrementId();
+        $this->_helper->log('Buscando en Hop un envío existente con la referencia ' . $reference);
+
+        $response = $this->curl('GET', 'api.hopenvios.com.ar/api/v1/search_shipments', ['reference' => $reference]);
+        $decoded = is_string($response) ? json_decode($response, true) : null;
+        if ($response === false
+            || $this->lastStatus < 200
+            || $this->lastStatus >= 300
+            || !is_array($decoded)
+            || !isset($decoded['data'])
+            || !is_array($decoded['data'])
+        ) {
+            $this->_helper->log('No se pudo buscar en Hop la referencia ' . $reference
+                . ' (HTTP ' . (int)$this->lastStatus . ')', true);
+            return ['result' => self::EXISTING_ERROR, 'shipments' => []];
+        }
+        if (!$decoded['data']) {
+            return ['result' => self::EXISTING_NONE, 'shipments' => []];
+        }
+
+        $pickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
+        $matching = $this->matchingShipmentsByPoint(
+            $decoded['data'],
+            (string)$order->getCustomerEmail(),
+            $pickupPoint
+                ? [(string)$pickupPoint->getPickupPointId(), (string)$pickupPoint->getOriginalPickupPointId()]
+                : []
+        );
+        if (!$matching) {
+            return ['result' => self::EXISTING_MISMATCH, 'shipments' => []];
+        }
+        usort($matching, static function ($a, $b) {
+            return strnatcmp((string)($a['tracking_nro'] ?? ''), (string)($b['tracking_nro'] ?? ''));
+        });
+        $result = count($matching) === $expectedBultos ? self::EXISTING_FOUND : self::EXISTING_AMBIGUOUS;
+        $this->_helper->log('Referencia ' . $reference . ': ' . count($matching) . ' bulto(s) en Hop que corresponden'
+            . ' al pedido, se esperaban ' . $expectedBultos . ' (' . $result . ')');
+        return ['result' => $result, 'shipments' => $matching];
+    }
+
+    /**
+     * Filas de search_shipments del mismo correo del cliente y el mismo punto de retiro.
+     *
+     * Del lado de Hop se acepta el punto actual o el original (Hop puede reasignar el punto de un
+     * envío); del lado del pedido, el punto actual o el elegido en el checkout ("Cambiar punto
+     * Hop"). Sin punto conocido en el pedido no corresponde ninguna fila.
+     *
+     * @param array $rows
+     * @param string $customerEmail
+     * @param string[] $orderPoints puntos de retiro del pedido
+     * @return array
+     */
+    private function matchingShipmentsByPoint(array $rows, $customerEmail, array $orderPoints): array
+    {
+        $orderPoints = array_filter($orderPoints, 'strlen');
+        if (!$orderPoints) {
+            return [];
+        }
+        return array_values(array_filter($rows, static function ($shipment) use ($customerEmail, $orderPoints) {
+            if (!is_array($shipment) || ($shipment['client_email'] ?? null) !== $customerEmail) {
+                return false;
+            }
+            $hopPoints = array_filter([
+                (string)($shipment['pickup_point_id'] ?? ''),
+                (string)($shipment['original_pickup_point_id'] ?? ''),
+            ], 'strlen');
+            return (bool)array_intersect($hopPoints, $orderPoints);
+        }));
+    }
+
+    /**
+     * Filas de search_shipments que corresponden al pedido.
+     *
+     * Corresponden las que tienen el mismo correo del cliente y el mismo precio estimado que el
+     * costo de envío del pedido.
+     *
+     * @param array $rows
+     * @param string $customerEmail
+     * @param float|string|null $shippingAmount
+     * @return array
+     */
+    private function matchingShipments(array $rows, $customerEmail, $shippingAmount): array
+    {
+        $expectedPrice = number_format((float)$shippingAmount, 2, '.', '');
+        return array_values(array_filter($rows, static function ($shipment) use ($customerEmail, $expectedPrice) {
+            return is_array($shipment)
+                && isset($shipment['client_email'], $shipment['estimated_price'])
+                && $shipment['client_email'] === $customerEmail
+                && number_format((float)$shipment['estimated_price'], 2, '.', '') === $expectedPrice;
+        }));
+    }
+
+    /**
      * Search for an existing shipment by reference ID and validate it belongs to the same order.
      *
      * @param string $referenceId
@@ -1373,19 +1500,10 @@ class Webservice
 
         $expectedPrice = number_format((float)$shippingAmount, 2, '.', '');
 
-        foreach ($searchResponse['data'] as $shipment) {
-            $foundPrice = isset($shipment['estimated_price'])
-                ? number_format((float)$shipment['estimated_price'], 2, '.', '')
-                : null;
-
-            if (isset($shipment['client_email']) &&
-                $shipment['client_email'] === $customerEmail &&
-                $foundPrice !== null &&
-                $foundPrice === $expectedPrice
-            ) {
-                $this->_helper->log('Found matching existing shipment for reference: ' . $referenceId);
-                return json_encode($shipment);
-            }
+        $matching = $this->matchingShipments($searchResponse['data'], $customerEmail, $shippingAmount);
+        if ($matching) {
+            $this->_helper->log('Found matching existing shipment for reference: ' . $referenceId);
+            return json_encode($matching[0]);
         }
 
         $this->_helper->log(

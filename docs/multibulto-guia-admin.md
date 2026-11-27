@@ -249,7 +249,7 @@ pedidos que necesitan atención, filtrá por **Ya existe en Hop** o por **Error 
 | **Despachado** | Hop aceptó el envío. Las etiquetas ya están disponibles (o lo estarán en un minuto, ver [sección 4](#4-las-etiquetas-y-el-minuto-de-espera)). |
 | **Parcial** | Multibulto en el que Hop rechazó uno o más bultos. Los aceptados ya existen en Hop con su etiqueta; los rechazados no se pueden reintentar desde Magento (ver [sección 7](#7-cuando-algo-sale-mal)). Incluye los multibultos despachados con versiones anteriores del módulo que habían quedado como **No despachado** aunque Hop ya tenía sus bultos. |
 | **Ya existe en Hop** | El despacho falló porque Hop ya tiene un envío con la referencia del pedido. El envío existe en Hop, pero Magento no lo tiene registrado: buscalo en el panel de Hop (ver [sección 7](#apareció-un-error-general-error-en-respuesta-multibulto-de-hop)). |
-| **Error al despachar** | El despacho falló por cualquier otro motivo: credenciales rechazadas, datos del pedido o un error del servidor de Hop (también cuando Hop responde una página de error en lugar de su respuesta habitual). Aparece también mientras el pedido espera un reintento automático. El motivo está en el bloque Hop del pedido. |
+| **Error al despachar** | El despacho falló por cualquier otro motivo: credenciales rechazadas, datos del pedido o un error del servidor de Hop (también cuando Hop responde una página de error en lugar de su respuesta habitual). Aparece también mientras el pedido espera un reintento automático, y en los pedidos que una versión anterior marcó como despachados sin envío en Hop (ver [sección 7](#un-pedido-figuraba-despachado-sin-número-de-seguimiento)). El motivo está en el bloque Hop del pedido. |
 | **No despachado** | Hop todavía no tiene el envío y no hay un fallo registrado: el pedido está pendiente o en proceso de despacho (también mientras se reintenta, o si el despacho automático se cortó por un error interno de Magento y vuelve a intentarse solo). |
 | **No aplica** | El pedido no usa el método de envío Hop. |
 
@@ -265,7 +265,9 @@ por la acción masiva, por el despacho automático o por un reintento: un pedido
 despachar** pasa a **Despachado** cuando Hop lo acepta, o cambia de valor si vuelve a fallar
 por otro motivo. Los pedidos anteriores a esta versión del módulo se completan al
 actualizarlo, también los que ya tenían un despacho fallido y los multibultos que habían
-quedado trabados en **No despachado** con bultos rechazados, que pasan a **Parcial**.
+quedado trabados en **No despachado** con bultos rechazados, que pasan a **Parcial**, y los
+que figuraban **Despachado** sin envío en Hop, que pasan a **Error al despachar** (ver
+[sección 7](#un-pedido-figuraba-despachado-sin-número-de-seguimiento)).
 
 ### Acción "Despachar a Hop"
 
@@ -385,6 +387,29 @@ solución desde el panel.
 Solo aparece si se cumplen las tres condiciones: el pedido usa el método de envío Hop, hay
 un **punto de retiro** asociado al pedido, y el pedido **todavía no fue despachado**. Si el
 pedido ya está despachado, en su lugar verás los botones de etiqueta y estado.
+
+### Un pedido figuraba "Despachado" sin número de seguimiento
+
+Las versiones del módulo anteriores a septiembre de 2026 marcaban como **Despachado** un
+pedido multibulto que Hop había rechazado entero (por ejemplo, por un dato inválido), aunque
+Hop no había creado el envío: el pedido quedaba sin bultos, sin número de seguimiento y sin
+etiquetas.
+
+Al actualizar el módulo, esos pedidos pasan a **Error al despachar** con el motivo *Marcado
+como despachado sin envío en Hop por una versión anterior del módulo*. La actualización no se
+comunica con Hop y no los reintenta sola: el despacho automático por estado y el reintento
+automático tampoco los toman.
+
+Para despacharlos, usá **Enviar a HOP** o **Despachar a Hop**. Antes de crear el envío, el
+módulo busca en Hop si ya existe uno con la referencia del pedido, porque Hop acepta un
+segundo envío multibulto con la misma referencia y se podría duplicar:
+
+| Lo que encuentra en Hop | Qué pasa |
+|-------------------------|----------|
+| El envío del pedido (mismo correo del cliente y mismo punto de retiro, un bulto por cada envío de Magento; el precio no se compara, porque Hop guarda su propio precio estimado) | No se crea otro. Cada envío de Magento recibe su número de seguimiento y su etiqueta, y el pedido pasa a **Despachado**. |
+| Un envío con la referencia que no corresponde al pedido, o más o menos bultos que envíos de Magento (por ejemplo, un envío duplicado) | No se crea otro. El pedido pasa a **Ya existe en Hop**: revisalo en el panel de Hop. |
+| Ningún envío con la referencia | Se despacha como siempre. |
+| Hop no responde la búsqueda | No se crea nada y el pedido sigue en **Error al despachar** con el motivo *No se pudo comprobar si el envío ya existía en Hop*. Reintentá más tarde. |
 
 ### El pedido ya está despachado en Hop pero no veo los botones de etiqueta
 

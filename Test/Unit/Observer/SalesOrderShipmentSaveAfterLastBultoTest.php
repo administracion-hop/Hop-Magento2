@@ -90,6 +90,23 @@ class SalesOrderShipmentSaveAfterLastBultoTest extends TestCase
         return $shipment;
     }
 
+    public function testBultosGoToHopOrderedByShipmentId(): void
+    {
+        $second = $this->shipment(102, 'segundo envío');
+        $first = $this->shipment(101, 'primer envío');
+        $this->loaded = [$second, $first];
+
+        $this->webservice->expects($this->once())->method('createShippingMultibulto')
+            ->with(
+                $this->anything(),
+                $this->callback(fn (array $shipments) => $shipments === [$first, $second]),
+                10
+            )
+            ->willReturn(true);
+
+        $this->observer->dispatch($second);
+    }
+
     public function testLastBultoIsTheShipmentOfTheEvent(): void
     {
         $first = $this->shipment(101, 'primer envío, ya guardado');

@@ -35,7 +35,7 @@ class ReopenDispatchWithoutHopRecordTest extends TestCase
         }
         $this->db = new \PDO('sqlite::memory:');
         $this->db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        $this->db->exec('CREATE TABLE sales_order (entity_id INTEGER PRIMARY KEY, shipping_method TEXT)');
+        $this->db->exec('CREATE TABLE sales_order (entity_id INTEGER PRIMARY KEY, shipping_method TEXT, state TEXT)');
         $this->db->exec('CREATE TABLE sales_order_grid (entity_id INTEGER PRIMARY KEY, hop_dispatch_status TEXT)');
         $this->db->exec('CREATE TABLE sales_shipment (entity_id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER)');
         $this->db->exec(
@@ -96,9 +96,10 @@ class ReopenDispatchWithoutHopRecordTest extends TestCase
         ?string $infoHop,
         int $shipments,
         array $bultos,
-        string $gridValue
+        string $gridValue,
+        string $state = 'processing'
     ): void {
-        $this->db->exec("INSERT INTO sales_order VALUES ({$orderId}, 'hop_hop')");
+        $this->db->prepare("INSERT INTO sales_order VALUES (?, 'hop_hop', ?)")->execute([$orderId, $state]);
         $this->db->prepare('INSERT INTO sales_order_grid VALUES (?, ?)')->execute([$orderId, $gridValue]);
         $this->db->prepare('INSERT INTO hop_envios VALUES (?, ?, ?, ?, NULL, NULL, NULL)')
             ->execute([$orderId, $orderId, $infoHop, $status]);
@@ -199,6 +200,29 @@ class ReopenDispatchWithoutHopRecordTest extends TestCase
         string $gridValue
     ): void {
         $this->order(1, $status, $infoHop, $shipments, $bultos, $gridValue);
+        $before = $this->row(1);
+
+        $this->patch->apply();
+
+        $this->assertSame($before, $this->row(1));
+    }
+
+    /**
+     * @return array [estado del pedido]
+     */
+    public static function closedOrderProvider(): array
+    {
+        return ['cancelado' => ['canceled'], 'cerrado (reembolsado)' => ['closed']];
+    }
+
+    /**
+     * Un pedido cancelado o cerrado no se va a despachar: no pasa a "Error al despachar".
+     *
+     * @dataProvider closedOrderProvider
+     */
+    public function testCanceledOrClosedOrdersAreNotTouched(string $state): void
+    {
+        $this->order(1, 'completed', null, 2, [], Status::DISPATCHED, $state);
         $before = $this->row(1);
 
         $this->patch->apply();

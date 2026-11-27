@@ -29,6 +29,8 @@ use Magento\Framework\Setup\Patch\NonTransactionableInterface;
  * en Hop si el envío ya existe (SalesOrderShipmentSaveAfter::recoverUnconfirmedDispatch), porque
  * Hop acepta un segundo multibulto con la misma referencia.
  *
+ * Los pedidos cancelados o cerrados (reembolsados) no se tocan: no se van a despachar.
+ *
  * Es idempotente; un corte a mitad se resuelve volviendo a correr setup:upgrade.
  *
  * @version 1.0.0
@@ -76,15 +78,19 @@ class ReopenDispatchWithoutHopRecord implements DataPatchInterface, NonTransacti
         $hopTable = $connection->quoteIdentifier($this->moduleDataSetup->getTable('hop_envios'));
         $bultoTable = $connection->quoteIdentifier($this->moduleDataSetup->getTable('hop_envios_shipment'));
         $shipmentTable = $connection->quoteIdentifier($this->moduleDataSetup->getTable('sales_shipment'));
+        $orderTable = $connection->quoteIdentifier($this->moduleDataSetup->getTable('sales_order'));
 
         $withoutHopRecord = sprintf(
             "%1\$s.status_shipment = 'completed'"
             . " AND (%1\$s.info_hop IS NULL OR %1\$s.info_hop = '')"
             . ' AND NOT EXISTS (SELECT 1 FROM %2$s AS bulto WHERE bulto.hop_envio_id = %1$s.entity_id)'
-            . ' AND EXISTS (SELECT 1 FROM %3$s AS shipment WHERE shipment.order_id = %1$s.order_id)',
+            . ' AND EXISTS (SELECT 1 FROM %3$s AS shipment WHERE shipment.order_id = %1$s.order_id)'
+            . ' AND NOT EXISTS (SELECT 1 FROM %4$s AS closed_order WHERE closed_order.entity_id = %1$s.order_id'
+            . " AND closed_order.state IN ('canceled', 'closed'))",
             $hopTable,
             $bultoTable,
-            $shipmentTable
+            $shipmentTable,
+            $orderTable
         );
 
         $orderIds = array_map('intval', $connection->fetchCol(

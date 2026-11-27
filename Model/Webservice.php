@@ -1371,7 +1371,7 @@ class Webservice
      * - EXISTING_FOUND: tantas filas que coinciden como bultos se esperaban ('shipments').
      * - EXISTING_AMBIGUOUS: coinciden más o menos filas que bultos esperados.
      * - EXISTING_MISMATCH: hay filas, pero ninguna corresponde al pedido.
-     * - EXISTING_NONE: Hop no tiene envíos con esa referencia.
+     * - EXISTING_NONE: Hop no tiene envíos con esa referencia (o solo anulados).
      * - EXISTING_ERROR: la búsqueda no se pudo hacer (sin respuesta, código que no es 2xx o
      *   respuesta sin el formato esperado).
      *
@@ -1399,13 +1399,17 @@ class Webservice
                 . ' (HTTP ' . (int)$this->lastStatus . ')', true);
             return ['result' => self::EXISTING_ERROR, 'shipments' => []];
         }
-        if (!$decoded['data']) {
+        // Un envío anulado en Hop (estado ANU, "Anulado") no cuenta: no se va a entregar.
+        $live = array_values(array_filter($decoded['data'], static function ($row) {
+            return is_array($row) && !in_array(strtoupper((string)($row['status'] ?? '')), ['ANU', 'E-ANU'], true);
+        }));
+        if (!$live) {
             return ['result' => self::EXISTING_NONE, 'shipments' => []];
         }
 
         $pickupPoint = $this->orderPickupPointRepository->getByOrderId((int)$order->getId());
         $matching = $this->matchingShipmentsByPoint(
-            $decoded['data'],
+            $live,
             (string)$order->getCustomerEmail(),
             $pickupPoint
                 ? [(string)$pickupPoint->getPickupPointId(), (string)$pickupPoint->getOriginalPickupPointId()]
@@ -1426,6 +1430,7 @@ class Webservice
     /**
      * Filas de search_shipments del mismo correo del cliente y el mismo punto de retiro.
      *
+     * El correo se compara sin distinguir mayúsculas ni espacios.
      * Del lado de Hop se acepta el punto actual o el original (Hop puede reasignar el punto de un
      * envío); del lado del pedido, el punto actual o el elegido en el checkout ("Cambiar punto
      * Hop"). Sin punto conocido en el pedido no corresponde ninguna fila.
@@ -1438,11 +1443,12 @@ class Webservice
     private function matchingShipmentsByPoint(array $rows, $customerEmail, array $orderPoints): array
     {
         $orderPoints = array_filter($orderPoints, 'strlen');
-        if (!$orderPoints) {
+        $email = strtolower(trim((string)$customerEmail));
+        if (!$orderPoints || $email === '') {
             return [];
         }
-        return array_values(array_filter($rows, static function ($shipment) use ($customerEmail, $orderPoints) {
-            if (!is_array($shipment) || ($shipment['client_email'] ?? null) !== $customerEmail) {
+        return array_values(array_filter($rows, static function ($shipment) use ($email, $orderPoints) {
+            if (!is_array($shipment) || strtolower(trim((string)($shipment['client_email'] ?? ''))) !== $email) {
                 return false;
             }
             $hopPoints = array_filter([

@@ -396,9 +396,9 @@ Hop no había creado el envío: el pedido quedaba sin bultos, sin número de seg
 etiquetas.
 
 Al actualizar el módulo, esos pedidos pasan a **Error al despachar** con el motivo *Marcado
-como despachado sin envío en Hop por una versión anterior del módulo*. La actualización no se
-comunica con Hop y no los reintenta sola: el despacho automático por estado y el reintento
-automático tampoco los toman.
+como despachado sin envío en Hop por una versión anterior del módulo*. Los pedidos cancelados
+o cerrados quedan como estaban. La actualización no se comunica con Hop y no los reintenta
+sola: el despacho automático por estado y el reintento automático tampoco los toman.
 
 Para despacharlos, usá **Enviar a HOP** o **Despachar a Hop**. Antes de crear el envío, el
 módulo busca en Hop si ya existe uno con la referencia del pedido, porque Hop acepta un
@@ -409,7 +409,11 @@ segundo envío multibulto con la misma referencia y se podría duplicar:
 | El envío del pedido (mismo correo del cliente y mismo punto de retiro, un bulto por cada envío de Magento; el precio no se compara, porque Hop guarda su propio precio estimado) | No se crea otro. Cada envío de Magento recibe su número de seguimiento y su etiqueta, y el pedido pasa a **Despachado**. |
 | Un envío con la referencia que no corresponde al pedido, o más o menos bultos que envíos de Magento (por ejemplo, un envío duplicado) | No se crea otro. El pedido pasa a **Ya existe en Hop**: revisalo en el panel de Hop. |
 | Ningún envío con la referencia | Se despacha como siempre. |
-| Hop no responde la búsqueda | No se crea nada y el pedido sigue en **Error al despachar** con el motivo *No se pudo comprobar si el envío ya existía en Hop*. Reintentá más tarde. |
+| Hop no responde la búsqueda | No se crea nada y el pedido sigue en **Error al despachar** con el motivo *No se pudo comprobar si el envío ya existía en Hop* (o, si Hop rechazó las credenciales, *Hop rechazó las credenciales al buscar si el envío ya existía*). Reintentá más tarde. |
+
+Los envíos anulados en Hop no cuentan. Si el despacho falla sin una respuesta clara de Hop (sin
+respuesta o con una página de error), el pedido no se reintenta solo: el próximo **Enviar a
+HOP** vuelve a buscar en Hop antes de crear el envío, por si Hop llegó a crearlo.
 
 ### El pedido ya está despachado en Hop pero no veo los botones de etiqueta
 

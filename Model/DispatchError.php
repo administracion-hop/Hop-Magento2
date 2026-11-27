@@ -184,6 +184,19 @@ class DispatchError
     }
 
     /**
+     * Motivo cuando Hop rechazó las credenciales al buscar si el envío ya existía.
+     *
+     * @return string
+     */
+    public static function existingSearchCredentialsMessage()
+    {
+        return (string)__(
+            // phpcs:ignore Generic.Files.LineLength.TooLong
+            'Hop rechazó las credenciales al buscar si el envío ya existía, así que no se creó ningún envío para no duplicarlo. Revisá las credenciales en la configuración de Hop y reintentá con "Enviar a HOP".'
+        );
+    }
+
+    /**
      * Motivo cuando Hop tiene envíos con la referencia que no son del pedido (otro correo o punto).
      *
      * @return string

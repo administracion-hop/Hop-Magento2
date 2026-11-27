@@ -159,6 +159,11 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $shipments[$i] = $shipment;
                 }
             }
+            // Los bultos van a Hop en el orden de los envíos: siempre por id, para que la recuperación
+            // de un despacho sin confirmar (recoverUnconfirmedDispatch) los asigne en el mismo orden.
+            usort($shipments, static function ($a, $b) {
+                return (int)$a->getId() <=> (int)$b->getId();
+            });
 
             $unprocessed = array_values(array_filter(
                 $shipments,
@@ -225,7 +230,8 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             // Despacho que una versión anterior marcó como despachado sin envío en Hop: antes de
             // crearlo se busca en Hop, porque Hop acepta un segundo multibulto con la misma
             // referencia y reintentar sin buscar podía duplicarlo.
-            if ($hopEnvio->getLastErrorCode() === DispatchError::CODE_UNCONFIRMED_DISPATCH) {
+            $searchFirst = $hopEnvio->getLastErrorCode() === DispatchError::CODE_UNCONFIRMED_DISPATCH;
+            if ($searchFirst) {
                 $recovered = $this->recoverUnconfirmedDispatch($order, $hopEnvio, $shipments);
                 if ($recovered !== null) {
                     return $recovered;
@@ -259,7 +265,10 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $hopEnvio,
                     $error,
                     $this->webservice->getLastStatus(),
-                    $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
+                    $this->failureCode(
+                        $searchFirst,
+                        $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
+                    )
                 );
                 return false;
             } else {
@@ -290,7 +299,10 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                     $this->webservice->getLastStatus(),
                     $partial
                         ? DispatchError::CODE_MULTIBULTO_PARTIAL
-                        : ($this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null)
+                        : $this->failureCode(
+                            $searchFirst,
+                            $this->webservice->wasRejectedByCredentials() ? DispatchError::CODE_CREDENTIALS : null
+                        )
                 );
                 return false;
             }
@@ -298,7 +310,12 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             $this->helper->log('SalesOrderShipmentSaveAfter: ' . $e->getMessage(), true);
             // Sólo si Hop no llegó a aceptarlo: un fallo posterior (ej. la etiqueta) no deshace el despacho.
             if (isset($hopEnvio) && $hopEnvio->getStatusShipment() !== GenarateShipment::SHIPMENT_STATUS_COMPLETED) {
-                $this->hopEnviosRepository->markFailed($hopEnvio, $e->getMessage());
+                $this->hopEnviosRepository->markFailed(
+                    $hopEnvio,
+                    $e->getMessage(),
+                    null,
+                    !empty($searchFirst) ? DispatchError::CODE_UNCONFIRMED_DISPATCH : null
+                );
                 return false;
             }
         }
@@ -390,6 +407,26 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
     }
 
     /**
+     * Código con el que se registra el fallo de un despacho.
+     *
+     * Si el despacho era uno sin confirmar (la búsqueda previa no encontró nada en Hop) y el fallo
+     * deja la duda de si Hop llegó a crear el envío (sin respuesta, página de error o 5xx), sigue
+     * sin confirmar: no se reintenta solo y el próximo intento vuelve a buscar en Hop antes de crear,
+     * porque Hop acepta un segundo multibulto con la misma referencia. Si Hop respondió (un rechazo)
+     * o no se llegó a llamar, no creó nada y vale el código de siempre.
+     *
+     * @param bool $searchFirst el despacho era uno sin confirmar
+     * @param string|null $code el código que correspondería
+     * @return string|null
+     */
+    private function failureCode(bool $searchFirst, $code)
+    {
+        $status = $this->webservice->getLastStatus();
+        $uncertain = $status !== null && ((int)$status === 0 || (int)$status >= 500);
+        return $searchFirst && $code === null && $uncertain ? DispatchError::CODE_UNCONFIRMED_DISPATCH : $code;
+    }
+
+    /**
      * Busca en Hop el envío de un despacho sin confirmar antes de crearlo.
      *
      * - Hop tiene los bultos del pedido (mismo correo y precio, tantos como envíos de Magento):
@@ -421,7 +458,9 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
             case Webservice::EXISTING_ERROR:
                 $this->hopEnviosRepository->markFailed(
                     $hopEnvio,
-                    DispatchError::existingSearchFailedMessage(),
+                    $this->webservice->wasRejectedByCredentials()
+                        ? DispatchError::existingSearchCredentialsMessage()
+                        : DispatchError::existingSearchFailedMessage(),
                     null,
                     DispatchError::CODE_UNCONFIRMED_DISPATCH
                 );
@@ -447,13 +486,11 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
         $rows = $search['shipments'];
         $this->helper->log('[ShipmentSaveAfter] order ' . $order->getId() . ': despacho sin confirmar recuperado'
             . ' de Hop con ' . count($rows) . ' bulto(s), sin crear otro envío');
-        $this->hopEnviosRepository->markCompleted(
-            $hopEnvio,
-            count($shipments) === 1 ? (string)json_encode($rows[0]) : null
-        );
-        // Primero todos los bultos y después seguimiento y etiquetas, como el despacho que sale
-        // bien: generar la etiqueta guarda el envío de Magento y vuelve a disparar este
-        // observer, que con un bulto guardado y otro no marcaría al segundo como agregado después.
+        // Como el despacho que sale bien: primero todos los bultos, después el despacho como
+        // completado y al final seguimiento y etiquetas. Si un bulto no se puede guardar, el pedido
+        // no queda "Despachado" (el catch de dispatch lo registra como fallido). Y generar la
+        // etiqueta guarda el envío de Magento y vuelve a disparar este observer, que con un bulto
+        // guardado y otro no marcaría al segundo como agregado después.
         $hopEnvioId = (int)$hopEnvio->getEntityId();
         foreach ($shipments as $i => $s) {
             $this->hopEnviosShipmentRepository->saveForShipment(
@@ -465,6 +502,10 @@ class SalesOrderShipmentSaveAfter implements ObserverInterface
                 $rows[$i]['label_url'] ?? null
             );
         }
+        $this->hopEnviosRepository->markCompleted(
+            $hopEnvio,
+            count($shipments) === 1 ? (string)json_encode($rows[0]) : null
+        );
         foreach ($shipments as $i => $s) {
             if (!empty($rows[$i]['tracking_nro'])) {
                 $this->addTrackToShipment($s, $rows[$i]['tracking_nro']);

@@ -65,6 +65,9 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         ]);
         $this->hopEnviosRepository = $this->createMock(HopEnviosRepository::class);
         $this->hopEnviosRepository->method('getByOrderId')->willReturnCallback(fn () => $this->hopEnvio);
+        $this->hopEnviosRepository->method('markCompleted')->willReturnCallback(function () {
+            $this->steps[] = 'completado';
+        });
 
         $bultos = $this->createMock(HopEnviosShipmentRepository::class);
         $bultos->method('getByHopEnvioId')->willReturn([]);
@@ -184,7 +187,10 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         // Generar la etiqueta guarda el envío y vuelve a disparar el observer: para entonces
         // todos los bultos tienen que estar guardados (encontrado en la prueba del 27/11/2026).
         $this->assertSame(
-            ['bulto 101', 'bulto 102', 'seguimiento 101', 'etiqueta 101', 'seguimiento 102', 'etiqueta 102'],
+            [
+                'bulto 101', 'bulto 102', 'completado',
+                'seguimiento 101', 'etiqueta 101', 'seguimiento 102', 'etiqueta 102',
+            ],
             $this->steps
         );
     }
@@ -256,6 +262,52 @@ class SalesOrderShipmentSaveAfterUnconfirmedTest extends TestCase
         $this->hopEnviosRepository->expects($this->once())->method('markCompleted')->with($this->hopEnvio);
 
         $this->assertTrue($this->observer->dispatch($this->shipments[0]));
+    }
+
+    public function testSearchFailedByCredentialsSaysSo(): void
+    {
+        $this->search(Webservice::EXISTING_ERROR);
+        $this->webservice->method('wasRejectedByCredentials')->willReturn(true);
+        $this->webservice->expects($this->never())->method('createShippingMultibulto');
+        $this->hopEnviosRepository->expects($this->once())->method('markFailed')
+            ->with(
+                $this->hopEnvio,
+                DispatchError::existingSearchCredentialsMessage(),
+                null,
+                DispatchError::CODE_UNCONFIRMED_DISPATCH
+            );
+
+        $this->assertFalse($this->observer->dispatch($this->shipments[0]));
+    }
+
+    /**
+     * @return array [HTTP del despacho, código esperado]
+     */
+    public static function failedAfterNotFoundProvider(): array
+    {
+        return [
+            'sin respuesta: puede haberlo creado, sigue sin confirmar' => [0, DispatchError::CODE_UNCONFIRMED_DISPATCH],
+            'error del servidor: sigue sin confirmar' => [502, DispatchError::CODE_UNCONFIRMED_DISPATCH],
+            'Hop lo rechazó: no lo creó, código de siempre' => [400, null],
+        ];
+    }
+
+    /**
+     * La búsqueda no encontró nada y el despacho falla: si quedó la duda de si Hop lo creó, el
+     * próximo intento tiene que volver a buscar (y no se reintenta solo).
+     *
+     * @dataProvider failedAfterNotFoundProvider
+     */
+    public function testFailedDispatchAfterNotFoundKeepsSearchingWhenUncertain(int $status, ?string $code): void
+    {
+        $this->search(Webservice::EXISTING_NONE);
+        $this->webservice->method('createShippingMultibulto')->willReturn(false);
+        $this->webservice->method('getLastStatus')->willReturn($status);
+        $this->webservice->method('getLastMultibultoError')->willReturn('falló');
+        $this->hopEnviosRepository->expects($this->once())->method('markFailed')
+            ->with($this->hopEnvio, 'falló', $status, $code);
+
+        $this->assertFalse($this->observer->dispatch($this->shipments[0]));
     }
 
     public function testOtherFailuresDoNotSearchFirst(): void

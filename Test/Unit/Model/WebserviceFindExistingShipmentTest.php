@@ -220,6 +220,37 @@ class WebserviceFindExistingShipmentTest extends TestCase
         $this->assertSame($result, $this->webservice->findExistingShipment($this->order(), $expected)['result']);
     }
 
+    public function testAnnulledBultosDoNotCount(): void
+    {
+        // Como MENZE2-000000001 en el ambiente de pruebas: dos bultos vigentes y dos anulados.
+        $annulled = fn ($t) => array_merge($this->row($t), ['status' => 'ANU', 'status_description' => 'Anulado']);
+        $this->responses = [self::LOGIN, $this->search([
+            $this->row('324'), $annulled('325'), $this->row('322'), $annulled('323'),
+        ])];
+
+        $result = $this->webservice->findExistingShipment($this->order(), 2);
+
+        $this->assertSame(Webservice::EXISTING_FOUND, $result['result']);
+        $this->assertSame(['322', '324'], array_column($result['shipments'], 'tracking_nro'));
+    }
+
+    public function testOnlyAnnulledBultosMeansNotInHop(): void
+    {
+        $row = array_merge($this->row('1'), ['status' => 'ANU']);
+        $this->responses = [self::LOGIN, $this->search([$row])];
+
+        $result = $this->webservice->findExistingShipment($this->order(), 1);
+        $this->assertSame(Webservice::EXISTING_NONE, $result['result']);
+    }
+
+    public function testEmailIgnoresCaseAndSpaces(): void
+    {
+        $this->responses = [self::LOGIN, $this->search([$this->row('1', '  Comprador@HOP.test ')])];
+
+        $result = $this->webservice->findExistingShipment($this->order(), 1);
+        $this->assertSame(Webservice::EXISTING_FOUND, $result['result']);
+    }
+
     public function testHopReassignedPointMatchesItsOriginalPoint(): void
     {
         $row = $this->row('1', 'comprador@hop.test', 'punto-reasignado');
